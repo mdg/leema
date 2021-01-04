@@ -795,17 +795,15 @@ impl ProtoModule
     {
         let m = &self.key.name;
         let utyp: Type;
-        let opens: TypeArgs;
 
         let id: &'static str = match *name.node {
             Ast::Id(name_id) => {
                 utyp = Type::from(self.key.name.join(name_id)?);
-                // opens = vec![];
                 name_id
             }
             Ast::Generic(gen_id, gen_args) => {
-                let mut opens1 = Vec::with_capacity(gen_args.len());
-                let mut gen_arg_vars = Vec::with_capacity(gen_args.len());
+                let mut gen_arg_vars: TypeArgs =
+                    Vec::with_capacity(gen_args.len());
                 for (i, a) in gen_args.iter().enumerate() {
                     let var = if let Some(var) = a.k {
                         Lstr::Sref(var)
@@ -814,14 +812,12 @@ impl ProtoModule
                     } else {
                         Type::unwrap_name(&None, i)
                     };
-                    opens1.push(StrupleItem::new(var.clone(), Type::UNKNOWN));
                     gen_arg_vars
                         .push(StrupleItem::new(var.clone(), Type::open(var)));
                 }
-                opens = opens1;
 
                 if let Ast::Id(name_id) = *gen_id.node {
-                    if opens.is_empty() {
+                    if gen_arg_vars.is_empty() {
                         return Err(Failure::static_leema(
                             failure::Mode::TypeFailure,
                             lstrf!(
@@ -1388,13 +1384,13 @@ mod tests
         assert_eq!(
             Type::generic_f(
                 vec![StrupleItem::new(
-                    Some(Lstr::Sref("T")),
+                    Lstr::Sref("T"),
                     Type::open(Lstr::Sref("T"))
                 )],
                 tvt.clone(),
                 vec![
-                    StrupleItem::new(Some(Lstr::Sref("a")), tvt.clone()),
-                    StrupleItem::new(Some(Lstr::Sref("b")), tvt.clone()),
+                    StrupleItem::new(Lstr::Sref("a"), tvt.clone()),
+                    StrupleItem::new(Lstr::Sref("b"), tvt.clone()),
                 ],
             ),
             proto.modscope.get("first").unwrap().typ,
