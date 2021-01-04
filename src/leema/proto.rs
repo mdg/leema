@@ -168,11 +168,12 @@ struct ProtoType
 }
 
 /// Asts separated into their types of components
+/// trait_t will be Some for a trait or data type
+/// data_t will be Some for a data type or impl
 #[derive(Debug)]
 pub struct ProtoModule
 {
     pub key: ModKey,
-    typ: Option<ProtoType>,
     data_t: Option<ProtoType>,
     trait_t: Option<ProtoType>,
     pub imports: HashMap<&'static str, Canonical>,
@@ -189,21 +190,21 @@ impl ProtoModule
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
         let items = parse_file(src)?;
-        Self::with_ast(key, None, items)
+        Self::with_ast(key, None, None, items)
     }
 
     fn with_ast(
         key: ModKey,
-        parent: Option<ProtoType>,
+        data_t: Option<ProtoType>,
+        trait_t: Option<ProtoType>,
         items: Vec<AstNode>,
     ) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
         let mut proto = ProtoModule {
             key,
-            typ: parent,
-            data_t: None,
-            trait_t: None,
+            data_t: data_t,
+            trait_t: trait_t,
             imports: HashMap::new(),
             exports_all: None,
             funcseq: Vec::new(),
@@ -313,6 +314,16 @@ impl ProtoModule
             ltry!(self.add_definition(i));
         }
         Ok(())
+    }
+
+    fn type_args(&self) -> TypeArgs
+    {
+        self.trait_t
+            .as_ref()
+            .or_else(|| self.data_t.as_ref())
+            .and_then(|o| o.t.try_generic_ref().ok())
+            .map(|o| Vec::from(o.1))
+            .unwrap_or(vec![])
     }
 
     fn add_import(
@@ -431,12 +442,7 @@ impl ProtoModule
             }
         }
 
-        let opens = self
-            .typ
-            .as_ref()
-            .and_then(|o| o.t.try_generic_ref().ok())
-            .map(|o| Vec::from(o.1))
-            .unwrap_or(vec![]);
+        let opens = self.type_args();
         let (name_id, ftyp) =
             ltry!(self.make_func_type(name, &args, result, opens));
         let ft = ftyp.try_func_ref()?;
@@ -457,7 +463,7 @@ impl ProtoModule
     fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
-        if self.typ.is_some() {
+        if self.trait_t.is_some() {
             if !name.node.is_void() {
                 return Err(rustfail!(
                     "semantic_error",
@@ -466,8 +472,9 @@ impl ProtoModule
                     loc,
                 ));
             }
-            let parent = self.typ.as_ref().unwrap().clone();
-            self.add_typed_struct(parent, fields, loc)
+            // this is a struct for a trait, set its data_t now
+            self.data_t = self.trait_t.clone();
+            self.add_typed_struct(fields, loc)
         } else {
             if name.node.is_void() {
                 return Err(rustfail!(
@@ -476,19 +483,22 @@ impl ProtoModule
                     loc,
                 ));
             }
-            let proto_t = self.make_proto_type(name)?;
-            self.add_typed_struct(proto_t, fields, loc)
+            let data_t = self.make_proto_type(name)?;
+            // create a module for holding the constructor
+            let subp = ltry!(self.add_selfmod(
+                ModTyp::Data,
+                Some(data_t),
+                None,
+                vec![],
+                loc,
+            ));
+            subp.add_typed_struct(fields, loc)
         }
     }
 
-    fn add_typed_struct(
-        &mut self,
-        proto: ProtoType,
-        fields: Xlist,
-        loc: Loc,
-    ) -> Lresult<()>
+    fn add_typed_struct(&mut self, fields: Xlist, loc: Loc) -> Lresult<()>
     {
-        let typ = proto.t.clone();
+        let typ = self.data_t.as_ref().unwrap().t.clone();
 
         let macro_call = AstNode::new(Ast::Id("new_struct_val"), loc);
         let fields_arg: Xlist = fields
@@ -524,31 +534,20 @@ impl ProtoModule
             loc,
         );
 
-        if self.typ.is_some() {
-            self.append_ast(vec![constructor_ast])?;
-            self.modscope.insert(MODNAME_DATATYPE, type_node);
-            ltry!(self.add_data_fields(fields));
-        } else {
-            let subp = ltry!(self.add_selfmod(
-                ModTyp::Data,
-                proto,
-                vec![constructor_ast],
-                loc
-            ));
-            subp.modscope.insert(MODNAME_DATATYPE, type_node);
-            // TODO add this definition to the struct module instead
-            ltry!(subp.add_data_fields(fields));
-        }
+        self.append_ast(vec![constructor_ast])?;
+        self.modscope.insert(MODNAME_DATATYPE, type_node);
+        ltry!(self.add_data_fields(fields));
         Ok(())
     }
 
+    /// add the struct fields to the module definition
     fn add_data_fields(&mut self, fields: Xlist) -> Lresult<()>
     {
         for (i, f) in fields.iter().enumerate() {
-            let t = match &self.typ {
-                Some(p) => self.ast_to_type(&f.v, p.t.type_args())?,
-                None => self.ast_to_type(&f.v, &[])?,
-            };
+            // safe to unwrap b/c this will only be called for structs
+            // where self.data_t has already been set to Some
+            let data_t = &self.data_t.as_ref().unwrap().t;
+            let t = self.ast_to_type(&f.v, data_t.type_args())?;
             match f.k {
                 Some(k) => {
                     let scope_type =
@@ -626,8 +625,13 @@ impl ProtoModule
         let mut node = AstNode::new(typenode, loc);
         node.typ = Type::KIND;
         let subcon = {
-            let sub =
-                ltry!(self.add_selfmod(ModTyp::Data, proto_t, vec![], loc));
+            let sub = ltry!(self.add_selfmod(
+                ModTyp::Data,
+                Some(proto_t),
+                None,
+                vec![],
+                loc
+            ));
             // TODO: add __datatype or whatever
             sub.modscope.insert(MODNAME_DATATYPE, node);
             sub.key.name.clone()
@@ -647,21 +651,27 @@ impl ProtoModule
                 name,
             ));
         }
-        let proto = self.make_proto_type(name)?;
-        let sname_id = proto.n;
-        let union_typ = proto.t.clone();
+        let data_t = self.make_proto_type(name)?;
+        let sname_id = data_t.n;
+        let union_typ = data_t.t.clone();
 
+        let m = ltry!(self.add_selfmod(
+            ModTyp::Trait,
+            Some(data_t),
+            None,
+            vec![],
+            loc
+        ));
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
-            self.funcseq.push(var_name);
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
                 if flds.is_empty() {
                     let vval =
                         Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
-                    self.modscope.insert(sname_id, vast);
+                    m.modscope.insert(sname_id, vast);
                 } else {
-                    self.add_typed_struct(proto.clone(), flds, loc)?;
+                    m.add_typed_struct(flds, loc)?;
                 }
             } else {
                 return Err(rustfail!(
@@ -685,7 +695,13 @@ impl ProtoModule
         let trait_type = AstNode::new(Ast::Type(proto_t.t.clone()), loc);
         // look in funcs for a struct def and use the ModTyp::Data?
         // or does that get set in add_typed_struct
-        let m = ltry!(self.add_selfmod(ModTyp::Trait, proto_t, funcs, loc));
+        let m = ltry!(self.add_selfmod(
+            ModTyp::Trait,
+            None,
+            Some(proto_t),
+            funcs,
+            loc
+        ));
         m.modscope.insert(MODNAME_DATATYPE, trait_type);
         Ok(())
     }
@@ -693,12 +709,13 @@ impl ProtoModule
     fn add_selfmod(
         &mut self,
         subtype: ModTyp,
-        proto_t: ProtoType,
+        data_t: Option<ProtoType>,
+        trait_t: Option<ProtoType>,
         mut funcs: Vec<AstNode>,
         loc: Loc,
     ) -> Lresult<&mut ProtoModule>
     {
-        let id = proto_t.n;
+        let id = data_t.as_ref().or(trait_t.as_ref()).unwrap().n;
         let subkey = self.key.submod(subtype, id)?;
         let utyp = Type::from(subkey.name.clone());
         let alias = AstNode::new(
@@ -713,7 +730,7 @@ impl ProtoModule
         self.imports.insert(id, subkey.name.clone());
         self.modscope
             .insert(id, AstNode::new(Ast::Canonical(subkey.name.clone()), loc));
-        let sub = ltry!(ProtoModule::with_ast(subkey, Some(proto_t), funcs));
+        let sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
         self.submods.insert(id, sub);
         Ok(self.submods.get_mut(id).unwrap())
     }
@@ -841,14 +858,14 @@ impl ProtoModule
                 }
             }
             Ast::ConstVal(cv) if cv == Val::VOID => {
-                if self.typ.is_none() {
+                if self.trait_t.is_none() {
                     return Err(rustfail!(
                         "syntax_error",
                         "datatypes must have a typename: {:?}",
                         self.key.best_path(),
                     ));
                 }
-                let typ = self.typ.as_ref().unwrap();
+                let typ = self.trait_t.as_ref().unwrap();
                 utyp = typ.t.clone();
                 typ.n
             }
