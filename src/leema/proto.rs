@@ -756,7 +756,8 @@ impl ProtoModule
                         } else {
                             Type::unwrap_name(&None, i)
                         };
-                        Ok(StrupleItem::new(var, Type::open(Lstr::from(var))))
+                        let key = var.clone();
+                        Ok(StrupleItem::new(key, Type::open(var)))
                     })
                     .collect();
                 opens.append(&mut open_result?);
@@ -799,7 +800,7 @@ impl ProtoModule
         let id: &'static str = match *name.node {
             Ast::Id(name_id) => {
                 utyp = Type::from(self.key.name.join(name_id)?);
-                opens = vec![];
+                // opens = vec![];
                 name_id
             }
             Ast::Generic(gen_id, gen_args) => {
@@ -813,11 +814,9 @@ impl ProtoModule
                     } else {
                         Type::unwrap_name(&None, i)
                     };
-                    opens1.push(StrupleItem::new(var, Type::UNKNOWN));
-                    gen_arg_vars.push(StrupleItem::new(
-                        var,
-                        Type::open(Lstr::from(var)),
-                    ));
+                    opens1.push(StrupleItem::new(var.clone(), Type::UNKNOWN));
+                    gen_arg_vars
+                        .push(StrupleItem::new(var.clone(), Type::open(var)));
                 }
                 opens = opens1;
 

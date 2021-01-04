@@ -6,11 +6,10 @@ use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
-use crate::leema::struple::{
-    self, Struple2, StrupleItem, StrupleKV, StrupleSlice,
-};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
-    Fref, FuncTypeRef, FuncTypeRefMut, Type, TypeArgs, TypeRef, TypeRefMut, Val,
+    Fref, FuncTypeRef, FuncTypeRefMut, Type, TypeArgSlice, TypeArgs, TypeRef,
+    TypeRefMut, Val,
 };
 
 use std::cmp::Ordering;
@@ -287,7 +286,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     .args
                     .iter()
                     .map(|arg| {
-                        if let Some(Lstr::Sref(argname)) = arg.k {
+                        if let Lstr::Sref(argname) = arg.k {
                             let argnode =
                                 AstNode::new(Ast::Id(argname), node_loc);
                             Ok(StrupleItem::new_v(argnode))
@@ -425,7 +424,7 @@ impl<'p> ScopeCheck<'p>
         let mut args: Vec<&'static str> = Vec::new();
         for a in ftyp.args.iter() {
             match a.k {
-                Some(Lstr::Sref(arg)) => {
+                Lstr::Sref(arg) => {
                     args.push(arg);
                 }
                 _ => {
@@ -641,7 +640,7 @@ impl<'p> TypeCheck<'p>
         };
 
         for arg in ftyp.args.iter() {
-            let argname = arg.k.as_ref().unwrap().sref()?;
+            let argname = arg.k.sref()?;
             check.vartypes.insert(argname, arg.v.clone());
         }
         check.result = (*ftyp.result).clone();
@@ -656,21 +655,14 @@ impl<'p> TypeCheck<'p>
             .unwrap_or_else(|| Type::local(local_tvar.clone()))
     }
 
-    pub fn inferred_type(
-        &self,
-        t: &Type,
-        opens: &StrupleSlice<&'static str, Type>,
-    ) -> Lresult<Type>
+    pub fn inferred_type(&self, t: &Type, opens: &TypeArgSlice)
+        -> Lresult<Type>
     {
-        let newt = match t.type_ref_2() {
-            TypeRef(
-                Type::PATH_LOCAL,
-                [StrupleItem { k: Some(local), .. }, ..],
-            ) => self.inferred_local(local),
-            TypeRef(
-                Type::PATH_OPENVAR,
-                [StrupleItem { k: Some(open), .. }, ..],
-            ) => {
+        let newt = match t.type_ref() {
+            TypeRef(Type::PATH_LOCAL, [StrupleItem { k: local, .. }, ..]) => {
+                self.inferred_local(local)
+            }
+            TypeRef(Type::PATH_OPENVAR, [StrupleItem { k: open, .. }, ..]) => {
                 struple::find(opens, open)
                     .map(|(_, item)| item.clone())
                     .unwrap_or_else(|| Type::open(open.clone()))
@@ -695,7 +687,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         t0: &Type,
         t1: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgs,
     ) -> Lresult<Type>
     {
         match (t0.path_str(), t1.path_str()) {
@@ -710,8 +702,8 @@ impl<'p> TypeCheck<'p>
             }
             // locals var cases
             (Type::PATH_LOCAL, Type::PATH_LOCAL) => {
-                let v0 = t0.first_arg()?.k.as_ref().unwrap();
-                let v1 = t1.first_arg()?.k.as_ref().unwrap();
+                let v0 = &t0.first_arg()?.k;
+                let v1 = &t1.first_arg()?.k;
                 match Ord::cmp(v0, v1) {
                     Ordering::Equal => Ok(self.inferred_local(v0)),
                     Ordering::Less => {
@@ -737,7 +729,7 @@ impl<'p> TypeCheck<'p>
             }
             // type names match
             (p0, p1) if p0 == p1 && t0.argc() == t1.argc() => {
-                let im: Lresult<Struple2<Type>>;
+                let im: Lresult<TypeArgs>;
                 im = t0
                     .args
                     .iter()
@@ -774,7 +766,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         u0: &Canonical,
         t1: &Type,
-        _opens: &mut StrupleKV<&'static str, Type>,
+        _opens: &mut TypeArgs,
     ) -> Lresult<Option<Type>>
     {
         if let Ok(proto) = self.lib.path_proto(u0) {
@@ -812,7 +804,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         var: &str,
         t: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgs,
     ) -> Lresult<Type>
     {
         let open_idx = if let Some((found, _)) = struple::find(opens, var) {
@@ -935,7 +927,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         ftyp: &mut FuncTypeRefMut<'a>,
         args: &mut ast2::Xlist,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgs,
     ) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
@@ -1027,7 +1019,7 @@ impl<'p> TypeCheck<'p>
         fld: &mut AstNode,
     ) -> Lresult<AstStep>
     {
-        match (base_typ.type_ref_2(), &*fld.node) {
+        match (base_typ.type_ref(), &*fld.node) {
             (TypeRef(tname, targs), Ast::Id(f)) if targs.is_empty() => {
                 // find a field in a struct or interface or
                 // whatever else
@@ -1262,11 +1254,13 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = Type::list(inner_typ);
             }
             Ast::Tuple(ref items) => {
-                let itypes: Lresult<Struple2<Type>> = items
+                let itypes: Lresult<TypeArgs> = items
                     .iter()
-                    .map(|i| {
+                    .enumerate()
+                    .map(|(idx, i)| {
+                        let klstr = i.k.map(|k| Lstr::Sref(k));
                         Ok(StrupleItem::new(
-                            i.k.map(|k| Lstr::Sref(k)),
+                            Type::unwrap_name(&klstr, idx),
                             i.v.typ.clone(),
                         ))
                     })
@@ -1405,8 +1399,8 @@ impl Semantics
             .enumerate()
             .map(|(_i, kv)| {
                 match &kv.k {
-                    Some(Lstr::Sref(name)) => *name,
-                    Some(Lstr::Arc(ref name)) => {
+                    Lstr::Sref(name) => *name,
+                    Lstr::Arc(ref name) => {
                         panic!("func arg name is not a static: {}", name);
                     }
                     _ => "missing_field",
