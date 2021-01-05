@@ -114,7 +114,7 @@ impl<'a> FuncTypeRef<'a>
 pub struct FuncTypeRefMut<'a>
 {
     pub path: &'a str,
-    pub type_args: Option<&'a mut TypeArgSlice>,
+    pub type_args: &'a mut TypeArgSlice,
     pub result: &'a mut Type,
     pub args: &'a mut TypeArgSlice,
     pub closed_args: Option<&'a mut TypeArgSlice>,
@@ -441,10 +441,10 @@ impl Type
     pub fn func_ref_mut<'a>(&'a mut self) -> Option<FuncTypeRefMut<'a>>
     {
         match self.type_ref_mut() {
-            TypeRefMut(Type::PATH_FN, [_gen, result, args]) => {
+            TypeRefMut(Type::PATH_FN, [gen, result, args]) => {
                 Some(FuncTypeRefMut {
                     path: Type::PATH_FN,
-                    type_args: None,
+                    type_args: &mut gen.v.args,
                     result: &mut result.v,
                     args: args.v.type_ref_mut().1,
                     closed_args: None,
@@ -531,23 +531,7 @@ impl Type
             let opt_func_ref = ft.func_ref_mut();
             if opt_func_ref.is_some() {
                 let f = opt_func_ref.unwrap();
-                if f.type_args.is_none() {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "function is not generic"
-                    )
-                    .with_context(vec![
-                        StrupleItem::new(
-                            Lstr::Sref("result"),
-                            lstrf!("{}", f.result),
-                        ),
-                        StrupleItem::new(
-                            Lstr::Sref("args"),
-                            lstrf!("{:?}", f.args),
-                        ),
-                    ]));
-                }
-                return Ok(TypeRefMut(f.path, f.type_args.unwrap()));
+                return Ok(TypeRefMut(f.path, f.type_args));
             }
         }
 
@@ -721,9 +705,11 @@ impl fmt::Debug for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         if self.is_local() {
-            write!(f, "local:{}", self.path)
+            let first = self.first_arg().unwrap();
+            write!(f, "local:{}", first.k)
         } else if self.is_openvar() {
-            write!(f, "open:{}", self.path)
+            let first = self.first_arg().unwrap();
+            write!(f, "open:{}", first.k)
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {

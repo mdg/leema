@@ -121,6 +121,8 @@ lazy_static! {
         ids.insert("True", Ast::ConstVal(Val::TRUE));
         ids.insert("Void", Ast::ConstVal(Val::VOID));
         // functions
+        ids.insert("boolean_and", Ast::canonical("/core/boolean_and"));
+        ids.insert("int_add", Ast::canonical("/core/int_add"));
         ids.insert("int_equal", Ast::canonical("/core/int_equal"));
         ids.insert("int_mult", Ast::canonical("/core/int_mult"));
         ids.insert("int_sub", Ast::canonical("/core/int_sub"));

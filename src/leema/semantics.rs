@@ -687,7 +687,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         t0: &Type,
         t1: &Type,
-        opens: &mut TypeArgs,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
         match (t0.path_str(), t1.path_str()) {
@@ -766,7 +766,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         u0: &Canonical,
         t1: &Type,
-        _opens: &mut TypeArgs,
+        _opens: &mut TypeArgSlice,
     ) -> Lresult<Option<Type>>
     {
         if let Ok(proto) = self.lib.path_proto(u0) {
@@ -780,7 +780,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         var: &Lstr,
         t: &Type,
-        opens: &mut TypeArgs,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
@@ -804,7 +804,7 @@ impl<'p> TypeCheck<'p>
         &mut self,
         var: &str,
         t: &Type,
-        opens: &mut TypeArgs,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
         let open_idx = if let Some((found, _)) = struple::find(opens, var) {
@@ -919,15 +919,13 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         let mut funcref = calltype.try_func_ref_mut()?;
-        let mut opens = vec![];
-        self.match_argtypes(&mut funcref, args, &mut opens)
+        self.match_argtypes(&mut funcref, args)
     }
 
     fn match_argtypes<'a>(
         &mut self,
         ftyp: &mut FuncTypeRefMut<'a>,
         args: &mut ast2::Xlist,
-        opens: &mut TypeArgs,
     ) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
@@ -951,7 +949,7 @@ impl<'p> TypeCheck<'p>
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
             let typ = ltry!(self
-                .match_type(&arg.0.v, &arg.1.v.typ, opens)
+                .match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args)
                 .map_err(|f| {
                     f.add_context(lstrf!(
                         "function param: {:?}, expected {}, found {} column:{}",
@@ -969,7 +967,7 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
-        *ftyp.result = self.inferred_type(&ftyp.result, &opens)?;
+        *ftyp.result = self.inferred_type(&ftyp.result, &ftyp.type_args)?;
         Ok((*ftyp.result).clone())
     }
 
