@@ -320,9 +320,8 @@ impl ProtoModule
     {
         self.trait_t
             .as_ref()
-            .or_else(|| self.data_t.as_ref())
-            .and_then(|o| o.t.try_generic_ref().ok())
-            .map(|o| Vec::from(o.1))
+            .or(self.data_t.as_ref())
+            .map(|p| p.t.args.clone())
             .unwrap_or(vec![])
     }
 
@@ -444,7 +443,7 @@ impl ProtoModule
 
         let opens = self.type_args();
         let (name_id, ftyp) =
-            ltry!(self.make_func_type(name, &args, result, opens));
+            ltry!(self.make_func_type(name, &args, result, opens.clone()));
         let ft = ftyp.try_func_ref()?;
 
         let call_args = ft.call_args();
@@ -464,6 +463,7 @@ impl ProtoModule
     {
         let loc = name.loc;
         if self.trait_t.is_some() {
+            // a struct type defined within a trait
             if !name.node.is_void() {
                 return Err(rustfail!(
                     "semantic_error",
@@ -476,6 +476,7 @@ impl ProtoModule
             self.data_t = self.trait_t.clone();
             self.add_typed_struct(fields, loc)
         } else {
+            // a struct type defined directly within a file module
             if name.node.is_void() {
                 return Err(rustfail!(
                     "semantic_error",
