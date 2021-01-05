@@ -1304,7 +1304,7 @@ impl ProtoLib
         loc: Loc,
     ) -> Lresult<&AstNode>
     {
-        let proto = self.path_proto(modname).unwrap();
+        let proto = lfctx!(self.path_proto(modname), "elem": Lstr::from(elem.to_string()), "line": lstrf!("{}", loc.lineno));
         if proto.localdef.contains(elem) {
             return Err(Failure::static_leema(
                 failure::Mode::CompileFailure,

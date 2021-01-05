@@ -897,7 +897,7 @@ mod tests
     fn test_code_lists()
     {
         let input = r#"
-        import /io.print
+        import /io/print
 
         func is_empty:Bool :: l:[Int] ->
             match

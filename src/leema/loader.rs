@@ -85,7 +85,16 @@ impl Interloader
             return Ok(found.clone());
         }
 
-        let file_path = ltry!(self.find_file_path(cpath));
+        let file_path = match self.find_file_path(cpath) {
+            Ok(fp) => fp,
+            Err(e) => {
+                // if there's an error, try again w/ the parent. might
+                // be that it was importing a function name
+                // maybe should bring back the dot import syntax then?
+                let parent = cpath.parent().unwrap();
+                ltry!(self.find_file_path(parent).map_err(|_| e))
+            }
+        };
         let cmod = Canonical::from(cpath);
         Ok(ModKey::new(cmod, file_path))
     }
