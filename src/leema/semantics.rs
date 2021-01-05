@@ -721,11 +721,13 @@ impl<'p> TypeCheck<'p>
                 lfailoc!(self.infer_type(t0.path.as_lstr(), t1, opens))
             }
             // open var cases
-            (Type::PATH_OPENVAR, v1) => {
-                lfailoc!(self.close_generic(v1, t0, opens))
+            (Type::PATH_OPENVAR, _) => {
+                let k0 = &t0.first_arg()?.k;
+                lfailoc!(self.close_generic(k0.as_str(), t1, opens))
             }
-            (v0, Type::PATH_OPENVAR) => {
-                lfailoc!(self.close_generic(v0, t1, opens))
+            (_, Type::PATH_OPENVAR) => {
+                let k1 = &t1.first_arg()?.k;
+                lfailoc!(self.close_generic(k1.as_str(), t0, opens))
             }
             // type names match
             (p0, p1) if p0 == p1 && t0.argc() == t1.argc() => {
@@ -825,7 +827,7 @@ impl<'p> TypeCheck<'p>
             opens[open_idx].v = t.clone();
             Ok(t.clone())
         } else if open.is_openvar() {
-            if open.path_str() == var {
+            if open.first_arg()?.k.as_str() == var {
                 // newly defined type, set it in opens
                 opens[open_idx].v = t.clone();
                 Ok(t.clone())
@@ -888,9 +890,7 @@ impl<'p> TypeCheck<'p>
                 }
             }
         }
-        // TODO fix how the opens are calculated here
-        let opens = vec![];
-        let t = self.inferred_type(&calltype, &opens)?;
+        let t = self.inferred_type(&calltype, calltype.type_args())?;
         *calltype = t;
         Ok(calltype.clone())
     }
@@ -1167,6 +1167,14 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         *callx.node = *method.node;
                         callx.typ = method.typ;
                         return Ok(AstStep::Rewrite);
+                    }
+                    Ast::Generic(ref mut base, ref mut type_args) => {
+                        return Err(rustfail!(
+                            "leema_failure",
+                            "generic not previously handled: <{:?} {:?}>",
+                            base,
+                            type_args,
+                        ));
                     }
                     // handle closure call
                     // do they get handled like regular non-method calls
@@ -1447,10 +1455,14 @@ impl Semantics
 #[cfg(test)]
 mod tests
 {
+    use super::TypeCheck;
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
     use crate::leema::program;
+    use crate::leema::proto::{ProtoLib, ProtoModule};
+    use crate::leema::struple::StrupleItem;
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
@@ -1691,6 +1703,32 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
+    }
+
+    #[test]
+    fn test_inferred_type_func()
+    {
+        let ftyp = Type::generic_f(
+            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
+            Type::open(Lstr::Sref("T")),
+            vec![StrupleItem::new(
+                Lstr::Sref("a"),
+                Type::open(Lstr::Sref("T")),
+            )],
+        );
+        let ftyp_args = ftyp.type_args();
+        let expected = Type::generic_f(
+            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
+            Type::STR,
+            vec![StrupleItem::new(Lstr::Sref("a"), Type::STR)],
+        );
+        let lib = ProtoLib::new();
+        let proto = ProtoModule::new(ModKey::from("foo"), "").unwrap();
+        let mainf = Type::f(Type::VOID, vec![]);
+        let mainfref = mainf.func_ref().unwrap();
+        let type_check = TypeCheck::new(&lib, &proto, &mainfref).unwrap();
+        let inferred = type_check.inferred_type(&ftyp, ftyp_args).unwrap();
+        assert_eq!(expected, inferred);
     }
 
     #[test]

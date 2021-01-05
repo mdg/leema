@@ -945,12 +945,14 @@ impl ProtoModule
 
     pub fn find_type(&self, name: &str) -> Option<&Type>
     {
-        self.find_modelem(name).and_then(|node| {
-            match &*node.node {
-                Ast::ConstVal(Val::Type(typeval)) => Some(typeval),
-                _ => None,
-            }
-        })
+        self.find_modelem(name)
+            .and_then(|node| {
+                match &*node.node {
+                    Ast::ConstVal(Val::Type(typeval)) => Some(typeval),
+                    _ => None,
+                }
+            })
+            .or_else(|| BUILTIN_TYPES.get(name))
     }
 
     pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&Canonical>

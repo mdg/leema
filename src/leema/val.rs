@@ -425,10 +425,10 @@ impl Type
     pub fn func_ref<'a>(&'a self) -> Option<FuncTypeRef<'a>>
     {
         match self.type_ref() {
-            TypeRef(Type::PATH_FN, [_gen, result, args]) => {
+            TypeRef(Type::PATH_FN, [gen, result, args]) => {
                 Some(FuncTypeRef {
                     path: Type::PATH_FN,
-                    type_args: &[],
+                    type_args: gen.v.type_ref().1,
                     result: &result.v,
                     args: args.v.type_ref().1,
                     closed_args: &[],
@@ -1871,11 +1871,11 @@ impl Env
 #[cfg(test)]
 mod tests
 {
+    use super::{Type, Val};
     use crate::leema::list;
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
-    use crate::leema::struple;
-    use crate::leema::val::{Type, Val};
+    use crate::leema::struple::{self, StrupleItem};
 
 
     #[test]
@@ -2134,5 +2134,21 @@ mod tests
         let input = Val::Tuple(struple::new_tuple2(Val::Int(1), Val::Int(4)));
         let pmatch = Val::pattern_match(&patt, &input);
         assert!(pmatch.is_some());
+    }
+
+    #[test]
+    fn test_type_args_genfunc()
+    {
+        let ftyp = Type::generic_f(
+            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
+            Type::open(Lstr::Sref("T")),
+            vec![StrupleItem::new(
+                Lstr::Sref("a"),
+                Type::open(Lstr::Sref("T")),
+            )],
+        );
+        let ftyp_args = ftyp.type_args();
+        let expected = [StrupleItem::new(Lstr::Sref("T"), Type::STR)];
+        assert_eq!(&expected, ftyp_args);
     }
 }
