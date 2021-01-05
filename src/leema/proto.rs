@@ -122,11 +122,21 @@ lazy_static! {
         ids.insert("Void", Ast::ConstVal(Val::VOID));
         // functions
         ids.insert("boolean_and", Ast::canonical("/core/boolean_and"));
+        ids.insert("boolean_not", Ast::canonical("/core/boolean_not"));
+        ids.insert("boolean_or", Ast::canonical("/core/boolean_or"));
         ids.insert("int_add", Ast::canonical("/core/int_add"));
+        ids.insert("int_div", Ast::canonical("/core/int_div"));
         ids.insert("int_equal", Ast::canonical("/core/int_equal"));
+        ids.insert("int_gt", Ast::canonical("/core/int_gt"));
+        ids.insert("int_gteq", Ast::canonical("/core/int_gteq"));
+        ids.insert("int_less_than", Ast::canonical("/core/int_less_than"));
+        ids.insert("int_mod", Ast::canonical("/core/int_mod"));
         ids.insert("int_mult", Ast::canonical("/core/int_mult"));
+        ids.insert("int_negate", Ast::canonical("/core/int_negate"));
         ids.insert("int_sub", Ast::canonical("/core/int_sub"));
+        ids.insert("int_lteq", Ast::canonical("/core/int_lteq"));
         ids.insert("new_struct_val", Ast::canonical("/core/new_struct_val"));
+        ids.insert("not_equal", Ast::canonical("/core/not_equal"));
         ids.insert("void", Ast::canonical("/core/void"));
         ids
     };
