@@ -655,6 +655,7 @@ impl ProtoModule
         let data_t = self.make_proto_type(name)?;
         let sname_id = data_t.n;
         let union_typ = data_t.t.clone();
+        self.imports.insert(sname_id, union_typ.path.clone());
 
         let m = ltry!(self.add_selfmod(
             ModTyp::Trait,
@@ -682,9 +683,11 @@ impl ProtoModule
                 ));
             }
         }
+
         // TODO: add the __datatype and/or __modshape fields to
         // the union's module scope
-        // self.types.insert(sname_id, union_typ);
+        m.modscope
+            .insert(MODNAME_DATATYPE, AstNode::new(Ast::Type(union_typ), loc));
 
         Ok(())
     }
