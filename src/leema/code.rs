@@ -897,7 +897,7 @@ mod tests
     fn test_code_lists()
     {
         let input = r#"
-        import /io/print
+        import /io
 
         func is_empty:Bool :: l:[Int] ->
             match
@@ -908,7 +908,7 @@ mod tests
 
         func main ->
             let e := is_empty([4, 8, 3])
-            print("is empty? $e\n")
+            io.print("is empty? $e\n")
         --
         "#
         .to_string();

@@ -117,6 +117,8 @@ lazy_static! {
         ids.insert("Option", Ast::canonical("/core/Option"));
         ids.insert("#", Ast::canonical("/core/#"));
         // constants
+        ids.insert("False", Ast::ConstVal(Val::FALSE));
+        ids.insert("True", Ast::ConstVal(Val::TRUE));
         ids.insert("Void", Ast::ConstVal(Val::VOID));
         // functions
         ids.insert("int_equal", Ast::canonical("/core/int_equal"));
@@ -1239,7 +1241,13 @@ impl ProtoLib
             return Ok(());
         }
 
-        let modkey = ltry!(loader.new_key(modpath));
+        let modkey = match loader.new_key(modpath) {
+            Ok(mk) => mk,
+            Err(e) => {
+                let parent = modpath.parent().unwrap();
+                ltry!(loader.new_key(parent).map_err(|_| e))
+            }
+        };
         let modtxt = ltry!(loader.read_mod(&modkey));
         let mut proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
             .map_err(|e| { e.lstr_loc(modkey.best_path(), 0) }));

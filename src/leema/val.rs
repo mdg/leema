@@ -919,6 +919,8 @@ pub const TRUE: Val = Val::Bool(true);
 
 impl Val
 {
+    pub const FALSE: Val = Val::EnumToken(Type::BOOL, Lstr::Sref("False"));
+    pub const TRUE: Val = Val::EnumToken(Type::BOOL, Lstr::Sref("True"));
     pub const VOID: Val = Val::Token(Type::VOID);
 
     pub fn empty_tuple() -> Val
