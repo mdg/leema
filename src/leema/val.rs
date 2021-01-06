@@ -664,9 +664,11 @@ impl fmt::Display for Type
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         if self.is_local() {
-            write!(f, "local:{}", self.path)
+            let first = self.first_arg().unwrap();
+            write!(f, "local:{}", first.k)
         } else if self.is_openvar() {
-            write!(f, "open:{}", self.path)
+            let first = self.first_arg().unwrap();
+            write!(f, "open:{}", first.k)
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
