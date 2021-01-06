@@ -90,49 +90,24 @@ impl Canonical
         }
     }
 
-    /// split the final element off the end of Canonical
-    pub fn split_id(&self) -> Lresult<(Canonical, Lstr)>
+    /// split the final .extension element off the end of Canonical
+    pub fn split_function(&self) -> Option<(Canonical, Lstr)>
     {
         match self.0 {
-            Lstr::Sref(s) => {
-                let ss: &'static str = s;
-                let p: &'static Path = Path::new(ss);
-                match (p.parent(), p.file_name()) {
-                    (Some(parent), Some(id)) => {
-                        let parent_lstr = Lstr::Sref(parent.to_str().unwrap());
-                        Ok((
-                            Canonical::new(parent_lstr),
-                            Lstr::Sref(id.to_str().unwrap()),
-                        ))
-                    }
-                    _ => {
-                        return Err(rustfail!(
-                            "failure",
-                            "split cannot be split: {}",
-                            s,
-                        ));
-                    }
-                }
+            Lstr::Sref(ss) => {
+                let mut ssplit = ss.rsplitn(2, ".");
+                let sfunc = ssplit.next().unwrap();
+                let smodule = ssplit.next()?;
+                Some((Canonical::new(Lstr::Sref(smodule)), Lstr::Sref(sfunc)))
             }
             Lstr::Arc(ref s) => {
-                let p = Path::new(&**s);
-                match (p.parent(), p.file_name()) {
-                    (Some(parent), Some(id)) => {
-                        let parent_lstr =
-                            Lstr::from(String::from(parent.to_str().unwrap()));
-                        Ok((
-                            Canonical::new(parent_lstr),
-                            Lstr::from(String::from(id.to_str().unwrap())),
-                        ))
-                    }
-                    _ => {
-                        return Err(rustfail!(
-                            "leema_failure",
-                            "split cannot be split: {}",
-                            s,
-                        ));
-                    }
-                }
+                let mut split = s.rsplitn(2, ".");
+                let func = split.next().unwrap();
+                let module = split.next()?;
+                Some((
+                    Canonical::new(Lstr::from(module.to_string())),
+                    Lstr::from(func.to_string()),
+                ))
             }
             ref other => {
                 panic!("not a normal Lstr: {:?}", other);

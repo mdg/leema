@@ -509,19 +509,31 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     let cons = optcons.unwrap();
                     node.replace((*cons.node).clone(), cons.typ.clone());
                     return Ok(AstStep::Rewrite);
-                } else if let Ok((parent, id)) = c.split_id() {
-                    if let Ok(f) =
-                        self.lib.exported_elem(&parent, id.as_str(), node.loc)
+                } else if let Some((parent, id)) = c.split_function() {
+                    match self.lib.exported_elem(&parent, id.as_str(), node.loc)
                     {
-                        node.replace((*f.node).clone(), f.typ.clone());
-                        return Ok(AstStep::Rewrite);
-                    } else {
-                        return Err(Failure::static_leema(
-                            failure::Mode::CompileFailure,
-                            lstrf!("undefined: {}", c),
-                            self.local_mod.key.best_path(),
-                            node.loc.lineno,
-                        ));
+                        Ok(f) => {
+                            node.replace((*f.node).clone(), f.typ.clone());
+                            return Ok(AstStep::Rewrite);
+                        }
+                        Err(e) => {
+                            return Err(Failure::static_leema(
+                                failure::Mode::CompileFailure,
+                                lstrf!("undefined: {}", c),
+                                self.local_mod.key.best_path(),
+                                node.loc.lineno,
+                            )
+                            .with_context(vec![
+                                StrupleItem::new(
+                                    Lstr::Sref("rustfile"),
+                                    Lstr::Sref(file!()),
+                                ),
+                                StrupleItem::new(
+                                    Lstr::Sref("rustline"),
+                                    lstrf!("{}", line!()),
+                                ),
+                            ]));
+                        }
                     }
                 } else {
                     return Err(rustfail!(
