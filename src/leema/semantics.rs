@@ -508,11 +508,20 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     }
                     let cons = optcons.unwrap();
                     node.replace((*cons.node).clone(), cons.typ.clone());
+                    return Ok(AstStep::Rewrite);
                 } else if let Ok((parent, id)) = c.split_id() {
                     if let Ok(f) =
                         self.lib.exported_elem(&parent, id.as_str(), node.loc)
                     {
                         node.replace((*f.node).clone(), f.typ.clone());
+                        return Ok(AstStep::Rewrite);
+                    } else {
+                        return Err(Failure::static_leema(
+                            failure::Mode::CompileFailure,
+                            lstrf!("undefined: {}", c),
+                            self.local_mod.key.best_path(),
+                            node.loc.lineno,
+                        ));
                     }
                 } else {
                     return Err(rustfail!(
@@ -521,7 +530,6 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         c,
                     ));
                 }
-                return Ok(AstStep::Rewrite);
             }
             Ast::Op2(".", base_node, sub_node) => {
                 if let (Ast::Id(id), Ast::Id(sub)) =
