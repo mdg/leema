@@ -735,10 +735,12 @@ impl<'p> TypeCheck<'p>
                 }
             }
             (Type::PATH_LOCAL, _) => {
-                lfailoc!(self.infer_type(t1.path.as_lstr(), t0, opens))
+                let v0 = &t0.first_arg()?.k;
+                lfailoc!(self.infer_type(v0, t1, opens))
             }
             (_, Type::PATH_LOCAL) => {
-                lfailoc!(self.infer_type(t0.path.as_lstr(), t1, opens))
+                let v1 = &t1.first_arg()?.k;
+                lfailoc!(self.infer_type(v1, t0, opens))
             }
             // open var cases
             (Type::PATH_OPENVAR, _) => {
