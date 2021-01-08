@@ -368,7 +368,7 @@ impl Type
     pub fn is_user(&self) -> bool
     {
         match self.path.as_str() {
-            "/core/Fn" | "/core/Tuple" => false,
+            "/core/Fn" | "/core/Tuple" | Type::PATH_UNKNOWN => false,
             _ => true,
         }
     }
