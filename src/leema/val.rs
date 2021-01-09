@@ -364,12 +364,14 @@ impl Type
         }
     }
 
-    /// not really sure why this is anymore
+    /// This is used to determine if it's a user-defined type
+    /// and used to set fields in a structure
+    /// nothing that lives in a /leema/ module is user defined
     pub fn is_user(&self) -> bool
     {
         match self.path.as_str() {
-            "/core/Fn" | "/core/Tuple" | Type::PATH_UNKNOWN => false,
-            _ => true,
+            "/core/Fn" | "/core/Tuple" => false,
+            path => !path.starts_with("/leema/"),
         }
     }
 
