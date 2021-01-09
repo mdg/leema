@@ -340,10 +340,10 @@ impl ProtoModule
     }
 
     /// return the src type if this module defines an alias
-    pub fn alias_type(&self) -> Option<Type>
+    pub fn alias_type(&self) -> Option<&Type>
     {
         if self.key.mtyp == ModTyp::Alias {
-            self.data_t.as_ref().map(|t| t.t.clone())
+            self.data_t.as_ref().map(|t| &t.t)
         } else {
             None
         }
@@ -645,8 +645,8 @@ impl ProtoModule
         // can't use add-selfmod b/c it makes an alias which recurses infinitely
         let mut sub = ltry!(ProtoModule::with_ast(
             subkey,
-            Some(alias_t),
             Some(src_t),
+            Some(alias_t),
             vec![]
         ));
         sub.modscope.insert(MODNAME_DATATYPE, src_node);
