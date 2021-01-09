@@ -93,7 +93,7 @@ as1 = _{ (" " | NEWLINE)+ }
 // vertical space required
 vs1 = _{ ((NEWLINE | hs0 ~ comment_line) ~ as0)+ }
 
-modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
+modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT | "_" }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
 id = @{
