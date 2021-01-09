@@ -24,6 +24,7 @@ pub enum ModTyp
     Impl,
     TraitData,
     Trait,
+    Alias,
 }
 
 impl ModTyp

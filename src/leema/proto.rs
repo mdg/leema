@@ -339,6 +339,16 @@ impl ProtoModule
             .unwrap_or(vec![])
     }
 
+    /// return the src type if this module defines an alias
+    pub fn alias_type(&self) -> Option<Type>
+    {
+        if self.key.mtyp == ModTyp::Alias {
+            self.data_t.as_ref().map(|t| t.t.clone())
+        } else {
+            None
+        }
+    }
+
     fn add_import(
         &mut self,
         name: &'static str,
@@ -619,15 +629,28 @@ impl ProtoModule
     fn add_alias_type(&mut self, name: AstNode, src: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let ProtoType { n: name_id, .. } = self.make_proto_type(name)?;
-        let srct = ltry!(self.ast_to_type(&src, &[]));
-        let typenode = Ast::Type(srct.clone());
-        let mut node = AstNode::new(typenode, loc);
-        node.typ = Type::KIND;
-        let alias_generics = vec![]; // add generics later
-        let alias_node =
-            AstNode::new(Ast::Alias(alias_generics, Box::new(node)), loc);
-        self.modscope.insert(name_id, alias_node);
+        let alias_t = ltry!(self.make_proto_type(name));
+        let src_typ = ltry!(self.ast_to_type(&src, &alias_t.t.args));
+        let src_node = AstNode::new(Ast::Type(src_typ.clone()), src.loc);
+        let src_t = ProtoType {
+            n: "alias",
+            t: src_typ,
+        };
+
+        let id = alias_t.n;
+        let subkey = self.key.submod(ModTyp::Alias, id)?;
+        self.imports.insert(id, subkey.name.clone());
+        self.modscope
+            .insert(id, AstNode::new(Ast::Canonical(subkey.name.clone()), loc));
+        // can't use add-selfmod b/c it makes an alias which recurses infinitely
+        let mut sub = ltry!(ProtoModule::with_ast(
+            subkey,
+            Some(alias_t),
+            Some(src_t),
+            vec![]
+        ));
+        sub.modscope.insert(MODNAME_DATATYPE, src_node);
+        self.submods.insert(id, sub);
         Ok(())
     }
 

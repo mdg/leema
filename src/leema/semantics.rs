@@ -769,10 +769,10 @@ impl<'p> TypeCheck<'p>
             // case for alias types where the types may need to be
             // dereferenced before they will match
             _ => {
-                if let Some(r) = self.match_type_alias(&t0.path, t1, opens)? {
+                if let Some(r) = self.match_type_alias(&t0.path, t1, opens) {
                     return Ok(r);
                 }
-                if let Some(r) = self.match_type_alias(&t1.path, t0, opens)? {
+                if let Some(r) = self.match_type_alias(&t1.path, t0, opens) {
                     return Ok(r);
                 }
                 Err(rustfail!(
@@ -791,13 +791,13 @@ impl<'p> TypeCheck<'p>
         u0: &Canonical,
         t1: &Type,
         _opens: &mut TypeArgSlice,
-    ) -> Lresult<Option<Type>>
+    ) -> Option<Type>
     {
         if let Ok(proto) = self.lib.path_proto(u0) {
-            // do something with opens from key?
-            eprintln!("match_type_alias: {} {:?} {}", u0, t1, proto.key.name);
+            proto.alias_type()
+        } else {
+            None
         }
-        Ok(None)
     }
 
     pub fn infer_type(
@@ -974,7 +974,7 @@ impl<'p> TypeCheck<'p>
                 .match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args)
                 .map_err(|f| {
                     f.add_context(lstrf!(
-                        "function param: {:?}, expected {}, found {} column:{}",
+                        "function param: {}, expected {}, found {} column:{}",
                         arg.0.k.as_ref(),
                         arg.0.v,
                         arg.1.v.typ,
