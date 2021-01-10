@@ -265,18 +265,18 @@ mod tests
     #[test]
     fn test_canonical_split_id_arc()
     {
-        let ct = Canonical(Lstr::from("/taco/Burrito".to_string()));
-        let (m, t) = ct.split_id().unwrap();
+        let ct = Canonical(Lstr::from("/taco.burrito".to_string()));
+        let (m, t) = ct.split_function().unwrap();
         assert_eq!("/taco", m.0.str());
-        assert_eq!("Burrito", t.str());
+        assert_eq!("burrito", t.str());
     }
 
     #[test]
     fn test_canonical_split_id_sref()
     {
-        let ct = Canonical(Lstr::from("/taco/Burrito"));
-        let (m, t) = ct.split_id().unwrap();
+        let ct = Canonical(Lstr::from("/taco.burrito"));
+        let (m, t) = ct.split_function().unwrap();
         assert_eq!("/taco", m.0.str());
-        assert_eq!("Burrito", t.str());
+        assert_eq!("burrito", t.str());
     }
 }
