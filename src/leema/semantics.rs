@@ -147,6 +147,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     }
                     mac @ Ast::DefMacro(_, _, _) => {
                         *node = Self::apply_macro(mac, node.loc, args)?;
+                        return Ok(AstStep::Rewrite);
                     }
                     Ast::ConstVal(Val::Call(_, _)) => {
                         // already what it needs to be. continue.
