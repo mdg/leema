@@ -695,7 +695,7 @@ impl ProtoModule
         self.imports.insert(sname_id, union_typ.path.clone());
 
         let m = ltry!(self.add_selfmod(
-            ModTyp::Trait,
+            ModTyp::Data,
             Some(data_t),
             None,
             vec![],
@@ -1280,20 +1280,22 @@ impl ProtoLib
 
         let modkey = ltry!(loader.new_key(modpath));
         let modtxt = ltry!(loader.read_mod(&modkey));
-        let mut proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
+        let proto = ltry!(ProtoModule::new(modkey.clone(), modtxt)
             .map_err(|e| { e.lstr_loc(modkey.best_path(), 0) }));
-        for sub in proto.submods.drain() {
-            let submodname = sub.1.key.name.clone();
-            self.put_module(submodname.as_path(), sub.1)?;
-        }
-
         self.put_module(modpath, proto)?;
         Ok(())
     }
 
-    fn put_module(&mut self, modpath: &Path, proto: ProtoModule)
-        -> Lresult<()>
+    fn put_module(
+        &mut self,
+        modpath: &Path,
+        mut proto: ProtoModule,
+    ) -> Lresult<()>
     {
+        for sub in proto.submods.drain().map(|s| s.1) {
+            let submodname = sub.key.name.clone();
+            self.put_module(submodname.as_path(), sub)?;
+        }
         let type_mods = proto.type_modules()?;
         self.protos.insert(modpath.to_path_buf(), proto);
         for tm in type_mods.into_iter() {
