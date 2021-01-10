@@ -74,38 +74,6 @@ const NUM_MODNAMES: usize = 7;
 const PROTOFAIL: &'static str = "prototype_failure";
 
 lazy_static! {
-    static ref DEFAULT_IDS: HashMap<&'static str, Canonical> = {
-        let core_mod = canonical!("/core");
-        let mut ids = HashMap::new();
-        ids.insert("Bool", core_mod.clone());
-        ids.insert("boolean_and", core_mod.clone());
-        ids.insert("boolean_not", core_mod.clone());
-        ids.insert("boolean_or", core_mod.clone());
-        ids.insert("cons", core_mod.clone());
-        ids.insert("False", core_mod.clone());
-        ids.insert("Hashtag", core_mod.clone());
-        ids.insert("Int", core_mod.clone());
-        ids.insert("int_add", core_mod.clone());
-        ids.insert("int_sub", core_mod.clone());
-        ids.insert("int_mult", core_mod.clone());
-        ids.insert("int_div", core_mod.clone());
-        ids.insert("int_mod", core_mod.clone());
-        ids.insert("int_negate", core_mod.clone());
-        ids.insert("int_equal", core_mod.clone());
-        ids.insert("int_less_than", core_mod.clone());
-        ids.insert("int_lteq", core_mod.clone());
-        ids.insert("int_gt", core_mod.clone());
-        ids.insert("int_gteq", core_mod.clone());
-        ids.insert("new_struct_val", core_mod.clone());
-        ids.insert("not_equal", core_mod.clone());
-        ids.insert("Option", core_mod.clone());
-        ids.insert("Str", core_mod.clone());
-        ids.insert("True", core_mod.clone());
-        ids.insert("Void", core_mod.clone());
-        ids.insert("#", core_mod);
-        ids
-    };
-
     static ref BUILTIN_SCOPE: HashMap<&'static str, Ast> = {
         let mut ids = HashMap::new();
         // types
