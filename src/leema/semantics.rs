@@ -516,7 +516,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                             node.replace((*f.node).clone(), f.typ.clone());
                             return Ok(AstStep::Rewrite);
                         }
-                        Err(e) => {
+                        Err(_) => {
                             return Err(Failure::static_leema(
                                 failure::Mode::CompileFailure,
                                 lstrf!("undefined: {}", c),
