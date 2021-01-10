@@ -274,7 +274,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
             }
             Ast::Id(id) => {
                 let nloc = node.loc;
-                if let Some((_, ctype)) = struple::find(self.closed, &id) {
+                if let Some(ctype) = struple::find(self.closed, &id) {
                     let type_ast = Ast::Type(ctype.clone());
                     *node = AstNode::new(type_ast, nloc);
                     return Ok(AstStep::Rewrite);
@@ -685,7 +685,7 @@ impl<'p> TypeCheck<'p>
             }
             TypeRef(Type::PATH_OPENVAR, [StrupleItem { k: open, .. }, ..]) => {
                 struple::find(opens, open)
-                    .map(|(_, item)| item.clone())
+                    .map(|item| item.clone())
                     .unwrap_or_else(|| Type::open(open.clone()))
             }
             _ => t.map_v(&|a| self.inferred_type(a, opens))?,
@@ -833,17 +833,16 @@ impl<'p> TypeCheck<'p>
         opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
-        let open_idx = if let Some((found, _)) = struple::find(opens, var) {
-            found
-        } else {
-            return Err(rustfail!(
-                TYPEFAIL,
-                "open type var {:?} not found in {:?} for {:?}",
-                var,
-                opens,
-                t,
-            ));
-        };
+        let open_idx =
+            struple::find_idx(opens, var).map(|i| i.0).ok_or_else(|| {
+                rustfail!(
+                    TYPEFAIL,
+                    "open type var {:?} not found in {:?} for {:?}",
+                    var,
+                    opens,
+                    t,
+                )
+            })?;
 
         let open = &opens[open_idx].v;
         if *open == Type::UNKNOWN {

@@ -42,7 +42,7 @@ use crate::leema::module::{
     ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp,
 };
 use crate::leema::parser::parse_file;
-use crate::leema::struple::{self, StrupleItem};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{Fref, Type, TypeArgSlice, TypeArgs, Val};
 
 use std::collections::{HashMap, HashSet};
@@ -162,9 +162,13 @@ pub struct ProtoModule
     pub exports_all: Option<bool>,
     pub funcseq: Vec<&'static str>,
     pub funcsrc: HashMap<&'static str, (Xlist, AstNode)>,
-    submods: HashMap<&'static str, ProtoModule>,
+    submods: StrupleKV<&'static str, ProtoModule>,
     modscope: HashMap<&'static str, AstNode>,
     localdef: HashSet<&'static str>,
+    /// types that implement this trait (if it's a trait)
+    implementors: HashSet<Canonical>,
+    /// implementations by this type for other types
+    implementations: StrupleKV<Canonical, ProtoModule>,
 }
 
 impl ProtoModule
@@ -191,9 +195,11 @@ impl ProtoModule
             exports_all: None,
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
-            submods: HashMap::new(),
+            submods: Vec::new(),
             modscope: HashMap::new(),
             localdef: HashSet::new(),
+            implementors: HashSet::new(),
+            implementations: Vec::new(),
         };
 
         let mut exports = HashMap::new();
@@ -618,7 +624,7 @@ impl ProtoModule
             vec![]
         ));
         sub.modscope.insert(MODNAME_DATATYPE, src_node);
-        self.submods.insert(id, sub);
+        struple::push_unique(&mut self.submods, id, sub)?;
         Ok(())
     }
 
@@ -726,7 +732,7 @@ impl ProtoModule
     {
         let id = data_t.as_ref().or(trait_t.as_ref()).unwrap().n;
         let subkey = self.key.submod(subtype, id)?;
-        let utyp = Type::from(subkey.name.clone());
+        let utyp = data_t.as_ref().or(trait_t.as_ref()).unwrap().t.clone();
         let alias = AstNode::new(
             Ast::DefType(
                 DataType::Alias,
@@ -740,8 +746,8 @@ impl ProtoModule
         self.modscope
             .insert(id, AstNode::new(Ast::Canonical(subkey.name.clone()), loc));
         let sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
-        self.submods.insert(id, sub);
-        Ok(self.submods.get_mut(id).unwrap())
+        struple::push_unique(&mut self.submods, id, sub)?;
+        Ok(struple::find_mut(&mut self.submods, id).unwrap())
     }
 
     /// mark a trait as implemented for a given type
@@ -749,12 +755,40 @@ impl ProtoModule
     fn impl_trait(
         &mut self,
         trait_node: AstNode,
-        typ_node: AstNode,
-        _funcs: Vec<AstNode>,
+        data_node: AstNode,
+        mut funcs: Vec<AstNode>,
     ) -> Lresult<()>
     {
-        let _trait_t = self.make_proto_type(trait_node)?;
-        let _typ_t = self.make_proto_type(typ_node)?;
+        let id = "impl";
+        let loc = trait_node.loc;
+        let trait_t = ltry!(self.make_proto_type(trait_node));
+        let data_typ = ltry!(self.ast_to_type(&data_node, &trait_t.t.args));
+        let data_t = ProtoType {
+            n: id,
+            t: data_typ.clone(),
+        };
+
+        let subkey = self.key.submod(ModTyp::Impl, id)?;
+        let alias = AstNode::new(
+            Ast::DefType(
+                DataType::Alias,
+                AstNode::new(Ast::Id("Self"), loc),
+                vec![StrupleItem::new_v(AstNode::new(
+                    Ast::Type(data_typ),
+                    loc,
+                ))],
+            ),
+            loc,
+        );
+        funcs.insert(0, alias);
+
+        let sub = ltry!(ProtoModule::with_ast(
+            subkey,
+            Some(data_t),
+            Some(trait_t),
+            funcs
+        ));
+        struple::push_unique(&mut self.submods, id, sub)?;
         Ok(())
     }
 
@@ -890,11 +924,6 @@ impl ProtoModule
         Ok(ProtoType { n: id, t: utyp })
     }
 
-    pub fn type_modules(&self) -> Lresult<Vec<ProtoModule>>
-    {
-        Ok(vec![])
-    }
-
     /// TODO rename this. Maybe take_func?
     pub fn pop_func(&mut self, func: &str) -> Option<(Xlist, AstNode)>
     {
@@ -969,7 +998,7 @@ impl ProtoModule
                 Type::open(Lstr::Sref(id))
             }
             Ast::Id(id) => {
-                if let Some(sub) = self.submods.get(id) {
+                if let Some(sub) = struple::find(&self.submods, id) {
                     if let Some(modelem) = sub.find_modelem(MODNAME_DATATYPE) {
                         ltry!(self.ast_to_type(modelem, opens))
                     } else {
@@ -1260,15 +1289,49 @@ impl ProtoLib
         mut proto: ProtoModule,
     ) -> Lresult<()>
     {
-        for sub in proto.submods.drain().map(|s| s.1) {
+        for sub in proto.submods.drain(..).map(|s| s.v) {
             let submodname = sub.key.name.clone();
-            self.put_module(submodname.as_path(), sub)?;
+            if sub.key.mtyp == ModTyp::Impl {
+                {
+                    let trait_c = &sub.trait_t.as_ref().unwrap().t.path;
+                    let trait_path = Path::new(trait_c.as_str());
+                    let trait_proto =
+                        self.protos.get_mut(trait_path).ok_or_else(|| {
+                            rustfail!(
+                                "leema_failure",
+                                "cannot find trait: {}",
+                                trait_c,
+                            )
+                        })?;
+                    let data_path = &sub.data_t.as_ref().unwrap().t.path;
+                    trait_proto.implementors.insert(data_path.clone());
+                }
+
+                {
+                    let data_c = &sub.data_t.as_ref().unwrap().t.path;
+                    let data_path = Path::new(data_c.as_str());
+                    let data_proto =
+                        self.protos.get_mut(data_path).ok_or_else(|| {
+                            rustfail!(
+                                "leema_failure",
+                                "cannot find datatype: {}",
+                                data_c,
+                            )
+                        })?;
+                    let trait_path =
+                        sub.trait_t.as_ref().unwrap().t.path.clone();
+                    ltry!(struple::push_unique(
+                        &mut data_proto.implementations,
+                        trait_path,
+                        sub
+                    ));
+                }
+            } else {
+                self.put_module(submodname.as_path(), sub)?;
+            }
         }
-        let type_mods = proto.type_modules()?;
+
         self.protos.insert(modpath.to_path_buf(), proto);
-        for tm in type_mods.into_iter() {
-            self.protos.insert(tm.key.name.as_path().to_path_buf(), tm);
-        }
         Ok(())
     }
 
@@ -1373,7 +1436,7 @@ mod tests
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
-    use crate::leema::struple::StrupleItem;
+    use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{Type, Val};
 
     use std::path::Path;
@@ -1695,7 +1758,8 @@ mod tests
     fn test_proto_alias_type()
     {
         let proto = new_proto("datatype Burrito := Int");
-        let burrito = proto.submods.get("Burrito").expect("no Burrito alias");
+        let burrito =
+            struple::find(&proto.submods, "Burrito").expect("no Burrito alias");
 
         assert_eq!(
             "/core/Int",

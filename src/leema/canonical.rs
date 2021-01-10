@@ -200,6 +200,14 @@ impl PartialEq<Canonical> for str
     }
 }
 
+impl AsRef<str> for Canonical
+{
+    fn as_ref(&self) -> &str
+    {
+        self.0.as_str()
+    }
+}
+
 impl Default for Canonical
 {
     fn default() -> Canonical

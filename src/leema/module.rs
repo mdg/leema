@@ -21,9 +21,9 @@ pub enum ModTyp
 {
     File,
     Data,
-    Impl,
     TraitData,
     Trait,
+    Impl,
     Alias,
 }
 

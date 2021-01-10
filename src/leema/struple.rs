@@ -168,7 +168,30 @@ where
     Lresult::from_iter(m_result_items)
 }
 
-pub fn find<'s, S, V, K>(
+pub fn find<'s, S, V, K>(s: &'s [StrupleItem<S, V>], key: K) -> Option<&'s V>
+where
+    S: AsRef<str>,
+    K: AsRef<str>,
+{
+    s.iter()
+        .find(|i| i.k.as_ref() == key.as_ref())
+        .map(|item| &item.v)
+}
+
+pub fn find_mut<'s, S, V, K>(
+    s: &'s mut [StrupleItem<S, V>],
+    key: K,
+) -> Option<&'s mut V>
+where
+    S: AsRef<str>,
+    K: AsRef<str>,
+{
+    s.iter_mut()
+        .find(|i| i.k.as_ref() == key.as_ref())
+        .map(|item| &mut item.v)
+}
+
+pub fn find_idx<'s, S, V, K>(
     s: &'s [StrupleItem<S, V>],
     key: K,
 ) -> Option<(usize, &'s V)>
@@ -188,6 +211,22 @@ where
     K: AsRef<str>,
 {
     find(s, k).is_some()
+}
+
+pub fn push_unique<K, V>(s: &mut StrupleKV<K, V>, k: K, v: V) -> Lresult<()>
+where
+    K: AsRef<str> + std::fmt::Display,
+{
+    if contains_key(s, &k) {
+        Err(rustfail!(
+            "leema_failure",
+            "struple item already exists: {}",
+            k,
+        ))
+    } else {
+        s.push(StrupleItem::new(k, v));
+        Ok(())
+    }
 }
 
 pub fn new_tuple2<K, V>(a: V, b: V) -> StrupleKV<Option<K>, V>
@@ -299,7 +338,7 @@ mod tests
             StrupleItem::new("burrito", Val::Int(4)),
         ];
 
-        let actual = struple::find(&s, "burrito").expect("burrito value");
+        let actual = struple::find_idx(&s, "burrito").expect("burrito value");
         assert_eq!(2, actual.0);
         assert_eq!(Val::Int(4), *actual.1);
     }
