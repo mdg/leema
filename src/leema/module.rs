@@ -83,6 +83,19 @@ impl ModKey
             mtyp: mt,
         })
     }
+
+    /// create a new ModKey with the same path and n arbitrary module name
+    /// the ModTyp for this key will always be ModTyp::Impl
+    /// kind of weird that it can't encode both the trait type and
+    /// the data type, but the ProtoModule can so hopefully that's good enough
+    pub fn subimpl(&self, name: Canonical) -> Lresult<ModKey>
+    {
+        Ok(ModKey {
+            name,
+            file: self.file.clone(),
+            mtyp: ModTyp::Impl,
+        })
+    }
 }
 
 impl From<Canonical> for ModKey

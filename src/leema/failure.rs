@@ -126,6 +126,15 @@ impl Mode
     }
 }
 
+/// struct to hold all the necessary info about a failure
+/// data that should be on a failure:
+/// * tag (multiple?)
+/// * failure mode (multiple?)
+/// * a main message/reason/source that isn't just regular map
+/// * stack of tag, failure mode and reason? all 3 necessary?
+///   * maybe tag and mode are kind of the same thing?
+/// * map of Str -> Str
+/// * stacktrace
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct Failure

@@ -2,7 +2,7 @@
 import /io
 
 trait Shape ::
-    func area:Int :: Self --
+    func area:Int :: self --
 --
 
 datatype Circle ::

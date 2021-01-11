@@ -575,9 +575,10 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         } else {
                             return Err(rustfail!(
                                 SEMFAIL,
-                                "what's it? {}.{}",
+                                "what's it? {}.{} in {}",
                                 id,
                                 sub,
+                                self.local_mod.key.name,
                             ));
                         }
                     }
@@ -1046,7 +1047,7 @@ impl<'p> TypeCheck<'p>
                 // whatever else
                 let tproto = self.lib.path_proto(&base_typ.path)?;
 
-                if let Some(found) = tproto.find_modelem(f) {
+                if let Some(found) = tproto.find_method(f) {
                     match &*found.node {
                         Ast::ConstVal(_) => {
                             fld.replace(
@@ -1394,18 +1395,13 @@ impl Semantics
     {
         let mut sem = Semantics::new();
 
-        let func_ast = {
-            let proto = lib.path_proto_mut(&f.m.name)?;
-            proto.pop_func(&f.f)
-        };
-        let proto = lib.path_proto(&f.m.name)?;
-        let (_args, body) = func_ast.ok_or_else(|| {
-            rustfail!(SEMFAIL, "ast is empty for function {}", f,)
-        })?;
+        let (modname, body) = lib.take_func(&f)?;
+        let proto = lib.path_proto(&modname)?;
 
-        let func_ref = proto.find_modelem(&f.f).ok_or_else(|| {
+        let func_ref = proto.find_method(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
+        // somehow figure out generic types if necessary
         let closed = vec![];
         let ftyp = if func_ref.typ.is_generic() {
             func_ref.typ.try_func_ref()?

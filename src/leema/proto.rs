@@ -768,7 +768,7 @@ impl ProtoModule
             t: data_typ.clone(),
         };
 
-        let subkey = self.key.submod(ModTyp::Impl, id)?;
+        let subkey = self.key.subimpl(trait_t.t.path.clone())?;
         let alias = AstNode::new(
             Ast::DefType(
                 DataType::Alias,
@@ -924,24 +924,49 @@ impl ProtoModule
         Ok(ProtoType { n: id, t: utyp })
     }
 
-    /// TODO rename this. Maybe take_func?
-    pub fn pop_func(&mut self, func: &str) -> Option<(Xlist, AstNode)>
+    pub fn take_func(&mut self, func: &Fref) -> Lresult<AstNode>
     {
-        let generic = match self.find_modelem(func) {
+        let generic = match self.find_modelem(func.f) {
             Some(fconst) => {
                 // check if this is a locally defined function
                 fconst.typ.is_open()
             }
             None => {
-                return None;
+                return Err(rustfail!(
+                    "semantic_failure",
+                    "no function found for {}",
+                    func
+                ));
             }
         };
-        if generic {
+        let src = if generic {
             // make a copy for generic functions
-            self.funcsrc.get(func).map(|fsrc| fsrc.clone())
+            self.funcsrc.get(func.f).map(|fsrc| fsrc.1.clone())
         } else {
             // just take the original if not generic
-            self.funcsrc.remove(func)
+            self.funcsrc.remove(func.f).map(|fsrc| fsrc.1)
+        };
+        src.ok_or_else(|| {
+            rustfail!("semantic_failure", "no function source for {}", func)
+        })
+    }
+
+    pub fn take_method(&mut self, func: &Fref) -> Lresult<AstNode>
+    {
+        let opt_im = self
+            .implementations
+            .iter_mut()
+            .find(|i| i.v.key.name == func.m.name);
+        match opt_im {
+            Some(im) => im.v.take_func(func),
+            None => {
+                Err(rustfail!(
+                    "leema_failure",
+                    "no implementation of trait {} with {}",
+                    func.m.name,
+                    self.key.name,
+                ))
+            }
         }
     }
 
@@ -961,6 +986,19 @@ impl ProtoModule
         -> Option<&'a AstNode>
     {
         self.modscope.get(name)
+    }
+
+    /// find a method call
+    /// this checks modelems and then implementations
+    /// sequentially finding implementation methods for now
+    /// maybe would want to do something more intelligent later
+    pub fn find_method<'a, 'b>(&'a self, name: &'b str) -> Option<&'a AstNode>
+    {
+        self.find_modelem(name).or_else(|| {
+            self.implementations
+                .iter()
+                .find_map(|im| im.v.find_modelem(name))
+        })
     }
 
     pub fn find_type(&self, name: &str) -> Option<&Type>
@@ -1129,6 +1167,14 @@ impl ProtoModule
             })
             .collect();
         Ok(arg_types_r?)
+    }
+
+    /// add an implemented trait to this data module
+    fn put_impl(&mut self, sub: ProtoModule) -> Lresult<()>
+    {
+        // is it worth it to check that this is in fact a data module?
+        let trait_path = sub.trait_t.as_ref().unwrap().t.path.clone();
+        struple::push_unique(&mut self.implementations, trait_path, sub)
     }
 }
 
@@ -1318,13 +1364,7 @@ impl ProtoLib
                                 data_c,
                             )
                         })?;
-                    let trait_path =
-                        sub.trait_t.as_ref().unwrap().t.path.clone();
-                    ltry!(struple::push_unique(
-                        &mut data_proto.implementations,
-                        trait_path,
-                        sub
-                    ));
+                    data_proto.put_impl(sub)?;
                 }
             } else {
                 self.put_module(submodname.as_path(), sub)?;
@@ -1424,6 +1464,31 @@ impl ProtoLib
         self.protos.get_mut(path.as_path()).ok_or_else(|| {
             rustfail!(PROTOFAIL, "module not loaded: {:?}", path)
         })
+    }
+
+    /// take the type and source for the given func
+    /// seems like first parameter isn't used, could optimize by removing it
+    pub fn take_func(&mut self, f: &Fref) -> Lresult<(Canonical, AstNode)>
+    {
+        if f.m.mtyp == ModTyp::Impl {
+            let ftyp = f.t.func_ref().unwrap();
+            let self_arg = ftyp.args.first().unwrap();
+            if self_arg.k.as_str() != "self" {
+                return Err(rustfail!(
+                    "leema_failure",
+                    "first method argument isn't self: {}:{}",
+                    self_arg.k,
+                    self_arg.v,
+                ));
+            }
+            let proto = self.path_proto_mut(&self_arg.v.path)?;
+            let name = proto.key.name.clone();
+            Ok((name, ltry!(proto.take_method(&f))))
+        } else {
+            let proto = self.path_proto_mut(&f.m.name)?;
+            let name = proto.key.name.clone();
+            Ok((name, ltry!(proto.take_func(&f))))
+        }
     }
 }
 
