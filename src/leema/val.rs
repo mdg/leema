@@ -174,6 +174,12 @@ impl Type
 
     // leema type paths
     // only used for internal compilation, not user code
+    /// Type for abstract, unimplemented blocks in trait functions
+    /// Matches whatever type is provided
+    const PATH_BLOCK_ABSTRACT: &'static str = "/leema/BlockAbstract";
+    /// Type assigned to -RUST- code blocks
+    /// gets special treatment by the type checker to match any type
+    const PATH_BLOCK_RUST: &'static str = "/leema/BlockRust";
     /// function args
     const PATH_FN_ARGS: &'static str = "/leema/FnArgs";
     /// closed arguments for a closure
@@ -190,9 +196,6 @@ impl Type
     pub const PATH_UNKNOWN: &'static str = "/leema/Unknown";
 
     // leema types
-    /// Type assigned to -RUST- code blocks
-    /// gets special treatment by the type checker to match any type
-    pub const RUST_BLOCK: Type = leema_type!(RustBlock);
     /// Initial type to indicate the type checker doesn't know
     pub const UNKNOWN: Type = Type::named(Type::PATH_UNKNOWN);
 
@@ -897,7 +900,6 @@ pub enum Val
     // Fref(Fref),
     Call(Fref, Struple2<Val>),
     ResourceRef(i64),
-    RustBlock,
     Future(Arc<Mutex<Receiver<Val>>>),
     Wildcard,
     PatternVar(Reg),
@@ -912,6 +914,9 @@ impl Val
     pub const FALSE: Val = Val::EnumToken(Type::BOOL, Lstr::Sref("False"));
     pub const TRUE: Val = Val::EnumToken(Type::BOOL, Lstr::Sref("True"));
     pub const VOID: Val = Val::Token(Type::VOID);
+    pub const BLOCK_ABSTRACT: Val =
+        Val::Token(Type::named(Type::PATH_BLOCK_ABSTRACT));
+    pub const BLOCK_RUST: Val = Val::Token(Type::named(Type::PATH_BLOCK_RUST));
 
     pub fn empty_tuple() -> Val
     {
@@ -1075,7 +1080,6 @@ impl Val
             &Val::Type(_) => Type::KIND,
             &Val::Wildcard => Type::UNKNOWN,
             &Val::PatternVar(_) => Type::UNKNOWN,
-            &Val::RustBlock => Type::RUST_BLOCK,
             &Val::Map(_) => lmap::map_type(),
             &Val::Tuple(ref items) if items.len() == 1 => {
                 items.get(0).unwrap().v.get_type()
@@ -1351,14 +1355,12 @@ impl sendclone::SendClone for Val
             &Val::Type(ref t) => Val::Type(t.clone_for_send()),
             &Val::ResourceRef(r) => Val::ResourceRef(r),
             // &Val::Lib(LibVal),
-            // &Val::RustBlock,
             &Val::Future(ref f) => Val::Future(f.clone()),
             &Val::Wildcard => Val::Wildcard,
             &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
             &Val::Map(_) => {
                 panic!("cannot deep clone Map");
             }
-            &Val::RustBlock => Val::RustBlock,
             _ => {
                 panic!("cannot deep clone val: {:?}", self);
             }
@@ -1409,7 +1411,6 @@ impl fmt::Display for Val
             Val::Buffer(ref _buf) => write!(f, "Buffer"),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
-            Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Type(ref t) => write!(f, "{}", t),
             Val::Call(ref fref, ref args) => {
@@ -1459,7 +1460,6 @@ impl fmt::Debug for Val
             Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
-            Val::RustBlock => write!(f, "RustBlock"),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
             Val::Call(ref fref, ref args) => {
@@ -1598,7 +1598,6 @@ impl PartialOrd for Val
                     _ => cmp,
                 }
             }
-            (&Val::RustBlock, &Val::RustBlock) => Some(Ordering::Equal),
             // tuple to tuple comparison
             (&Val::Tuple(ref av), &Val::Tuple(ref bv)) => {
                 PartialOrd::partial_cmp(av, bv)
@@ -1681,8 +1680,6 @@ impl PartialOrd for Val
             (_, &Val::EnumToken(_, _)) => Some(Ordering::Greater),
             (&Val::Token(_), _) => Some(Ordering::Less),
             (_, &Val::Token(_)) => Some(Ordering::Greater),
-            (&Val::RustBlock, _) => Some(Ordering::Less),
-            (_, &Val::RustBlock) => Some(Ordering::Greater),
             (&Val::Wildcard, _) => Some(Ordering::Less),
             (_, &Val::Wildcard) => Some(Ordering::Greater),
             _ => {

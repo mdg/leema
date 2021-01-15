@@ -259,6 +259,8 @@ pub enum Ast
 
 impl Ast
 {
+    pub const BLOCK_ABSTRACT: Ast = Ast::ConstVal(Val::BLOCK_ABSTRACT);
+    pub const BLOCK_RUST: Ast = Ast::ConstVal(Val::BLOCK_RUST);
     pub const VOID: Ast = Ast::ConstVal(Val::VOID);
     pub const NEWLINE: Ast = Ast::ConstVal(Val::Str(Lstr::Sref("\n")));
 

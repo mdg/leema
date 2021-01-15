@@ -569,8 +569,8 @@ impl LeemaPrec
                 Ok(AstNode::new(df, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
-            Rule::trait_block => Ok(AstNode::new(Ast::VOID, loc)),
-            Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
+            Rule::trait_block => Ok(AstNode::new(Ast::BLOCK_ABSTRACT, loc)),
+            Rule::rust_block => Ok(AstNode::new(Ast::BLOCK_RUST, loc)),
             // ignore this level and go one deeper
             Rule::tx_maybe_k => {
                 pratt::parse(self, Mode::Type, &mut n.into_inner())
@@ -1824,7 +1824,7 @@ mod tests
             assert_matches!(*iname.node, Ast::Id("Taco"));
             if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
                 assert_matches!(*fname.node, Ast::Id("burrito"));
-                assert_eq!(Ast::VOID, *body.node);
+                assert_eq!(Ast::BLOCK_ABSTRACT, *body.node);
             } else {
                 panic!("expected a func, found {:?}", funcs);
             }
