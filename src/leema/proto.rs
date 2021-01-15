@@ -323,6 +323,20 @@ impl ProtoModule
         }
     }
 
+    /// trait with implementation
+    pub fn trait_with_impl(&self, t: &Type) -> Option<&Type>
+    {
+        if self.key.mtyp == ModTyp::Trait {
+            if self.implementors.contains(&t.path) {
+                Some(&self.trait_t.as_ref().unwrap().t)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     fn add_import(
         &mut self,
         name: &'static str,
@@ -788,7 +802,7 @@ impl ProtoModule
             Some(trait_t),
             funcs
         ));
-        struple::push_unique(&mut self.submods, id, sub)?;
+        self.submods.push(StrupleItem::new(id, sub));
         Ok(())
     }
 

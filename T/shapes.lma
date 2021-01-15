@@ -26,11 +26,16 @@ impl Shape with Rectangle ::
     --
 --
 
+func area_string:Str :: s:Shape ->
+    let a := s.area()
+    "area is $a"
+--
+
 func main ->
     let c := Circle(2)
     let r := Rectangle(4, 5)
-    let carea := c.area()
-    let rarea := r.area()
-    io.print("circular area: $carea\n")
-    io.print("rectangular area: $rarea\n")
+    let carea := area_string(c)
+    let rarea := area_string(c)
+    io.print("circular $carea\n")
+    io.print("rectangular $rarea\n")
 --

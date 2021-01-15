@@ -799,6 +799,9 @@ impl<'p> TypeCheck<'p>
             if let Some(alias) = proto.alias_type() {
                 return Ok(Some(ltry!(self.match_type(alias, t1, opens))));
             }
+            if let Some(supert) = proto.trait_with_impl(t1) {
+                return Ok(Some(supert.clone()));
+            }
         }
         Ok(None)
     }
@@ -1401,7 +1404,7 @@ impl Semantics
         let func_ref = proto.find_method(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
-        // somehow figure out generic types if necessary
+        // what's going on here?
         let closed = vec![];
         let ftyp = if func_ref.typ.is_generic() {
             func_ref.typ.try_func_ref()?
@@ -1449,7 +1452,7 @@ impl Semantics
         ]);
         let mut result = lfctx!(
             ast2::walk(body, &mut pipe),
-            "module": f.m.name.to_lstr(),
+            "module": modname.as_lstr().clone(),
             "function": Lstr::Sref(f.f)
         );
 
@@ -1457,8 +1460,9 @@ impl Semantics
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
             return Err(rustfail!(
                 SEMFAIL,
-                "bad return type in {}, expected: {}, found {}",
-                f,
+                "bad return type in {}.{}, expected: {}, found {}",
+                modname,
+                f.f,
                 ftyp.result,
                 result.typ,
             ));
