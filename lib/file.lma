@@ -1,21 +1,21 @@
 
-datatype File --
+datatype File -RUST-
 
 ## open a file
 ## how to distinguish when opening a file for reading or writing
-func open path:Str /File >> __RUST__ --
+func open:File :: path:Str -RUST-
 
 ## read from a file
-func read f:File /Str >> __RUST__ --
+func read:Str :: f:File -RUST-
 
 ## write to a file
-func write f:File data:Str /Int >> __RUST__ --
+func write:Int :: f:File data:Str -RUST-
 
 ## read the full contents of a file into a string
-func read_file path:Str /Str >> __RUST__ --
+func read_file:Str :: path:Str -RUST-
 
 ## write the full contents of a string into a file
-func write_file path:Str output:Str >> __RUST__ --
+func write_file :: path:Str output:Str -RUST-
 
 ## check if a file exists
-func exists path:Str /Bool >> __RUST__ --
+func exists:Bool :: path:Str -RUST-
