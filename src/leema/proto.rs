@@ -561,23 +561,13 @@ impl ProtoModule
             // where self.data_t has already been set to Some
             let data_t = &self.data_t.as_ref().unwrap().t;
             let t = self.ast_to_type(&f.v, data_t.type_args())?;
-            match f.k {
-                Some(k) => {
-                    let scope_type =
-                        AstNode::new(Ast::DataMember(t, i as u8), f.v.loc);
-                    self.modscope.insert(k, scope_type);
-                }
-                None => {
-                    eprintln!("unnamed field: {} {:?}", i, f)
-                    /*
-                    return Err(Failure::static_leema(
-                        failure::Mode::LeemaTodoFailure,
-                        Lstr::Sref("unnamed fields unimplemented"),
-                        self.key.name.0.clone(),
-                        f.v.loc.lineno,
-                    ))
-                    */
-                }
+            let lstrk = f.k.map(|k| Lstr::Sref(k));
+            let fname = Type::unwrap_name(&lstrk, i);
+            let scope_type = AstNode::new(Ast::DataMember(t, i as u8), f.v.loc);
+            if let Lstr::Sref(k) = fname {
+                self.modscope.insert(k, scope_type);
+            } else {
+                eprintln!("cannot add field with dynamic name: {}", fname);
             }
         }
         Ok(())
