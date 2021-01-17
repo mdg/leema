@@ -225,34 +225,91 @@ pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 #[derive(PartialEq)]
 pub enum Ast
 {
+    // Type def_alias Type
     Alias(Xlist, Box<AstNode>),
+
+    // _ Block [Stmts]
     Block(Vec<AstNode>),
+
+    // Base CallPath Args
     Call(AstNode, Xlist),
+
+    // Path
     Canonical(Canonical),
+
+    // Val
     ConstVal(Val),
+
+    // ?
     Copy(AstNode),
+
+    // Src Set Args
     CopyAndSet(AstNode, Xlist),
+
+    // Base Field FieldRef
     DataMember(Type, u8),
+
+    // Id def_const Src
     DefConst(&'static str, AstNode),
+
+    // f...
     DefFunc(AstNode, Xlist, AstNode, AstNode),
+
+    // (Trait, DataType) impl Block
     DefImpl(AstNode, AstNode, Vec<AstNode>),
+
+    // Trait def_trait Block
     DefTrait(AstNode, Vec<AstNode>),
+
+    // Name:Args def_macro Block
     DefMacro(&'static str, Vec<&'static str>, AstNode),
+
+    // Type def_struct/enum (Variants|Fields)
     DefType(DataType, AstNode, Xlist),
+
+    // Regular Type?
     FuncType(AstNode, Xlist),
+
+    // Id with_type_args|apply_types Type*
     Generic(AstNode, Xlist),
+
+    // Id, and Id : Type
     Id(&'static str),
+
+    // _ if Cases
     Ifx(Vec<Case>),
+
+    // Pattern(:Type)? assignment Src
     Let(AstNode, AstNode, AstNode),
+
+    // List
     List(Xlist),
+
+    // expr match cases
     Matchx(Option<AstNode>, Vec<Case>),
+
+    // import/export list
     ModAction(ModAction, ModTree),
+
+    // (_ op val) or (val op _)
     Op1(&'static str, AstNode),
+
+    // (a op b)
     Op2(&'static str, AstNode, AstNode),
+
+    // (_ return val)
     Return(AstNode),
+
+    // (base strx list)
     StrExpr(Vec<AstNode>),
+
+    // (_ tuple [items])
     Tuple(Xlist),
+
+    // (path Type args)
     Type(Type),
+
+    // (Id _)
     Wildcard,
 }
 
