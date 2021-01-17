@@ -153,11 +153,8 @@ impl<'l> ast2::Op for MacroApplication<'l>
                         // already what it needs to be. continue.
                     }
                     Ast::Generic(_, _) => {
-                        // what's happening with generics here?
-                        eprintln!(
-                            "why generic call at line {}",
-                            callid.loc.lineno
-                        );
+                        // a type call shouldn't be a macro so proceed
+                        // maybe there might be a macro call to inner args
                     }
                     other => {
                         // is something else, like a method call maybe
