@@ -1456,7 +1456,11 @@ impl Semantics
             "function": Lstr::Sref(f.f)
         );
 
-        result.typ = type_check.inferred_type(&result.typ, &[])?;
+        if result.typ.is_untyped_block() {
+            result.typ = ftyp.result.clone();
+        } else {
+            result.typ = type_check.inferred_type(&result.typ, &[])?;
+        }
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
             return Err(rustfail!(
                 SEMFAIL,

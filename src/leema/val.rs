@@ -417,6 +417,14 @@ impl Type
         self.path.as_str() == Type::PATH_FAILURE
     }
 
+    pub fn is_untyped_block(&self) -> bool
+    {
+        match self.path.as_str() {
+            Type::PATH_BLOCK_ABSTRACT | Type::PATH_BLOCK_RUST => true,
+            _ => false,
+        }
+    }
+
     pub fn type_ref<'a>(&'a self) -> TypeRef<'a>
     {
         TypeRef(self.path.as_str(), &self.args)
