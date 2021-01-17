@@ -54,10 +54,21 @@ impl Fiber
         code: Rc<Code>,
         dst: Reg,
         line: i16,
-        func: Fref,
+        mut func: Fref,
         args: Struple2<Val>,
     )
     {
+        // if it's a method, substitute in the implementing type
+        if func.is_method() {
+            if let Some(selfie) = args.first() {
+                let self_val_t = selfie.v.get_type();
+                // replace self type instead of mod
+                let ftyp = func.t.func_ref_mut().unwrap();
+                ftyp.args.first_mut().map(|f| {
+                    f.v = self_val_t;
+                });
+            }
+        }
         let pushed_stack = self.head.stack.push(50);
         let mut newf = Frame {
             parent: Parent::Null,

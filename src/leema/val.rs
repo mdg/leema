@@ -4,7 +4,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModKey;
+use crate::leema::module::{ModKey, ModTyp};
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone;
@@ -849,6 +849,22 @@ impl Fref
             f,
             t: Type::UNKNOWN,
         }
+    }
+
+    pub fn is_method(&self) -> bool
+    {
+        match self.m.mtyp {
+            ModTyp::Data | ModTyp::Trait | ModTyp::TraitData | ModTyp::Impl => {
+                if let Some(frt) = self.t.func_ref() {
+                    if let Some(first) = frt.args.first() {
+                        return first.k.as_str() == "self"
+                            && first.v.path == self.m.name;
+                    }
+                }
+            }
+            _ => {}
+        }
+        false
     }
 }
 

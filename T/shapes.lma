@@ -35,7 +35,7 @@ func main ->
     let c := Circle(2)
     let r := Rectangle(4, 5)
     let carea := area_string(c)
-    let rarea := area_string(c)
+    let rarea := area_string(r)
     io.print("circular $carea\n")
     io.print("rectangular $rarea\n")
 --

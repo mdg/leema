@@ -1484,7 +1484,8 @@ impl ProtoLib
     /// seems like first parameter isn't used, could optimize by removing it
     pub fn take_func(&mut self, f: &Fref) -> Lresult<(Canonical, AstNode)>
     {
-        if f.m.mtyp == ModTyp::Impl {
+        let mtyp = f.m.mtyp;
+        if mtyp == ModTyp::Impl || mtyp == ModTyp::Trait {
             let ftyp = f.t.func_ref().unwrap();
             let self_arg = ftyp.args.first().unwrap();
             if self_arg.k.as_str() != "self" {
