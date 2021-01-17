@@ -134,7 +134,7 @@ impl Lib
         let start = start_timer!();
         let semantics = ltry!(self.read_semantics(f));
 
-        if let Ast::RustBlock = &*semantics.src.node {
+        if Ast::BLOCK_RUST == *semantics.src.node {
             let rust_loader = self.rust_load.get(&f.m.name);
             if rust_loader.is_none() {
                 panic!("no rust loader for: {}", f.m);
@@ -144,6 +144,12 @@ impl Lib
                 panic!("no rust function for: {}", f);
             }
             Ok(rustfunc.unwrap())
+        } else if Ast::BLOCK_ABSTRACT == *semantics.src.node {
+            Err(rustfail!(
+                "compile_failure",
+                "cannot load code for abstract function: {}",
+                f,
+            ))
         } else {
             let mut semantics_ast = semantics.src;
             code::assign_registers(&mut semantics_ast)?;

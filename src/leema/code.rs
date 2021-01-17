@@ -295,7 +295,6 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             base_ops.ops
         }
         Ast::Id(ref _id) => vec![],
-        Ast::RustBlock => vec![],
 
         // invalid patterns
         Ast::Matchx(None, _) => {
@@ -771,7 +770,6 @@ impl Registration
             | Ast::FuncType(_, _)
             | Ast::Generic(_, _)
             | Ast::ModAction(_, _)
-            | Ast::RustBlock
             | Ast::Wildcard => {} // do nothing
             Ast::Alias(_, _) => {
                 panic!("unexpected alias {:?}, at {:?}", node.node, node.loc);

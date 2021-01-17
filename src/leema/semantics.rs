@@ -1122,9 +1122,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::ConstVal(c) if node.typ.is_open() => {
                 node.typ = c.get_type();
             }
-            Ast::RustBlock => {
-                node.typ = self.result.clone();
-            }
             Ast::Wildcard => {
                 node.typ = Type::UNKNOWN;
             }
@@ -1136,6 +1133,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
             | Ast::Tuple(_)
             | Ast::Let(_, _, _) => {
                 // handled in post
+            }
+            Ast::ConstVal(Val::Type(utb)) if utb.is_untyped_block() => {
+                node.typ = self.result.clone();
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1399,6 +1399,14 @@ impl Semantics
         let mut sem = Semantics::new();
 
         let (modname, body) = lib.take_func(&f)?;
+        if *body.node == Ast::BLOCK_ABSTRACT {
+            return Err(rustfail!(
+                "compile_failure",
+                "cannot execute abstract function: {}.{}",
+                modname,
+                f.f,
+            ));
+        }
         let proto = lib.path_proto(&modname)?;
 
         let func_ref = proto.find_method(&f.f).ok_or_else(|| {

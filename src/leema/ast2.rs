@@ -250,7 +250,6 @@ pub enum Ast
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
-    RustBlock,
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
     Type(Type),
@@ -346,7 +345,6 @@ impl Ast
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
             Ast::Return(result) => write!(f, "Return {:?}", result),
-            Ast::RustBlock => write!(f, "RustBlock"),
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
             Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
             Ast::Type(inner) => write!(f, "Type {}", inner),
@@ -748,7 +746,6 @@ impl Walker
             | Ast::ConstVal(_)
             | Ast::DataMember(_, _)
             | Ast::Id(_)
-            | Ast::RustBlock
             | Ast::Wildcard => {
                 // nowhere else to go
             }
