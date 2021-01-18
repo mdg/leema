@@ -256,6 +256,9 @@ impl LeemaPrec
             .postfix(Rule::tuple)
             //----
             .right()
+            .infix(Rule::cons)
+            //----
+            .right()
             .prefix(Rule::negative)
             .prefix(Rule::star)
             //----
@@ -639,6 +642,7 @@ impl LeemaPrec
     {
         match op.as_rule() {
             Rule::dot
+            | Rule::cons
             | Rule::and
             | Rule::or
             | Rule::plus

@@ -90,6 +90,7 @@ lazy_static! {
         ids.insert("boolean_and", Ast::canonical("/core.boolean_and"));
         ids.insert("boolean_not", Ast::canonical("/core.boolean_not"));
         ids.insert("boolean_or", Ast::canonical("/core.boolean_or"));
+        ids.insert("cons", Ast::canonical("/core.cons"));
         ids.insert("create_failure", Ast::canonical("/core.create_failure"));
         ids.insert("fail", Ast::canonical("/core.fail"));
         ids.insert("int_add", Ast::canonical("/core.int_add"));
