@@ -8,7 +8,6 @@ Leema is a concurrent, error-tolerant, functional programming language.
 ## Build
 
 Dependencies:
-* lemon_rust submodule
 * C/C++ std libraries
 * llvm
 
@@ -23,10 +22,12 @@ make test
 
 Unit tests only
 ```
-make unit
+cargo test
 ```
 
 Integration tests only
 ```
 make T
 ```
+
+Copyright 2021 Matthew Graham
