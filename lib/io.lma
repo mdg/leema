@@ -1,3 +1,4 @@
+## Copyright 2021 Matthew Graham
 
 macro println :: x ->
     io.print("$x\n")
