@@ -4,14 +4,10 @@ use crate::leema::lstr::Lstr;
 use crate::leema::sendclone;
 
 use std::borrow::Borrow;
-use std::ffi::OsStr;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Component, Path, PathBuf};
 
-
-const DEFAULT_MODNAME: &'static str = "$";
-pub const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 
 #[derive(Clone)]
 #[derive(Copy)]
@@ -24,23 +20,19 @@ pub const DEFAULT_MOD: CanonicalMod = CanonicalMod(Lstr::Sref("$"));
 pub enum ModTyp
 {
     File,
-    Token,
-    Struct,
-    VariantToken,
-    VariantStruct,
-    Function,
-    Interface,
-    InterfaceImpl,
-    Protocol,
-    ProtocolImpl,
+    Data,
+    TraitData,
+    Trait,
+    Impl,
+    Alias,
 }
 
 impl ModTyp
 {
-    pub fn is_struct(&self) -> bool
+    pub fn is_data(&self) -> bool
     {
         match self {
-            ModTyp::Struct | ModTyp::VariantStruct => true,
+            ModTyp::Data | ModTyp::TraitData => true,
             _ => false,
         }
     }
@@ -55,14 +47,14 @@ impl ModTyp
 #[derive(Ord)]
 pub struct ModKey
 {
-    pub name: CanonicalMod,
+    pub name: Canonical,
     pub file: Option<Box<Path>>,
     pub mtyp: ModTyp,
 }
 
 impl ModKey
 {
-    pub fn new(name: CanonicalMod, path: PathBuf) -> ModKey
+    pub fn new(name: Canonical, path: PathBuf) -> ModKey
     {
         ModKey {
             name,
@@ -80,25 +72,35 @@ impl ModKey
                 // convert the path to a string and then Lstr
                 Lstr::from(format!("{}", f.display()))
             })
-            .unwrap_or_else(|| {
-                // clone the name Lstr
-                self.name.0.clone()
-            })
+            .unwrap_or_else(|| self.name.to_lstr())
     }
 
-    pub fn submod(&self, mt: ModTyp, name: &'static str) -> ModKey
+    pub fn submod(&self, mt: ModTyp, name: &'static str) -> Lresult<ModKey>
     {
-        ModKey {
-            name: CanonicalMod(lstrf!("{}.{}", self.name, name)),
+        Ok(ModKey {
+            name: self.name.join(name)?,
             file: self.file.clone(),
             mtyp: mt,
-        }
+        })
+    }
+
+    /// create a new ModKey with the same path and n arbitrary module name
+    /// the ModTyp for this key will always be ModTyp::Impl
+    /// kind of weird that it can't encode both the trait type and
+    /// the data type, but the ProtoModule can so hopefully that's good enough
+    pub fn subimpl(&self, name: Canonical) -> Lresult<ModKey>
+    {
+        Ok(ModKey {
+            name,
+            file: self.file.clone(),
+            mtyp: ModTyp::Impl,
+        })
     }
 }
 
-impl From<CanonicalMod> for ModKey
+impl From<Canonical> for ModKey
 {
-    fn from(name: CanonicalMod) -> ModKey
+    fn from(name: Canonical) -> ModKey
     {
         ModKey {
             name,
@@ -113,7 +115,7 @@ impl From<&'static str> for ModKey
     fn from(mod_str: &'static str) -> ModKey
     {
         ModKey {
-            name: CanonicalMod(Lstr::Sref(mod_str)),
+            name: Canonical::new(Lstr::Sref(mod_str)),
             file: None,
             mtyp: ModTyp::File,
         }
@@ -125,7 +127,7 @@ impl Default for ModKey
     fn default() -> ModKey
     {
         ModKey {
-            name: DEFAULT_MOD,
+            name: Canonical::DEFAULT,
             file: None,
             mtyp: ModTyp::File,
         }
@@ -151,7 +153,7 @@ impl sendclone::SendClone for ModKey
     fn clone_for_send(&self) -> ModKey
     {
         ModKey {
-            name: CanonicalMod(self.name.0.clone_for_send()),
+            name: self.name.clone_for_send(),
             file: self.file.clone(),
             mtyp: self.mtyp.clone(),
         }
@@ -259,11 +261,13 @@ pub struct ImportedMod(pub PathBuf);
 
 impl ImportedMod
 {
+    /// Check the relativity for this module's path
     pub fn relativity(&self) -> ModRelativity
     {
         Self::path_relativity(&self.0)
     }
 
+    /// check the relativity for any path
     pub fn path_relativity(p: &Path) -> ModRelativity
     {
         if p.extension().map(|x| x == "function").unwrap_or(false) {
@@ -282,9 +286,10 @@ impl ImportedMod
         }
     }
 
+    /// check if this imported module has an absolute path
     pub fn is_absolute(&self) -> bool
     {
-        !(self.is_sibling() || self.is_child())
+        self.0.components().next().unwrap() == Component::RootDir
     }
 
     pub fn is_sibling(&self) -> bool
@@ -383,6 +388,14 @@ impl From<&str> for ImportedMod
     }
 }
 
+impl AsRef<std::ffi::OsStr> for ImportedMod
+{
+    fn as_ref(&self) -> &std::ffi::OsStr
+    {
+        self.0.as_os_str()
+    }
+}
+
 impl PartialEq<ImportedMod> for &str
 {
     fn eq(&self, other: &ImportedMod) -> bool
@@ -399,197 +412,10 @@ impl fmt::Display for ImportedMod
     }
 }
 
-#[derive(Clone)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Eq)]
-#[derive(Ord)]
-#[derive(Hash)]
-pub struct CanonicalMod(pub Lstr);
-
-#[macro_export]
-macro_rules! canonical_mod {
-    ($cm:expr) => {
-        crate::leema::module::CanonicalMod(crate::leema::lstr::Lstr::Sref($cm))
-    };
-}
-
-impl CanonicalMod
-{
-    /// Check if this module is a core module
-    pub fn is_core(&self) -> bool
-    {
-        // maybe memoize this as a struct var at some point
-        self.0.starts_with("/core")
-    }
-
-    pub fn as_path(&self) -> &Path
-    {
-        Path::new(self.0.str())
-    }
-
-    pub fn to_canonical(&self) -> Canonical
-    {
-        Canonical::new(self.0.clone())
-    }
-
-    pub fn split_type(&self) -> Lresult<(CanonicalMod, Lstr)>
-    {
-        match self.0 {
-            Lstr::Sref(s) => {
-                let p = Path::new(s);
-                let ext = p.extension().unwrap();
-                let stem = p.file_stem().unwrap();
-                let parent = CanonicalMod(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
-                Ok((parent, Lstr::Sref(ext.to_str().unwrap())))
-            }
-            Lstr::Arc(ref s) => {
-                let p = Path::new(&**s);
-                let ext = p.extension().unwrap();
-                let stem = p.file_stem().unwrap();
-                let parent = CanonicalMod(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
-                Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
-            }
-            ref other => {
-                panic!("not a normal Lstr: {:?}", other);
-            }
-        }
-    }
-
-    pub fn push<S: AsRef<OsStr>>(&self, imp: &S) -> CanonicalMod
-    {
-        let import = Path::new(imp);
-        match ImportedMod::path_relativity(import) {
-            ModRelativity::Absolute => {
-                CanonicalMod(Lstr::from(format!("{}", import.display())))
-            }
-            ModRelativity::Sibling => {
-                let sib_base = self.as_path().parent().unwrap();
-                let sib_path = import.strip_prefix("../").unwrap();
-                let sib = sib_base.join(sib_path);
-                CanonicalMod(Lstr::from(format!("{}", sib.display())))
-            }
-            ModRelativity::Child | ModRelativity::Local => {
-                let ch_path = self.as_path().join(import);
-                CanonicalMod(Lstr::from(format!("{}", ch_path.display())))
-            }
-        }
-    }
-
-    pub fn ancestors(path: &Path) -> Vec<&Path>
-    {
-        let av: Vec<&Path> = path.ancestors().collect();
-        av.into_iter()
-            .rev()
-            .skip(1)
-            .map(|p| {
-                // extensions should be trimmed
-                // is there a way to only do this for the final path
-                // since it's the only one that will ever have an extension?
-                let xlen = match p.extension() {
-                    Some(x) => x.len() + 1,
-                    None => {
-                        return p;
-                    }
-                };
-                let pstr = p.as_os_str().to_str().unwrap();
-                let (base, _) = pstr.split_at(pstr.len() - xlen);
-                Path::new(base)
-            })
-            .collect()
-    }
-
-    pub fn file_path_buf(cpath: &Path) -> Lresult<PathBuf>
-    {
-        cpath
-            .strip_prefix("/")
-            .map(|relative_path| relative_path.with_extension("lma"))
-            .map_err(|path_err| {
-                rustfail!(
-                    "load_fail",
-                    "unexpected lack of root prefix in {} - error {}",
-                    cpath.display(),
-                    path_err,
-                )
-            })
-    }
-}
-
-impl From<&Path> for CanonicalMod
-{
-    fn from(mp: &Path) -> CanonicalMod
-    {
-        if !mp.is_absolute() {
-            panic!("canonical mod must be absolute: {:?}", mp);
-        }
-        CanonicalMod(lstrf!("{}", mp.display()))
-    }
-}
-
-impl Borrow<str> for CanonicalMod
-{
-    fn borrow(&self) -> &str
-    {
-        self.0.str()
-    }
-}
-
-impl PartialEq<CanonicalMod> for str
-{
-    fn eq(&self, other: &CanonicalMod) -> bool
-    {
-        *self == other.0
-    }
-}
-
-impl Default for CanonicalMod
-{
-    fn default() -> CanonicalMod
-    {
-        DEFAULT_MOD
-    }
-}
-
-impl fmt::Display for CanonicalMod
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        f.write_str(self.0.str())
-    }
-}
-
-impl fmt::Debug for CanonicalMod
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "{:?}", self.0.str())
-    }
-}
-
-#[macro_export]
-macro_rules! canonical_typemod {
-    ($tm:expr) => {
-        crate::leema::module::CanonicalMod(crate::leema::lstr::Lstr::Sref($tm))
-    };
-}
-
-#[macro_export]
-macro_rules! user_type {
-    ($m:expr, $t:expr) => {
-        crate::leema::val::Type::User(canonical_typemod!($m), $t)
-    };
-}
-
-
 #[cfg(test)]
 mod tests
 {
-    use super::{CanonicalMod, ImportedMod, ModAlias, ModRelativity};
-    use crate::leema::lstr::Lstr;
+    use super::{ImportedMod, ModAlias, ModRelativity};
 
     use std::collections::HashMap;
     use std::path::Path;
@@ -605,39 +431,10 @@ mod tests
     }
 
     #[test]
-    fn test_canonical_ancestors()
+    fn test_imported_mod_not_absolute()
     {
-        let a = CanonicalMod::ancestors(Path::new("/foo/bar.baz"));
-        let mut it = a.iter();
-        assert_eq!("/foo", it.next().unwrap().as_os_str());
-        assert_eq!("/foo/bar", it.next().unwrap().as_os_str());
-        assert_eq!(2, a.len());
-    }
-
-    #[test]
-    fn test_canonical_push_sibling()
-    {
-        let cm = CanonicalMod(Lstr::from("/foo/bar"));
-        let result = cm.push(&Path::new("../taco"));
-        assert_eq!("/foo/taco", result.0.str());
-    }
-
-    #[test]
-    fn test_canonical_split_type_arc()
-    {
-        let ct = CanonicalMod(Lstr::from("/taco.Burrito".to_string()));
-        let (m, t) = ct.split_type().unwrap();
-        assert_eq!("/taco", m.0.str());
-        assert_eq!("Burrito", t.str());
-    }
-
-    #[test]
-    fn test_canonical_split_type_sref()
-    {
-        let ct = CanonicalMod(Lstr::from("/taco.Burrito"));
-        let (m, t) = ct.split_type().unwrap();
-        assert_eq!("/taco", m.0.str());
-        assert_eq!("Burrito", t.str());
+        let rel = ImportedMod::from("tortas/tacos");
+        assert!(!rel.is_absolute());
     }
 
     #[test]

@@ -8,6 +8,7 @@ mod leema;
 extern crate pest_derive;
 
 use crate::leema::application::Application;
+use crate::leema::canonical::Canonical;
 use crate::leema::code;
 use crate::leema::failure::Lresult;
 use crate::leema::list;
@@ -15,7 +16,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
-use crate::leema::val::{Fref, FuncType, Type, Val};
+use crate::leema::val::{Fref, Type, Val};
 
 use docopt::Docopt;
 use std::env;
@@ -28,6 +29,7 @@ struct Args
     arg_args: Vec<String>,
     flag_verbose: bool,
     flag_func: Option<String>,
+    flag_mod: Option<String>,
     flag_tokens: bool,
     flag_ast: bool,
     flag_preface: bool,
@@ -58,6 +60,7 @@ Options:
      --code        Show code for the function
      --repl        Launch the REPL
      --func=<func>
+     --mod=<module>
   -v --verbose     Output debug messages
   -h --help        Show this message
 ";
@@ -114,8 +117,7 @@ fn real_main() -> Lresult<()>
             Fref::with_modules(main_key.clone(), sfunc)
         }
         None => {
-            let main_ftyp = FuncType::new(vec![], Type::VOID);
-            let main_type = Type::Func(main_ftyp);
+            let main_type = Type::f(Type::VOID, vec![]);
             Fref::new(main_key.clone(), "main", main_type)
         }
     };
@@ -134,8 +136,12 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_proto {
         let mut prog = program::Lib::new(inter);
-        prog.load_proto_and_imports(&main_mod)?;
-        let proto = prog.find_proto(&main_mod)?;
+        let module = match args.flag_mod {
+            Some(user_mod) => Canonical::new(Lstr::from(user_mod)),
+            None => main_mod.clone(),
+        };
+        prog.load_proto_and_imports(&module)?;
+        let proto = prog.find_proto(&module)?;
         println!("\n{:#?}\n", proto);
         None
     } else if args.flag_semantics {

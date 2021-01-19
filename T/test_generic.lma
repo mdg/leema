@@ -1,7 +1,7 @@
 
 import /io
 
-func swap'A'B:(B A) :: a:A b:B ->
+func <swap A B>:(B A) :: a:A b:B ->
     (b, a)
 --
 
@@ -11,7 +11,7 @@ func main ->
     let c := 3
     let d := True
 
-    let x := swap'Str'#(a, b)
+    let x := <swap Str #>(a, b)
     let y := swap(c, d)
     let z := swap(b, c)
 

@@ -1,6 +1,7 @@
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{ImportedMod, ModKey};
+use crate::leema::module::ImportedMod;
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleKV};
 use crate::leema::token::TokenSrc;
@@ -224,31 +225,31 @@ pub type Xlist = StrupleKV<Option<&'static str>, AstNode>;
 #[derive(PartialEq)]
 pub enum Ast
 {
+    Alias(Xlist, Box<AstNode>),
     Block(Vec<AstNode>),
     Call(AstNode, Xlist),
+    Canonical(Canonical),
     ConstVal(Val),
     Copy(AstNode),
     CopyAndSet(AstNode, Xlist),
+    DataMember(Type, u8),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
-    DefImpl(AstNode, Option<AstNode>, Vec<AstNode>),
-    DefInterface(AstNode, Vec<AstNode>),
+    DefImpl(AstNode, AstNode, Vec<AstNode>),
+    DefTrait(AstNode, Vec<AstNode>),
     DefMacro(&'static str, Vec<&'static str>, AstNode),
     DefType(DataType, AstNode, Xlist),
-    FuncType(Xlist, AstNode),
+    FuncType(AstNode, Xlist),
     Generic(AstNode, Xlist),
     Id(&'static str),
     Ifx(Vec<Case>),
-    InterfaceBlock,
     Let(AstNode, AstNode, AstNode),
     List(Xlist),
     Matchx(Option<AstNode>, Vec<Case>),
     ModAction(ModAction, ModTree),
-    Module(ModKey, Xlist, Xlist),
     Op1(&'static str, AstNode),
     Op2(&'static str, AstNode, AstNode),
     Return(AstNode),
-    RustBlock,
     StrExpr(Vec<AstNode>),
     Tuple(Xlist),
     Type(Type),
@@ -257,8 +258,15 @@ pub enum Ast
 
 impl Ast
 {
+    pub const BLOCK_ABSTRACT: Ast = Ast::ConstVal(Val::BLOCK_ABSTRACT);
+    pub const BLOCK_RUST: Ast = Ast::ConstVal(Val::BLOCK_RUST);
     pub const VOID: Ast = Ast::ConstVal(Val::VOID);
     pub const NEWLINE: Ast = Ast::ConstVal(Val::Str(Lstr::Sref("\n")));
+
+    pub const fn canonical(c: &'static str) -> Ast
+    {
+        Ast::Canonical(Canonical::new(Lstr::Sref(c)))
+    }
 
     pub fn loc(t: &TokenSrc) -> Loc
     {
@@ -279,16 +287,25 @@ impl Ast
         }
     }
 
+    // check if an Ast object is const VOID
+    pub fn is_void(&self) -> bool
+    {
+        *self == Ast::VOID
+    }
+
     pub fn fmt_inner(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
+            Ast::Alias(gens, src) => write!(f, "Alias {:?} {:?}", gens, src),
             Ast::Block(items) => write!(f, "Block {:?}", items),
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
+            Ast::Canonical(c) => write!(f, "Canonical {:?}", c),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::CopyAndSet(src, flds) => {
                 write!(f, "(CopyAndSet {:?} {:?})", src, flds)
             }
+            Ast::DataMember(t, i) => write!(f, "DataMember: {} {:?}", i, t),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, result, body) => {
                 write!(
@@ -300,8 +317,8 @@ impl Ast
             Ast::DefImpl(typ, iface, funcs) => {
                 write!(f, "DefImpl {:?} {:?} {:?}", typ, iface, funcs)
             }
-            Ast::DefInterface(name, funcs) => {
-                write!(f, "DefInterface {:?} {:?}", name, funcs)
+            Ast::DefTrait(name, funcs) => {
+                write!(f, "DefTrait {:?} {:?}", name, funcs)
             }
             Ast::DefMacro(name, args, body) => {
                 write!(f, "DefMacro {:?} {:?} {:?}", name, args, body)
@@ -316,7 +333,6 @@ impl Ast
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id(id) => write!(f, "Id {}", id),
             Ast::Ifx(args) => write!(f, "If {:?}", args),
-            Ast::InterfaceBlock => write!(f, "InterfaceBlock"),
             Ast::Let(lhp, _lht, rhs) => write!(f, "Let {:?} := {:?}", lhp, rhs),
             Ast::List(items) => write!(f, "List {:?}", items),
             Ast::Matchx(None, args) => write!(f, "Match None {:?}", args),
@@ -326,13 +342,9 @@ impl Ast
             Ast::ModAction(action, tree) => {
                 write!(f, "{:?} {:?}", action, tree)
             }
-            Ast::Module(k, items, ifc) => {
-                write!(f, "(Module {} {:?} {:?})", k, items, ifc)
-            }
             Ast::Op1(op, node) => write!(f, "Op1 {} {:?}", op, node),
             Ast::Op2(op, a, b) => write!(f, "Op2 {} {:?} {:?}", op, a, b),
             Ast::Return(result) => write!(f, "Return {:?}", result),
-            Ast::RustBlock => write!(f, "RustBlock"),
             Ast::StrExpr(items) => write!(f, "Str {:?}", items),
             Ast::Tuple(items) => write!(f, "Tuple {:?}", items),
             Ast::Type(inner) => write!(f, "Type {}", inner),
@@ -369,7 +381,7 @@ impl AstNode
         AstNode {
             node: Box::new(node),
             loc,
-            typ: Type::Unknown,
+            typ: Type::UNKNOWN,
             dst: Reg::Undecided,
         }
     }
@@ -405,10 +417,19 @@ impl AstNode
     }
 
     /// Replace the Ast member in this AstNode
-    pub fn replace_node(mut self, node: Ast) -> AstNode
+    /// update the type if possible
+    pub fn replace_node(&mut self, node: Ast)
     {
+        match &node {
+            Ast::ConstVal(cv) => {
+                self.typ = cv.get_type();
+            }
+            Ast::Type(_) => {
+                self.typ = Type::KIND;
+            }
+            _ => {} // leave type as-is
+        }
         *self.node = node;
-        self
     }
 
     pub fn set_dst(&mut self, dst: Reg)
@@ -432,6 +453,9 @@ macro_rules! steptry {
         match $r {
             Ok(AstStep::Ok) => {
                 // do nothing
+            }
+            Ok(AstStep::Replace(node, typ)) => {
+                return Ok(AstStep::Replace(node, typ));
             }
             Ok(AstStep::Rewrite) => {
                 return Ok(AstStep::Rewrite);
@@ -494,6 +518,7 @@ impl AstMode
 pub enum AstStep
 {
     Ok,
+    Replace(Ast, Type),
     Rewrite,
     Stop,
 }
@@ -583,6 +608,10 @@ impl Walker
                 AstStep::Ok => {
                     break;
                 }
+                AstStep::Replace(new_node, typ) => {
+                    node.replace(new_node, typ);
+                    // loop again
+                }
                 AstStep::Rewrite => {
                     // loop again
                 }
@@ -596,23 +625,20 @@ impl Walker
 
     fn step(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
     {
-        match ltry!(op.pre(node, self.mode)) {
-            AstStep::Ok => {
-                steptry!(self.step_in(node, op));
-            }
-            AstStep::Rewrite => {
-                return Ok(AstStep::Rewrite);
-            }
-            AstStep::Stop => {
-                return Ok(AstStep::Ok);
-            }
-        }
+        steptry!(op.pre(node, self.mode));
+        steptry!(self.step_in(node, op));
         op.post(node, self.mode)
     }
 
     fn step_in(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
     {
         match &mut *node.node {
+            Ast::Alias(gens, src) => {
+                for g in gens.iter_mut() {
+                    steptry!(self.walk(&mut g.v, op));
+                }
+                steptry!(self.walk(src, op));
+            }
             Ast::Call(id, args) => {
                 steptry!(self.walk(id, op));
                 for a in args.iter_mut() {
@@ -716,13 +742,11 @@ impl Walker
                     steptry!(self.walk(&mut f.v, op));
                 }
             }
-            Ast::ConstVal(_)
+            Ast::Canonical(_)
+            | Ast::ConstVal(_)
+            | Ast::DataMember(_, _)
             | Ast::Id(_)
-            | Ast::InterfaceBlock
-            | Ast::RustBlock => {
-                // nowhere else to go
-            }
-            Ast::Module(_, _, _) | Ast::Wildcard => {
+            | Ast::Wildcard => {
                 // nowhere else to go
             }
             Ast::Copy(src) => {
@@ -743,10 +767,10 @@ impl Walker
                     iface,
                 ));
             }
-            Ast::DefInterface(name, _) => {
+            Ast::DefTrait(name, _) => {
                 return Err(rustfail!(
                     "compile_failure",
-                    "interface definition must already be processed: {:?}",
+                    "trait definition must already be processed: {:?}",
                     name,
                 ));
             }

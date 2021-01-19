@@ -1,0 +1,12 @@
+import /io
+import ../test_alias
+
+func make_three_tacos:Str :: n:test_alias.Taco ->
+    let triple := n * 3
+    "$triple tacos"
+--
+
+func main ->
+    let ts := make_three_tacos(4)
+    io.print("i want $ts\n")
+--

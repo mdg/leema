@@ -54,10 +54,21 @@ impl Fiber
         code: Rc<Code>,
         dst: Reg,
         line: i16,
-        func: Fref,
+        mut func: Fref,
         args: Struple2<Val>,
     )
     {
+        // if it's a method, substitute in the implementing type
+        if func.is_method() {
+            if let Some(selfie) = args.first() {
+                let self_val_t = selfie.v.get_type();
+                // replace self type instead of mod
+                let ftyp = func.t.func_ref_mut().unwrap();
+                ftyp.args.first_mut().map(|f| {
+                    f.v = self_val_t;
+                });
+            }
+        }
         let pushed_stack = self.head.stack.push(50);
         let mut newf = Frame {
             parent: Parent::Null,
@@ -84,7 +95,12 @@ impl Fiber
     {
         let mut e = Event::Uneventful;
         while let Event::Uneventful = e {
-            e = self.execute_leema_op(ops)?;
+            e = match self.execute_leema_op(ops) {
+                Ok(success) => success,
+                Err(f) => {
+                    return Err(f.lstr_loc(self.head.function.m.best_path(), 0));
+                }
+            };
         }
         Ok(e)
     }
@@ -131,7 +147,7 @@ impl Fiber
                 ev
             }
         };
-        result.map_err(|f| f.add_context(lstrf!("pc: {}", opc)))
+        Ok(lfctx!(result, "pc": lstrf!("{}", opc)))
     }
 
     pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
@@ -230,7 +246,10 @@ impl Fiber
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
-        ltry!(self.head.e.set_reg(reg, v.clone()));
+        lfctx!(
+            self.head.e.set_reg(reg, v.clone()),
+            "cannot_load_constant": lstrf!("{:?}", v)
+        );
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -244,26 +263,19 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let items = self.head.e.get_params();
-        let construple = if let Type::User(_mname, _fname) = new_typ {
-            let new_items = items
-                .iter()
-                .zip(flds.iter())
-                .map(|(i, f)| {
-                    if i.k.is_some() {
-                        StrupleItem::new(i.k.clone(), i.v.clone())
-                    } else {
-                        StrupleItem::new(f.k.clone(), i.v.clone())
-                    }
-                })
-                .collect();
-            Val::EnumStruct(new_typ.clone(), variant.clone(), new_items)
-        } else {
-            return Err(rustfail!(
-                "leema_failure",
-                "struct type is not user defined: {:?}",
-                new_typ,
-            ));
-        };
+        let new_items = items
+            .iter()
+            .zip(flds.iter())
+            .map(|(i, f)| {
+                if i.k.is_some() {
+                    StrupleItem::new(i.k.clone(), i.v.clone())
+                } else {
+                    StrupleItem::new(f.k.clone(), i.v.clone())
+                }
+            })
+            .collect();
+        let construple =
+            Val::EnumStruct(new_typ.clone(), variant.clone(), new_items);
 
         ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
@@ -278,26 +290,18 @@ impl Fiber
     ) -> Lresult<Event>
     {
         let items = self.head.e.get_params();
-        let construple = if let Type::User(_, _) = new_typ {
-            let new_items = items
-                .iter()
-                .zip(flds.iter())
-                .map(|(i, f)| {
-                    if i.k.is_some() {
-                        StrupleItem::new(i.k.clone(), i.v.clone())
-                    } else {
-                        StrupleItem::new(f.k.clone(), i.v.clone())
-                    }
-                })
-                .collect();
-            Val::Struct(new_typ.clone(), new_items)
-        } else {
-            return Err(rustfail!(
-                "leema_failure",
-                "struct type is not user defined: {:?}",
-                new_typ,
-            ));
-        };
+        let new_items = items
+            .iter()
+            .zip(flds.iter())
+            .map(|(i, f)| {
+                if i.k.is_some() {
+                    StrupleItem::new(i.k.clone(), i.v.clone())
+                } else {
+                    StrupleItem::new(f.k.clone(), i.v.clone())
+                }
+            })
+            .collect();
+        let construple = Val::Struct(new_typ.clone(), new_items);
 
         ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;

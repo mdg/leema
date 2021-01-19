@@ -53,8 +53,8 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self.k {
-            Some(ref k) => write!(f, "{}:{},", k, self.v),
-            None => write!(f, "{},", self.v),
+            Some(ref k) => write!(f, "{}:{}", k, self.v),
+            None => write!(f, "{}", self.v),
         }
     }
 }
@@ -139,14 +139,13 @@ pub fn iter_v<K, V>(s: &StrupleKV<K, V>) -> impl Iterator<Item = &V>
 }
 
 pub fn map_v<K, V, F, U>(
-    s: &StrupleKV<K, V>,
+    s: &StrupleSlice<K, V>,
     mut f: F,
 ) -> Lresult<StrupleKV<K, U>>
 where
     F: FnMut(&V) -> Lresult<U>,
     K: Clone,
 {
-    // let m_result_items: Vec<Lresult<StrupleItem<K, U>>> = s
     let m_result_items = s.iter().map(|kv| {
         let u = f(&kv.v)?;
         Ok(StrupleItem::new(kv.k.clone(), u))
@@ -169,72 +168,65 @@ where
     Lresult::from_iter(m_result_items)
 }
 
-pub fn find<'s, 'k, K, V>(
-    s: &'s [StrupleItem<K, V>],
-    key: &'k K,
-) -> Option<(usize, &'s V)>
+pub fn find<'s, S, V, K>(s: &'s [StrupleItem<S, V>], key: K) -> Option<&'s V>
 where
-    K: PartialEq,
+    S: AsRef<str>,
+    K: AsRef<str>,
 {
     s.iter()
-        .enumerate()
-        .find(|(_, i)| i.k == *key)
-        .map(|(idx, item)| (idx, &item.v))
+        .find(|i| i.k.as_ref() == key.as_ref())
+        .map(|item| &item.v)
 }
 
-pub fn find_str<'s, 'k, V>(
-    s: &'s [StrupleItem<Option<&'static str>, V>],
-    key: &'k str,
-) -> Option<(usize, &'s V)>
-{
-    s.iter()
-        .enumerate()
-        .find(|(_, i)| {
-            match &i.k {
-                Some(ref item_key) => **item_key == *key,
-                None => false,
-            }
-        })
-        .map(|(idx, item)| (idx, &item.v))
-}
-
-pub fn find_str_mut<'s, 'k, V>(
-    s: &'s mut [StrupleItem<Option<&'static str>, V>],
-    key: &'k str,
-) -> Option<(usize, &'s mut V)>
+pub fn find_mut<'s, S, V, K>(
+    s: &'s mut [StrupleItem<S, V>],
+    key: K,
+) -> Option<&'s mut V>
+where
+    S: AsRef<str>,
+    K: AsRef<str>,
 {
     s.iter_mut()
-        .enumerate()
-        .find(|(_, i)| {
-            match &i.k {
-                Some(ref item_key) => **item_key == *key,
-                None => false,
-            }
-        })
-        .map(|(idx, item)| (idx, &mut item.v))
+        .find(|i| i.k.as_ref() == key.as_ref())
+        .map(|item| &mut item.v)
 }
 
-pub fn find_lstr<'s, 'k, V>(
-    s: &'s [StrupleItem<Option<Lstr>, V>],
-    key: &'k str,
+pub fn find_idx<'s, S, V, K>(
+    s: &'s [StrupleItem<S, V>],
+    key: K,
 ) -> Option<(usize, &'s V)>
+where
+    S: AsRef<str>,
+    K: AsRef<str>,
 {
     s.iter()
         .enumerate()
-        .find(|(_, i)| {
-            match &i.k {
-                Some(ref item_key) => **item_key == *key,
-                None => false,
-            }
-        })
+        .find(|(_, i)| i.k.as_ref() == key.as_ref())
         .map(|(idx, item)| (idx, &item.v))
 }
 
-pub fn contains_key<K, V>(s: &[StrupleItem<K, V>], k: &K) -> bool
+pub fn contains_key<S, V, K>(s: &[StrupleItem<S, V>], k: K) -> bool
 where
-    K: PartialEq,
+    S: AsRef<str>,
+    K: AsRef<str>,
 {
     find(s, k).is_some()
+}
+
+pub fn push_unique<K, V>(s: &mut StrupleKV<K, V>, k: K, v: V) -> Lresult<()>
+where
+    K: AsRef<str> + std::fmt::Display,
+{
+    if contains_key(s, &k) {
+        Err(rustfail!(
+            "leema_failure",
+            "struple item already exists: {}",
+            k,
+        ))
+    } else {
+        s.push(StrupleItem::new(k, v));
+        Ok(())
+    }
 }
 
 pub fn new_tuple2<K, V>(a: V, b: V) -> StrupleKV<Option<K>, V>
@@ -298,21 +290,32 @@ where
         }
     }
 
-    fn ireg_set(&mut self, i: Ireg, v: Val)
+    fn ireg_set(&mut self, i: Ireg, v: Val) -> Lresult<()>
     {
         match i {
             // set reg on struple
             Ireg::Reg(p) => {
                 if p as usize >= self.len() {
-                    panic!("{:?} too big for struple {:?}", i, self);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for struple {:?}",
+                        i,
+                        self,
+                    ));
                 }
                 self[p as usize].v = v;
+                Ok(())
             }
             Ireg::Sub(p, s) => {
                 if p as usize >= self.len() {
-                    panic!("{:?} too big for strtuple {:?}", i, self);
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "{:?} too big for strtuple {:?}",
+                        i,
+                        self,
+                    ));
                 }
-                self[p as usize].v.ireg_set(Ireg::Reg(s), v);
+                self[p as usize].v.ireg_set(Ireg::Reg(s), v)
             }
         }
     }
@@ -322,22 +325,20 @@ where
 #[cfg(test)]
 mod tests
 {
-    use crate::leema::lstr::Lstr;
-    use crate::leema::struple::{self, Struple2, StrupleItem};
+    use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::Val;
 
 
     #[test]
     fn test_struple_find()
     {
-        let s: Struple2<Val> = vec![
-            StrupleItem::new(Some(Lstr::Sref("taco")), Val::Int(2)),
-            StrupleItem::new(None, Val::Int(3)),
-            StrupleItem::new(Some(Lstr::Sref("burrito")), Val::Int(4)),
+        let s = vec![
+            StrupleItem::new("taco", Val::Int(2)),
+            StrupleItem::new("torta", Val::Int(3)),
+            StrupleItem::new("burrito", Val::Int(4)),
         ];
 
-        let actual = struple::find(&s, &Some(Lstr::Sref("burrito")))
-            .expect("burrito value");
+        let actual = struple::find_idx(&s, "burrito").expect("burrito value");
         assert_eq!(2, actual.0);
         assert_eq!(Val::Int(4), *actual.1);
     }

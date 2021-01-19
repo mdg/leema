@@ -1,5 +1,6 @@
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::Lresult;
-use crate::leema::module::{self, CanonicalMod, ModKey};
+use crate::leema::module::ModKey;
 
 use std::collections::HashMap;
 use std::env;
@@ -32,10 +33,10 @@ unsafe fn put_modtxt(val: String) -> &'static str
 #[derive(Debug)]
 pub struct Interloader
 {
-    pub main_mod: CanonicalMod,
+    pub main_mod: Canonical,
     paths: Vec<PathBuf>,
     keys: HashMap<PathBuf, ModKey>,
-    texts: HashMap<CanonicalMod, &'static str>,
+    texts: HashMap<Canonical, &'static str>,
 }
 
 impl Interloader
@@ -60,7 +61,7 @@ impl Interloader
 
         let mod_path = Path::new("/").join(modname.unwrap());
         let mod_str = Self::static_str(mod_path.to_str().unwrap().to_string());
-        let main_mod = canonical_mod!(mod_str);
+        let main_mod = canonical!(mod_str);
         Interloader {
             main_mod,
             paths,
@@ -85,8 +86,8 @@ impl Interloader
         }
 
         let file_path = ltry!(self.find_file_path(cpath));
-        let cmod = CanonicalMod::from(cpath);
-        Ok(ModKey::new(cmod.clone(), file_path))
+        let cmod = Canonical::from(cpath);
+        Ok(ModKey::new(cmod, file_path))
     }
 
     pub fn read_mod(&mut self, key: &ModKey) -> Lresult<&'static str>
@@ -116,7 +117,7 @@ impl Interloader
     /// this all seems suboptimal, but it can probably be fixed later
     fn find_file_path(&self, name: &Path) -> Lresult<PathBuf>
     {
-        let file_path = CanonicalMod::file_path_buf(name)?;
+        let file_path = Canonical::file_path_buf(name)?;
 
         for p in self.paths.iter() {
             let check_path = p.join(&file_path);
@@ -183,7 +184,7 @@ impl Default for Interloader
         let leema_path = root_path.join(Path::new("lib"));
 
         Interloader {
-            main_mod: module::DEFAULT_MOD,
+            main_mod: Canonical::DEFAULT,
             paths: vec![root_path.to_path_buf(), leema_path],
             keys: HashMap::new(),
             texts: HashMap::new(),
@@ -214,6 +215,6 @@ mod tests
     {
         let i = Interloader::new("hello/world.lma", vec![]);
 
-        assert_eq!("/world", i.main_mod.0.str());
+        assert_eq!("/world", i.main_mod.as_str());
     }
 }

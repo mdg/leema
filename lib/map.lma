@@ -1,10 +1,12 @@
+## Copyright 2021 Matthew Graham
+
 import /option
 
 
-datatype Map`K`V -RUST-
+datatype <Map K V> -RUST-
 
 ## create a new map
-func new`K`V:Map'K'V -RUST-
+func <new K V>:<Map K V> -RUST-
 
 ## set a key/value in the map
 func set`K`V:Map`K`V :: m:Map`K`V k:K v:V -RUST-

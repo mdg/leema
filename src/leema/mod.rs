@@ -1,15 +1,17 @@
 #[macro_use]
 pub mod log;
 #[macro_use]
-pub mod failure;
-#[macro_use]
 pub mod lstr;
+#[macro_use]
+pub mod failure;
 #[macro_use]
 pub mod module;
 #[macro_use]
 pub mod canonical;
 #[macro_use]
 pub mod ast2;
+#[macro_use]
+pub mod val;
 
 pub mod application;
 pub mod code;
@@ -32,7 +34,6 @@ pub mod sendclone;
 pub mod struple;
 pub mod token;
 pub mod types;
-pub mod val;
 pub mod worker;
 
 // libraries

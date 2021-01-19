@@ -295,7 +295,6 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             base_ops.ops
         }
         Ast::Id(ref _id) => vec![],
-        Ast::RustBlock => vec![],
 
         // invalid patterns
         Ast::Matchx(None, _) => {
@@ -715,10 +714,23 @@ impl Registration
             Ast::Op2(".", ref mut base, ref field) => {
                 Self::assign_registers(base, stack)?;
                 let field_idx = match &*field.node {
-                    Ast::Id(idx_str) => idx_str.parse().unwrap(),
+                    Ast::Id(idx_str) => {
+                        idx_str.parse().map_err(|e| {
+                            rustfail!(
+                                "leema_failure",
+                                "{} for {:?}",
+                                e,
+                                idx_str,
+                            )
+                        })?
+                    }
                     Ast::ConstVal(Val::Int(i)) => *i as i8,
+                    Ast::DataMember(_, i) => *i as i8,
                     other => {
-                        panic!("field name is not an identifier: {:?}", other)
+                        panic!(
+                            "field name is not an identifier: {:?} @ {:?}",
+                            other, field.loc
+                        )
                     }
                 };
                 node.dst = base.dst.sub(field_idx);
@@ -747,20 +759,20 @@ impl Registration
             // nothing else to do
             Ast::Id(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
-            Ast::DefConst(_, _)
+            Ast::Canonical(_)
+            | Ast::DataMember(_, _)
+            | Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
             | Ast::DefImpl(_, _, _)
-            | Ast::DefInterface(_, _)
+            | Ast::DefTrait(_, _)
             | Ast::DefMacro(_, _, _)
             | Ast::DefType(_, _, _)
             | Ast::FuncType(_, _)
             | Ast::Generic(_, _)
             | Ast::ModAction(_, _)
-            | Ast::Module(_, _, _)
-            | Ast::RustBlock
             | Ast::Wildcard => {} // do nothing
-            Ast::InterfaceBlock => {
-                panic!("unexpected interface block: {:?}", node.loc);
+            Ast::Alias(_, _) => {
+                panic!("unexpected alias {:?}, at {:?}", node.node, node.loc);
             }
             Ast::Op1(op1, x) => {
                 panic!("unexpected Op1 {} {:?}", op1, x);
@@ -883,7 +895,7 @@ mod tests
     fn test_code_lists()
     {
         let input = r#"
-        import /io.print
+        import /io
 
         func is_empty:Bool :: l:[Int] ->
             match
@@ -894,7 +906,7 @@ mod tests
 
         func main ->
             let e := is_empty([4, 8, 3])
-            print("is empty? $e\n")
+            io.print("is empty? $e\n")
         --
         "#
         .to_string();

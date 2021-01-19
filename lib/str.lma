@@ -1,3 +1,4 @@
+## Copyright 2021 Matthew Graham
 
 func is_empty:Bool :: input:Str -RUST-
 func join:Str :: parts:[Str] -RUST-

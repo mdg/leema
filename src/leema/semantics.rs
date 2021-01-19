@@ -1,16 +1,18 @@
 use crate::leema::ast2::{
     self, Ast, AstMode, AstNode, AstResult, AstStep, Loc, StepResult, Xlist,
 };
+use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::CanonicalMod;
-use crate::leema::proto::{AliasMap, ProtoModule, StructFieldMap};
-use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
+use crate::leema::proto::{self, ProtoLib, ProtoModule};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
-    Fref, FuncType, GenericTypeSlice, GenericTypes, Type, Val,
+    Fref, FuncTypeRef, FuncTypeRefMut, Type, TypeArgSlice, TypeArgs, TypeRef,
+    TypeRefMut, Val,
 };
 
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::mem;
@@ -34,20 +36,23 @@ const TYPEFAIL: &'static str = "type_failure";
 
 struct MacroApplication<'l>
 {
+    lib: &'l ProtoLib,
     local: &'l ProtoModule,
-    ftype: &'l FuncType,
-    closed: &'l GenericTypes,
+    ftype: &'l FuncTypeRef<'l>,
+    closed: &'l TypeArgs,
 }
 
 impl<'l> MacroApplication<'l>
 {
     pub fn new(
+        lib: &'l ProtoLib,
         local: &'l ProtoModule,
-        ftype: &'l FuncType,
-        closed: &'l GenericTypes,
+        ftype: &'l FuncTypeRef<'l>,
+        closed: &'l TypeArgs,
     ) -> MacroApplication<'l>
     {
         MacroApplication {
+            lib,
             local,
             ftype,
             closed,
@@ -131,24 +136,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             return Ok(AstStep::Rewrite);
                         } // else not a call, that's fine
                     }
-                    Ast::Module(m, c, _a) if m.mtyp.is_struct() => {
-                        if let Some(consf) =
-                            struple::find_str_mut(c, "construct")
-                        {
-                            *callid = AstNode {
-                                node: mem::take(&mut consf.1.node),
-                                loc: node.loc,
-                                typ: mem::take(&mut consf.1.typ),
-                                dst: node.dst,
-                            };
-                        } else {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "no constructor for: {}",
-                                m.name,
-                            ));
-                        }
-                    }
                     Ast::Op2(".", base, call) => {
                         if let Ast::ConstVal(callval) = &*call.node {
                             if let Val::Call(_, _) = callval {
@@ -160,10 +147,24 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     }
                     mac @ Ast::DefMacro(_, _, _) => {
                         *node = Self::apply_macro(mac, node.loc, args)?;
+                        return Ok(AstStep::Rewrite);
                     }
-                    _other => {
+                    Ast::ConstVal(Val::Call(_, _)) => {
+                        // already what it needs to be. continue.
+                    }
+                    Ast::Generic(_, _) => {
+                        // a type call shouldn't be a macro so proceed
+                        // maybe there might be a macro call to inner args
+                    }
+                    other => {
                         // is something else, like a method call maybe
-                        // should be fine
+                        // but what is it?
+                        return Err(Failure::static_leema(
+                            failure::Mode::StaticLeemaFailure,
+                            lstrf!("unexpected call expression: {:?}", other),
+                            self.local.key.name.to_lstr(),
+                            callid.loc.lineno,
+                        ));
                     }
                 }
             }
@@ -270,7 +271,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
             }
             Ast::Id(id) => {
                 let nloc = node.loc;
-                if let Some((_, ctype)) = struple::find(self.closed, &id) {
+                if let Some(ctype) = struple::find(self.closed, &id) {
                     let type_ast = Ast::Type(ctype.clone());
                     *node = AstNode::new(type_ast, nloc);
                     return Ok(AstStep::Rewrite);
@@ -283,7 +284,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     .args
                     .iter()
                     .map(|arg| {
-                        if let Some(Lstr::Sref(argname)) = arg.k {
+                        if let Lstr::Sref(argname) = arg.k {
                             let argnode =
                                 AstNode::new(Ast::Id(argname), node_loc);
                             Ok(StrupleItem::new_v(argnode))
@@ -311,28 +312,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 }
             }
             _ => {}
-        }
-        Ok(AstStep::Ok)
-    }
-
-    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
-    {
-        match &mut *node.node {
-            Ast::Call(callid, args) => {
-                if let Ast::Op2(".", base, call) = &mut *callid.node {
-                    if let Ast::ConstVal(callval) = &*call.node {
-                        if let Val::Call(_, _) = callval {
-                            let base2 = mem::take(base);
-                            *callid = mem::take(call);
-                            args.insert(0, StrupleItem::new_v(base2));
-                            return Ok(AstStep::Rewrite);
-                        }
-                    }
-                }
-            }
-            what => {
-                eprintln!("MacroApp.Post what? {:?}", what);
-            }
         }
         Ok(AstStep::Ok)
     }
@@ -427,21 +406,23 @@ impl<'a> ast2::Op for MacroReplacement<'a>
 
 struct ScopeCheck<'p>
 {
-    blocks: Blockstack,
+    lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
+    blocks: Blockstack,
 }
 
 impl<'p> ScopeCheck<'p>
 {
     pub fn new(
-        ftyp: &'p FuncType,
+        lib: &'p ProtoLib,
         local_mod: &'p ProtoModule,
+        ftyp: &'p FuncTypeRef<'p>,
     ) -> Lresult<ScopeCheck<'p>>
     {
         let mut args: Vec<&'static str> = Vec::new();
         for a in ftyp.args.iter() {
             match a.k {
-                Some(Lstr::Sref(arg)) => {
+                Lstr::Sref(arg) => {
                     args.push(arg);
                 }
                 _ => {
@@ -450,8 +431,9 @@ impl<'p> ScopeCheck<'p>
             }
         }
         Ok(ScopeCheck {
-            blocks: Blockstack::with_args(args),
+            lib,
             local_mod,
+            blocks: Blockstack::with_args(args),
         })
     }
 }
@@ -460,6 +442,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
+        let loc = node.loc;
         match &mut *node.node {
             Ast::Block(_) => {
                 self.blocks.push_blockscope();
@@ -483,7 +466,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 if let Some(typ) = found {
                     node.replace(
                         Ast::ConstVal(Val::Type(typ.clone())),
-                        Type::Kind,
+                        Type::KIND,
                     );
                 }
             }
@@ -493,19 +476,70 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node.replace((*me.node).clone(), me.typ.clone());
                     return Ok(AstStep::Rewrite);
+                } else if let Some(b) = proto::find_builtin(id) {
+                    node.replace_node(b.clone());
+                    return Ok(AstStep::Rewrite);
                 } else {
                     return Err(rustfail!(
                         SEMFAIL,
                         "var not in scope: {} @ {:?}",
                         id,
-                        node.loc,
+                        loc,
                     ));
                 }
             }
             Ast::Call(ref mut callx, _) => {
                 // go depth first on the call expression
-                ast2::walk_ref_mut(callx, self)?;
+                steptry!(ast2::walk_ref_mut(callx, self));
                 return Ok(AstStep::Ok);
+            }
+            Ast::Canonical(c) => {
+                if let Ok(proto) = self.lib.path_proto(c) {
+                    // check for type and find constructor
+                    let optcons = proto.find_modelem(proto::MODNAME_CONSTRUCT);
+                    if optcons.is_none() {
+                        return Err(rustfail!(
+                            "compile_error",
+                            "replace {} with constructor",
+                            c,
+                        ));
+                    }
+                    let cons = optcons.unwrap();
+                    node.replace((*cons.node).clone(), cons.typ.clone());
+                    return Ok(AstStep::Rewrite);
+                } else if let Some((parent, id)) = c.split_function() {
+                    match self.lib.exported_elem(&parent, id.as_str(), node.loc)
+                    {
+                        Ok(f) => {
+                            node.replace((*f.node).clone(), f.typ.clone());
+                            return Ok(AstStep::Rewrite);
+                        }
+                        Err(_) => {
+                            return Err(Failure::static_leema(
+                                failure::Mode::CompileFailure,
+                                lstrf!("undefined: {}", c),
+                                self.local_mod.key.best_path(),
+                                node.loc.lineno,
+                            )
+                            .with_context(vec![
+                                StrupleItem::new(
+                                    Lstr::Sref("rustfile"),
+                                    Lstr::Sref(file!()),
+                                ),
+                                StrupleItem::new(
+                                    Lstr::Sref("rustline"),
+                                    lstrf!("{}", line!()),
+                                ),
+                            ]));
+                        }
+                    }
+                } else {
+                    return Err(rustfail!(
+                        "semantic_error",
+                        "undefined: {}",
+                        c,
+                    ));
+                }
             }
             Ast::Op2(".", base_node, sub_node) => {
                 if let (Ast::Id(id), Ast::Id(sub)) =
@@ -513,40 +547,52 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 {
                     if self.blocks.var_in_scope(id).is_none() {
                         if let Some(me) = self.local_mod.find_modelem(id) {
-                            if let Ast::Module(_, mes, _) = &*me.node {
-                                if let Some((_, i)) =
-                                    struple::find_str(mes, sub)
-                                {
-                                    *node.node = (*i.node).clone();
-                                } else {
+                            match &*me.node {
+                                Ast::Canonical(can) => {
+                                    let node2 = self.lib.exported_elem(
+                                        can,
+                                        sub,
+                                        base_node.loc,
+                                    )?;
+                                    node.replace(
+                                        (*node2.node).clone(),
+                                        node2.typ.clone(),
+                                    );
+                                }
+                                _ => {
                                     return Err(rustfail!(
                                         SEMFAIL,
-                                        "unfound module element {}.{}",
-                                        id,
+                                        "sub {} from id {} as {:?}",
                                         sub,
+                                        id,
+                                        me,
                                     ));
                                 }
-                            } else {
-                                return Err(rustfail!(
-                                    SEMFAIL,
-                                    "sub {} from id {} as {:?}",
-                                    sub,
-                                    id,
-                                    me,
-                                ));
                             }
                         } else {
                             return Err(rustfail!(
                                 SEMFAIL,
-                                "what's it? {}.{}",
+                                "what's it? {}.{} in {}",
                                 id,
                                 sub,
+                                self.local_mod.key.name,
                             ));
                         }
                     }
                     // else is a regular var in scope
                 }
                 // else it's probably (hopefully?) a method or something
+            }
+            Ast::Generic(_base, _args) => {
+                // what's happening w/ generics here?
+                /*
+                return Err(Failure::static_leema(
+                    failure::Mode::LeemaTodoFailure,
+                    Lstr::Sref("generics are not yet implemented here"),
+                    self.local_mod.key.name.0.clone(),
+                    loc.lineno,
+                ));
+                */
             }
             _ => {
                 // do nothing otherwise
@@ -587,9 +633,8 @@ impl<'l> fmt::Debug for ScopeCheck<'l>
 /// before typechecking
 struct TypeCheck<'p>
 {
+    lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
-    aliases: &'p AliasMap,
-    fields: &'p StructFieldMap,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
@@ -599,16 +644,14 @@ struct TypeCheck<'p>
 impl<'p> TypeCheck<'p>
 {
     pub fn new(
+        lib: &'p ProtoLib,
         local_mod: &'p ProtoModule,
-        ftyp: &'p FuncType,
-        fields: &'p StructFieldMap,
-        aliases: &'p AliasMap,
+        ftyp: &'p FuncTypeRef<'p>,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
+            lib,
             local_mod,
-            fields,
-            aliases,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -616,7 +659,7 @@ impl<'p> TypeCheck<'p>
         };
 
         for arg in ftyp.args.iter() {
-            let argname = arg.k.as_ref().unwrap().sref()?;
+            let argname = arg.k.sref()?;
             check.vartypes.insert(argname, arg.v.clone());
         }
         check.result = (*ftyp.result).clone();
@@ -626,49 +669,24 @@ impl<'p> TypeCheck<'p>
     pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
     {
         self.infers
-            .get(local_tvar.str())
+            .get(local_tvar.as_ref())
             .map(|t| t.clone())
-            .unwrap_or(Type::LocalVar(local_tvar.clone()))
+            .unwrap_or_else(|| Type::local(local_tvar.clone()))
     }
 
-    pub fn inferred_type(
-        &self,
-        t: &Type,
-        opens: &GenericTypeSlice,
-    ) -> Lresult<Type>
+    pub fn inferred_type(&self, t: &Type, opens: &TypeArgSlice)
+        -> Lresult<Type>
     {
-        let newt = match t {
-            Type::OpenVar(v) => {
-                struple::find(opens, &v)
-                    .map(|(_, item)| item.clone())
-                    .unwrap_or(Type::OpenVar(v))
+        let newt = match t.type_ref() {
+            TypeRef(Type::PATH_LOCAL, [StrupleItem { k: local, .. }, ..]) => {
+                self.inferred_local(local)
             }
-            Type::LocalVar(v) => self.inferred_local(&v),
-            Type::Tuple(items) => {
-                let mitems =
-                    struple::map_v(items, |it| self.inferred_type(it, opens))?;
-                Type::Tuple(mitems)
+            TypeRef(Type::PATH_OPENVAR, [StrupleItem { k: open, .. }, ..]) => {
+                struple::find(opens, open)
+                    .map(|item| item.clone())
+                    .unwrap_or_else(|| Type::open(open.clone()))
             }
-            Type::Func(ftyp) => {
-                let iargs = struple::map_v(&ftyp.args, |a| {
-                    self.inferred_type(a, opens)
-                })?;
-                let iresult = self.inferred_type(&ftyp.result, opens)?;
-                Type::Func(FuncType::new(iargs, iresult))
-            }
-            Type::Generic(_open, inner, type_args) => {
-                let inner2 = self.inferred_type(&*inner, opens)?;
-                let typargs2 = struple::map_v(type_args, |tv| {
-                    self.inferred_type(tv, opens)
-                })?;
-                Type::generic(inner2, typargs2)
-            }
-            Type::Variant(inner, var) => {
-                let inner2 = self.inferred_type(&*inner, opens)?;
-                Type::Variant(Box::new(inner2), var)
-            }
-            Type::User(_, _) => t.clone(),
-            _ => t.clone(),
+            _ => t.map_v(&|a| self.inferred_type(a, opens))?,
         };
         Ok(newt)
     }
@@ -688,106 +706,72 @@ impl<'p> TypeCheck<'p>
         &mut self,
         t0: &Type,
         t1: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
-        match (t0, t1) {
-            (t0, Type::Unknown) => {
-                if t0.is_open() {
-                    eprintln!("yikes, type is open {}", t0);
-                }
-                Ok(t0.clone())
+        match (t0.path_str(), t1.path_str()) {
+            // unknown and failure cases
+            // failure defaults to the other type b/c possible failure
+            // is implicit in types
+            (Type::PATH_FAILURE, _) | (Type::PATH_UNKNOWN, _) => {
+                t1.clone_closed()
             }
-            (Type::Unknown, t1) => {
-                if t1.is_open() {
-                    eprintln!("yikes, type is open {}", t1);
-                }
-                Ok(t1.clone())
+            (_, Type::PATH_FAILURE) | (_, Type::PATH_UNKNOWN) => {
+                t0.clone_closed()
             }
-            (t0, fail) if fail.is_failure() => {
-                if t0.is_open() {
-                    eprintln!("yikes, type is open {}", t0);
+            // locals var cases
+            (Type::PATH_LOCAL, Type::PATH_LOCAL) => {
+                let v0 = &t0.first_arg()?.k;
+                let v1 = &t1.first_arg()?.k;
+                match Ord::cmp(v0, v1) {
+                    Ordering::Equal => Ok(self.inferred_local(v0)),
+                    Ordering::Less => {
+                        lfailoc!(self.infer_type(v0, t1, opens))
+                    }
+                    Ordering::Greater => {
+                        lfailoc!(self.infer_type(v1, t0, opens))
+                    }
                 }
-                Ok(t0.clone())
             }
-            (fail, t1) if fail.is_failure() => {
-                if t1.is_open() {
-                    eprintln!("yikes, type is open {}", t1);
-                }
-                Ok(t1.clone())
+            (Type::PATH_LOCAL, _) => {
+                let v0 = &t0.first_arg()?.k;
+                lfailoc!(self.infer_type(v0, t1, opens))
             }
-            (Type::Tuple(i0), Type::Tuple(i1)) => {
-                let im: Lresult<Struple2<Type>>;
-                im = i0
+            (_, Type::PATH_LOCAL) => {
+                let v1 = &t1.first_arg()?.k;
+                lfailoc!(self.infer_type(v1, t0, opens))
+            }
+            // open var cases
+            (Type::PATH_OPENVAR, _) => {
+                let k0 = &t0.first_arg()?.k;
+                lfailoc!(self.close_generic(k0.as_str(), t1, opens))
+            }
+            (_, Type::PATH_OPENVAR) => {
+                let k1 = &t1.first_arg()?.k;
+                lfailoc!(self.close_generic(k1.as_str(), t0, opens))
+            }
+            // type names match
+            (p0, p1) if p0 == p1 && t0.argc() == t1.argc() => {
+                let im: Lresult<TypeArgs>;
+                im = t0
+                    .args
                     .iter()
-                    .zip(i1.iter())
+                    .zip(t1.args.iter())
                     .map(|iz| {
                         let k = iz.0.k.clone();
                         let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
                         Ok(StrupleItem::new(k, v))
                     })
                     .collect();
-                Ok(Type::Tuple(im?))
+                Ok(Type::new(t0.path.clone(), im?))
             }
-            (
-                Type::Generic(_, inner0, args0),
-                Type::Generic(_, inner1, args1),
-            ) => {
-                let inner = self.match_type(inner0, inner1, opens)?;
-                if args0.len() != args1.len() {
-                    return Err(Failure::static_leema(
-                        failure::Mode::TypeFailure,
-                        lstrf!("args mismatch: {:?} != {:?}", args0, args1),
-                        self.local_mod.key.name.0.clone(),
-                        0,
-                    ));
-                }
-                let argr: Lresult<GenericTypes> = args0
-                    .iter()
-                    .zip(args1.iter())
-                    .map(|args| {
-                        let v = self.match_type(&args.0.v, &args.1.v, opens)?;
-                        Ok(StrupleItem::new(args.0.k, v))
-                    })
-                    .collect();
-                Ok(Type::generic(inner, argr?))
-            }
-            (Type::Variant(inner0, _), Type::Variant(inner1, _)) => {
-                self.match_type(inner0, inner1, opens)
-            }
-            (Type::Variant(inner0, _), _) => self.match_type(inner0, t1, opens),
-            (_, Type::Variant(inner1, _)) => self.match_type(t0, inner1, opens),
-            (Type::OpenVar(v0), t1) => {
-                lfailoc!(self.close_generic(v0, t1, opens))
-            }
-            (t0, Type::OpenVar(v1)) => {
-                lfailoc!(self.close_generic(v1, t0, opens))
-            }
-            (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 == v1 => {
-                Ok(self.inferred_local(v0))
-            }
-            (Type::LocalVar(v0), Type::LocalVar(v1)) if v0 < v1 => {
-                lfailoc!(self.infer_type(v0, t1, opens))
-            }
-            (Type::LocalVar(v0), Type::LocalVar(v1)) if v1 < v0 => {
-                lfailoc!(self.infer_type(v1, t0, opens))
-            }
-            (Type::LocalVar(v0), t1) => {
-                lfailoc!(self.infer_type(v0, t1, opens))
-            }
-            (t0, Type::LocalVar(v1)) => {
-                lfailoc!(self.infer_type(v1, t0, opens))
-            }
-            (Type::User(m0, u0), Type::User(m1, u1))
-                if m0 == m1 && u0 == u1 =>
-            {
-                return Ok(Type::User(m0.clone(), u0.clone()));
-            }
-            (Type::User(m0, u0), Type::User(m1, u1)) => {
-                if let Some(r) = self.match_type_alias(m0, u0, t1, opens)? {
+            // case for alias types where the types may need to be
+            // dereferenced before they will match
+            _ => {
+                if let Some(r) = self.match_type_alias(&t0.path, t1, opens)? {
                     return Ok(r);
                 }
-                if let Some(r) = self.match_type_alias(m1, u1, t0, opens)? {
+                if let Some(r) = self.match_type_alias(&t1.path, t0, opens)? {
                     return Ok(r);
                 }
                 Err(rustfail!(
@@ -797,48 +781,33 @@ impl<'p> TypeCheck<'p>
                     t1,
                 ))
             }
-            (t0, t1) => {
-                if t0 != t1 {
-                    Err(rustfail!(
-                        SEMFAIL,
-                        "types do not match: ({} != {})",
-                        t0,
-                        t1,
-                    ))
-                } else {
-                    Ok(t0.clone())
-                }
-            }
         }
     }
 
     // check if one of these type 0 is an alias for type 1
     fn match_type_alias(
         &mut self,
-        m0: &CanonicalMod,
-        u0: &'static str,
+        u0: &Canonical,
         t1: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Option<Type>>
     {
-        match self.aliases.get(&(m0.clone(), u0)) {
-            None => Ok(None),
-            Some((_, astt)) => {
-                let rt = self.local_mod.ast_to_type(
-                    &self.local_mod.key.name,
-                    &astt,
-                    opens,
-                )?;
-                Ok(Some(self.match_type(&rt, t1, opens)?))
+        if let Ok(proto) = self.lib.path_proto(u0) {
+            if let Some(alias) = proto.alias_type() {
+                return Ok(Some(ltry!(self.match_type(alias, t1, opens))));
+            }
+            if let Some(supert) = proto.trait_with_impl(t1) {
+                return Ok(Some(supert.clone()));
             }
         }
+        Ok(None)
     }
 
     pub fn infer_type(
         &mut self,
         var: &Lstr,
         t: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
@@ -846,13 +815,11 @@ impl<'p> TypeCheck<'p>
             if var_type == *t {
                 Ok(var_type)
             } else {
-                lfailoc!(self.match_type(&var_type, t, opens)).map_err(|f| {
-                    f.add_context(lstrf!(
-                        "inferring type var {} as {}",
-                        var,
-                        var_type
-                    ))
-                })
+                Ok(lfctx!(
+                    self.match_type(&var_type, t, opens),
+                    "inferring type var": var.clone(),
+                    "as type": lstrf!("{}", var_type)
+                ))
             }
         } else {
             self.infers.insert(var.clone(), t.clone());
@@ -862,150 +829,94 @@ impl<'p> TypeCheck<'p>
 
     pub fn close_generic(
         &mut self,
-        var: &'static str,
+        var: &str,
         t: &Type,
-        opens: &mut StrupleKV<&'static str, Type>,
+        opens: &mut TypeArgSlice,
     ) -> Lresult<Type>
     {
-        let open_idx = if let Some((found, _)) = struple::find(opens, &var) {
-            found
-        } else {
-            return Err(rustfail!(
-                TYPEFAIL,
-                "open type var {:?} not found in {:?} for {:?}",
-                var,
-                opens,
-                t,
-            ));
-        };
+        let open_idx =
+            struple::find_idx(opens, var).map(|i| i.0).ok_or_else(|| {
+                rustfail!(
+                    TYPEFAIL,
+                    "open type var {:?} not found in {:?} for {:?}",
+                    var,
+                    opens,
+                    t,
+                )
+            })?;
 
-        match &opens[open_idx].v {
-            Type::Unknown => {
+        let open = &opens[open_idx].v;
+        if *open == Type::UNKNOWN {
+            // newly defined type, set it in opens
+            opens[open_idx].v = t.clone();
+            Ok(t.clone())
+        } else if open.is_openvar() {
+            if open.first_arg()?.k.as_str() == var {
                 // newly defined type, set it in opens
                 opens[open_idx].v = t.clone();
                 Ok(t.clone())
+            } else {
+                panic!("unexpected var: {}", open);
             }
-            Type::OpenVar(open_var) if **open_var == *var => {
-                // newly defined type, set it in opens
-                opens[open_idx].v = t.clone();
-                Ok(t.clone())
-            }
-            Type::OpenVar(some_other_var) => {
-                panic!("unexpected var: {:?}", some_other_var);
-            }
-            matched_t if *matched_t == *t => {
-                // already the same type, good
-                return Ok(t.clone());
-            }
-            _ => {
-                // different type, run a match and then assign the result
-                // this upgrades inference local vars to concrete types
-                let old_type = opens[open_idx].v.clone();
-                let new_type = ltry!(self.match_type(&old_type, t, opens));
-                opens[open_idx].v = new_type.clone();
-                Ok(new_type)
-            }
+        } else if open == t {
+            // already the same type, good
+            Ok(t.clone())
+        } else {
+            // different type, run a match and then assign the result
+            // this upgrades inference local vars to concrete types
+            let old_type = opens[open_idx].v.clone();
+            let new_type = ltry!(self.match_type(&old_type, t, opens));
+            opens[open_idx].v = new_type.clone();
+            Ok(new_type)
         }
     }
 
+    /// What does apply_typecall do?
     pub fn apply_typecall(
         &mut self,
         calltype: &mut Type,
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        match calltype {
-            Type::Generic(gopen @ true, ref mut inner, ref mut targs) => {
-                if args.len() != targs.len() {
-                    return Err(rustfail!(
-                        TYPEFAIL,
-                        "wrong number of args, expected {}, found {}",
-                        targs.len(),
-                        args.len(),
-                    ));
-                }
-                for a in targs.iter_mut().zip(args.iter_mut()) {
-                    match &*a.1.v.node {
-                        Ast::ConstVal(Val::Type(t)) => {
-                            a.0.v = t.clone();
-                        }
-                        Ast::Id(id) => {
-                            a.0.v = self
-                                .local_mod
-                                .find_type(id)
-                                .ok_or_else(|| {
-                                    rustfail!(
-                                        TYPEFAIL,
-                                        "undefined type: {} in module {}",
-                                        id,
-                                        self.local_mod.key.name,
-                                    )
-                                })?
-                                .clone();
-                        }
-                        what => {
-                            let t = self.local_mod.ast_to_type(
-                                &self.local_mod.key.name,
-                                &a.1.v,
-                                &[],
-                            )?;
-                            a.0.v = t;
-                            panic!("unexpected type setting: {:#?}", what);
-                        }
-                    }
-                }
-                let t = self.inferred_type(&inner, &targs)?;
-                *inner = Box::new(t);
-                *gopen = false;
-            }
-            _ => {
-                return Err(rustfail!(
-                    TYPEFAIL,
-                    "not a function call {:#?}",
-                    calltype,
-                ));
-            }
-        }
-        Ok(calltype.clone())
-    }
+        let TypeRefMut(_p, targs) = calltype.try_generic_ref_mut()?;
 
-    pub fn apply_typecall2(
-        calltype: &mut AstNode,
-        typearg: &AstNode,
-    ) -> Lresult<()>
-    {
-        // let new_node = mem::take(a);
-        // *node = new_node;
-        match (&mut *calltype.node, &mut calltype.typ) {
-            (_, Type::Generic(false, _, _)) => {
-                Err(rustfail!(
-                    "compile_error",
-                    "generic type is closed: {:?}",
-                    calltype,
-                ))
-            }
-            (
-                Ast::ConstVal(Val::Call(ref mut fref, _args)),
-                Type::Generic(ref mut open, ref mut inner, ref mut targs),
-            ) => {
-                // open is true b/c of pattern above
-                let (repl_idx, repl_id) = Self::first_open_var(targs)?;
-                match &*typearg.node {
-                    Ast::ConstVal(Val::Type(t)) => {
-                        targs[repl_idx].v = t.clone();
-                        **inner = inner.replace_openvar(repl_id, t)?;
-                        *open = targs.iter().any(|a| a.v.is_open());
-                        fref.t =
-                            Type::generic((**inner).clone(), targs.clone());
-                        Ok(())
-                    }
-                    _ => Ok(()),
+        if args.len() != targs.len() {
+            return Err(rustfail!(
+                TYPEFAIL,
+                "wrong number of args, expected {}, found {}",
+                targs.len(),
+                args.len(),
+            ));
+        }
+        for a in targs.iter_mut().zip(args.iter_mut()) {
+            match &*a.1.v.node {
+                Ast::ConstVal(Val::Type(t)) => {
+                    a.0.v = t.clone();
+                }
+                Ast::Id(id) => {
+                    a.0.v = self
+                        .local_mod
+                        .find_type(id)
+                        .ok_or_else(|| {
+                            rustfail!(
+                                TYPEFAIL,
+                                "undefined type: {} in module {}",
+                                id,
+                                self.local_mod.key.name,
+                            )
+                        })?
+                        .clone();
+                }
+                what => {
+                    let t = self.local_mod.ast_to_type(&a.1.v, &[])?;
+                    a.0.v = t;
+                    panic!("unexpected type setting: {:#?}", what);
                 }
             }
-            _ => {
-                Err(rustfail!("compile_error", "not generic: {:?}", calltype,))
-            }
         }
+        let t = self.inferred_type(&calltype, calltype.type_args())?;
+        *calltype = t;
+        Ok(calltype.clone())
     }
 
     fn first_open_var(
@@ -1013,11 +924,8 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<(usize, &'static str)>
     {
         for (idx, i) in typeargs.iter().enumerate() {
-            match i.v {
-                Type::OpenVar(_) | Type::Unknown => {
-                    return Ok((idx, i.k));
-                }
-                _ => {} // not open, keep looking
+            if i.v.is_openvar() || i.v == Type::UNKNOWN {
+                return Ok((idx, i.k));
             }
         }
         Err(Failure::static_leema(
@@ -1034,51 +942,14 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        match calltype {
-            Type::Func(inner_ftyp) => {
-                let mut opens = vec![];
-                Ok(ltry!(self.match_argtypes(inner_ftyp, args, &mut opens)))
-            }
-            Type::Generic(false, ref mut inner, _) => {
-                self.applied_call_type(&mut *inner, args)
-            }
-            Type::Generic(gopen @ true, ref mut open_ftyp, ref mut opens) => {
-                if let Type::Func(inner_ftyp) = &mut **open_ftyp {
-                    // figure out arg types
-                    let result =
-                        ltry!(self.match_argtypes(inner_ftyp, args, opens));
-                    if result.is_open() {
-                        return Err(rustfail!(
-                            TYPEFAIL,
-                            "function should not be open: {}",
-                            result,
-                        ));
-                    }
-                    *gopen = false;
-                    Ok(result)
-                } else {
-                    return Err(rustfail!(
-                        SEMFAIL,
-                        "generic call type is not a function: {:?}",
-                        calltype,
-                    ));
-                }
-            }
-            _ => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "call type is not a function: {:?}",
-                    calltype,
-                ));
-            }
-        }
+        let mut funcref = calltype.try_func_ref_mut()?;
+        self.match_argtypes(&mut funcref, args)
     }
 
-    fn match_argtypes(
+    fn match_argtypes<'a>(
         &mut self,
-        ftyp: &mut FuncType,
+        ftyp: &mut FuncTypeRefMut<'a>,
         args: &mut ast2::Xlist,
-        opens: &mut StrupleKV<&'static str, Type>,
     ) -> Lresult<Type>
     {
         if args.len() < ftyp.args.len() {
@@ -1102,10 +973,10 @@ impl<'p> TypeCheck<'p>
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
             let typ = ltry!(self
-                .match_type(&arg.0.v, &arg.1.v.typ, opens)
+                .match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args)
                 .map_err(|f| {
                     f.add_context(lstrf!(
-                        "function param: {:?}, expected {}, found {} column:{}",
+                        "function param: {}, expected {}, found {} column:{}",
                         arg.0.k.as_ref(),
                         arg.0.v,
                         arg.1.v.typ,
@@ -1120,7 +991,7 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
-        ftyp.result = Box::new(self.inferred_type(&ftyp.result, &opens)?);
+        *ftyp.result = self.inferred_type(&ftyp.result, &ftyp.type_args)?;
         Ok((*ftyp.result).clone())
     }
 
@@ -1138,6 +1009,91 @@ impl<'p> TypeCheck<'p>
         }
         Ok(prev_typ.unwrap())
     }
+
+    fn post_call(
+        &mut self,
+        call_typ: &mut Type,
+        fref: &mut Fref,
+        args: &mut Xlist,
+        loc: Loc,
+    ) -> Lresult<AstStep>
+    {
+        // an optimization here might be to iterate over
+        // ast args and initialize any constants
+        // actually better might be to stop having
+        // the args in the Val::Call const?
+
+        *call_typ =
+            ltry!(self.applied_call_type(&mut fref.t, args).map_err(|f| {
+                f.add_context(lstrf!("for function: {}", fref,))
+                    .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
+            }));
+        self.calls.push(fref.clone());
+        /*
+        error message for some other scenario, maybe unnecessary
+        */
+        Ok(AstStep::Ok)
+    }
+
+    fn post_field_access(
+        &self,
+        base_typ: &Type,
+        fld: &mut AstNode,
+    ) -> Lresult<AstStep>
+    {
+        match (base_typ.type_ref(), &*fld.node) {
+            (TypeRef(tname, targs), Ast::Id(f)) if targs.is_empty() => {
+                // find a field in a struct or interface or
+                // whatever else
+                let tproto = self.lib.path_proto(&base_typ.path)?;
+
+                if let Some(found) = tproto.find_method(f) {
+                    match &*found.node {
+                        Ast::ConstVal(_) => {
+                            fld.replace(
+                                (*found.node).clone(),
+                                found.typ.clone(),
+                            );
+                        }
+                        Ast::DataMember(_, _) => {
+                            fld.replace(
+                                (*found.node).clone(),
+                                found.typ.clone(),
+                            );
+                        }
+                        other => {
+                            return Err(rustfail!(
+                                "leema_failure",
+                                "invalid type field: {}.{} {:?}",
+                                tname,
+                                f,
+                                other,
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(Failure::static_leema(
+                        failure::Mode::CompileFailure,
+                        lstrf!("type has no field: {}.{}", tname, f,),
+                        self.local_mod.key.name.to_lstr(),
+                        fld.loc.lineno,
+                    ));
+                }
+                Ok(AstStep::Ok)
+            }
+            (_, Ast::Id(id)) => {
+                return Err(Failure::static_leema(
+                    failure::Mode::CompileFailure,
+                    lstrf!("builtin type has no {} field: {}", id, base_typ,),
+                    self.local_mod.key.name.to_lstr(),
+                    fld.loc.lineno,
+                ));
+            }
+            (_, f) => {
+                panic!("unsupported field name: {:#?}", f);
+            }
+        }
+    }
 }
 
 impl<'p> ast2::Op for TypeCheck<'p>
@@ -1153,7 +1109,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 // put the node back the way it was
                 // *node.node = Ast::Id(id);
                 } else {
-                    let tvar = Type::LocalVar(Lstr::Sref(id));
+                    let tvar = Type::local(Lstr::Sref(id));
                     self.vartypes.insert(id, tvar.clone());
                     node.typ = tvar;
                     // put the node back the way it was
@@ -1163,11 +1119,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::ConstVal(c) if node.typ.is_open() => {
                 node.typ = c.get_type();
             }
-            Ast::RustBlock => {
-                node.typ = self.result.clone();
-            }
             Ast::Wildcard => {
-                node.typ = Type::Unknown;
+                node.typ = Type::UNKNOWN;
             }
             Ast::Op2(_, _, _) => {
                 // handled in post
@@ -1177,6 +1130,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
             | Ast::Tuple(_)
             | Ast::Let(_, _, _) => {
                 // handled in post
+            }
+            Ast::ConstVal(Val::Type(utb)) if utb.is_untyped_block() => {
+                node.typ = self.result.clone();
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1203,204 +1159,58 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 let id_type = self.inferred_type(&node.typ, &nopens)?;
                 node.typ = id_type;
             }
+            // set struct fields w/ name(x: y) syntax
+            Ast::Call(ref mut callx, ref mut args) if callx.typ.is_user() => {
+                let copy_typ = callx.typ.clone();
+                let base = mem::take(callx);
+                let args_copy = mem::take(args);
+                return Ok(AstStep::Replace(
+                    // should this be CopyIfNecessary instead?
+                    // or maybe just Set and rely on Rc::make_mut?
+                    Ast::CopyAndSet(base, args_copy),
+                    copy_typ,
+                ));
+            }
             Ast::Call(ref mut callx, ref mut args) => {
                 match &mut *callx.node {
-                    Ast::ConstVal(ref mut ccv) => {
-                        if let Val::Construct(cfref) = ccv {
-                            // check for void constructors,
-                            // do different stuff w/ tem
-                            if args.len() == 1
-                                && *args.first().unwrap().v.node == Ast::VOID
-                            {
-                                let new_val = match &cfref.t {
-                                    Type::Func(ft) => {
-                                        let args =
-                                            struple::map_v(&ft.args, |_| {
-                                                Ok(Val::VOID)
-                                            })?;
-                                        let typ = (*ft.result).clone();
-                                        Val::Struct(typ, args)
-                                    }
-                                    Type::Generic(_, _, _) => {
-                                        panic!("constructors unimplemented for generics");
-                                    }
-                                    _ => {
-                                        panic!("this doesn't make sense");
-                                    }
-                                };
-                                node.typ = new_val.get_type();
-                                *node.node = Ast::ConstVal(new_val);
-                                return Ok(AstStep::Rewrite);
-                            }
-
-                            // reassign the construct as a call
-                            let result: Lresult<Val> = From::from(&*cfref);
-                            *ccv = result?;
-                        }
-
-                        if let Val::Call(ref mut fref, _argvals) = ccv {
-                            // an optimization here might be to iterate over
-                            // ast args and initialize any constants
-                            // actually better might be to stop having
-                            // the args in the Val::Call const
-                            fref.t = callx.typ.clone();
-
-                            let call_result = ltry!(self
-                                .applied_call_type(&mut callx.typ, args)
-                                .map_err(|f| {
-                                    f.add_context(lstrf!(
-                                        "for function: {}",
-                                        fref,
-                                    ))
-                                }));
-                            fref.t = callx.typ.clone();
-                            self.calls.push(fref.clone());
-                            node.typ = call_result;
-                        }
+                    // handle a non-method call
+                    Ast::ConstVal(Val::Call(fref, _)) => {
+                        steptry!(self.post_call(
+                            &mut node.typ,
+                            fref,
+                            args,
+                            node.loc
+                        ));
+                        callx.typ = fref.t.clone();
                     }
-                    Ast::Op2(".", ref mut base, ref mut method) => {
-                        if let Type::User(ref cm, ref id) = &base.typ {
-                            let _method_mod = cm.push(id);
-                        } else {
-                            unimplemented!();
-                        }
-                        let meth_obj = mem::take(base);
-                        args.insert(0, StrupleItem::new_v(meth_obj));
-                        *callx = mem::take(method);
+                    // handle a method call
+                    Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
+                        let base = mem::take(base_ref);
+                        let method = mem::take(method_ref);
+                        args.insert(0, StrupleItem::new_v(base));
+                        *callx.node = *method.node;
+                        callx.typ = method.typ;
                         return Ok(AstStep::Rewrite);
                     }
-                    _ => {
-                        if !callx.typ.is_user() {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "unexpected call expression: {:?}",
-                                callx,
-                            ));
-                        }
-                        let copy_typ = callx.typ.clone();
-                        let base = mem::take(callx);
-                        let args_copy = mem::take(args);
-                        node.replace(
-                            Ast::CopyAndSet(base, args_copy),
-                            copy_typ,
-                        );
-                        return Ok(AstStep::Rewrite);
+                    Ast::Generic(ref mut base, ref mut type_args) => {
+                        return Err(rustfail!(
+                            "leema_failure",
+                            "generic not previously handled: <{:?} {:?}>",
+                            base,
+                            type_args,
+                        ));
+                    }
+                    // handle closure call
+                    // do they get handled like regular non-method calls
+                    // and rely on the callx.typ?
+                    closure => {
+                        panic!("closures not supported: {:?}", closure);
                     }
                 }
             }
+            // field access, maybe a method
             Ast::Op2(".", a, b) => {
-                match (&mut *a.node, &*b.node) {
-                    (Ast::Module(_, tup, _), Ast::Id(name)) => {
-                        match struple::find_str(&tup[..], name) {
-                            Some((_i, elem)) => {
-                                node.typ = elem.typ.clone();
-                                *node.node = (*elem.node).clone();
-                            }
-                            None => {
-                                return Err(rustfail!(
-                                    "compile_error",
-                                    "no {} found in module {:?}",
-                                    name,
-                                    tup,
-                                ));
-                            }
-                        }
-                    }
-                    (Ast::Tuple(tup), Ast::Id(name)) => {
-                        match struple::find_str(&tup[..], name) {
-                            Some((_i, elem)) => {
-                                node.typ = elem.typ.clone();
-                                *node.node = (*elem.node).clone();
-                            }
-                            None => {
-                                return Err(rustfail!(
-                                    "compile_error",
-                                    "no {} found in {:?}",
-                                    name,
-                                    tup,
-                                ));
-                            }
-                        }
-                    }
-                    (ref mut _r, Ast::Id(f)) => {
-                        match &a.typ {
-                            Type::User(tmod, tname) => {
-                                let modval = self.local_mod.find_modelem(tname);
-                                if let Some(mvnode) = modval {
-                                    if let Ast::Module(_k, c, _) = &*mvnode.node
-                                    {
-                                        if let Some(thing) =
-                                            struple::find_str(c, f)
-                                        {
-                                            // it's a method
-                                            *b.node = (*thing.1.node).clone();
-                                            b.typ = thing.1.typ.clone();
-                                            node.typ = b.typ.method_type()?;
-                                            return Ok(AstStep::Rewrite);
-                                        }
-                                    }
-                                }
-
-                                let (_styp, flds) = self
-                                    .fields
-                                    .get(&(tmod.clone(), *tname))
-                                    .ok_or_else(|| {
-                                        rustfail!(
-                                            "type_failure",
-                                            "no struct fields found in {}",
-                                            tname,
-                                        )
-                                    })?;
-                                match struple::find_lstr(&flds[..], f) {
-                                    Some((fld_idx, _)) => {
-                                        *b.node = Ast::ConstVal(Val::Int(
-                                            fld_idx as i64,
-                                        ));
-                                    }
-                                    None => {
-                                        return Err(Failure::static_leema(
-                                            failure::Mode::CompileFailure,
-                                            lstrf!(
-                                                "type has no field: {}.{}.{}",
-                                                tmod,
-                                                tname,
-                                                f,
-                                            ),
-                                            self.local_mod.key.name.0.clone(),
-                                            node.loc.lineno,
-                                        ));
-                                    }
-                                }
-                            }
-                            _ => {
-                                return Err(Failure::static_leema(
-                                    failure::Mode::CompileFailure,
-                                    lstrf!(
-                                        "builtin type has no fields: {}",
-                                        a.typ
-                                    ),
-                                    self.local_mod.key.name.0.clone(),
-                                    node.loc.lineno,
-                                ));
-                            }
-                        }
-                    }
-                    (_, Ast::ConstVal(callv)) => {
-                        if let Val::Call(_, _) = callv {
-                            return Ok(AstStep::Ok);
-                        } else {
-                            panic!("unsupported const field: {:#?}", callv);
-                        }
-                    }
-                    (_r, f) => {
-                        panic!("unsupported field name: {:#?}", f);
-                    }
-                }
-            }
-            Ast::Op2("'", ref mut a, b) => {
-                Self::apply_typecall2(a, &b)?;
-                let new_node = mem::take(a);
-                *node = new_node;
+                steptry!(self.post_field_access(&a.typ, b));
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
@@ -1470,28 +1280,29 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 let inner_typ = inner
                     .first()
                     .map(|item| item.v.typ.clone())
-                    .unwrap_or(Type::Unknown);
+                    .unwrap_or(Type::UNKNOWN);
                 node.typ = Type::list(inner_typ);
             }
             Ast::Tuple(ref items) => {
-                let itypes: Lresult<Struple2<Type>> = items
+                let itypes: Lresult<TypeArgs> = items
                     .iter()
-                    .map(|i| {
+                    .enumerate()
+                    .map(|(idx, i)| {
+                        let klstr = i.k.map(|k| Lstr::Sref(k));
                         Ok(StrupleItem::new(
-                            i.k.map(|k| Lstr::Sref(k)),
+                            Type::unwrap_name(&klstr, idx),
                             i.v.typ.clone(),
                         ))
                     })
                     .collect();
-                node.typ = Type::Tuple(itypes?);
+                node.typ = Type::tuple(itypes?);
             }
             Ast::ConstVal(_) => {
                 // leave as is
             }
             Ast::Wildcard => {} // wildcard is whatever type
-            Ast::Module(_, _, _) => {}
             Ast::Return(_) => {
-                node.typ = Type::NO_RETURN;
+                node.typ = Type::named(Type::PATH_NORETURN);
             }
             _ => {
                 // should handle matches later, but for now it's fine
@@ -1580,59 +1391,39 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(
-        proto: &mut ProtoModule,
-        f: &Fref,
-        fields: &StructFieldMap,
-        aliases: &AliasMap,
-    ) -> Lresult<Semantics>
+    pub fn compile_call(lib: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
 
-        let func_ast = proto.pop_func(&f.f);
-        let (_args, body) = func_ast.ok_or_else(|| {
-            rustfail!(SEMFAIL, "ast is empty for function {}", f,)
-        })?;
+        let (modname, body) = lib.take_func(&f)?;
+        if *body.node == Ast::BLOCK_ABSTRACT {
+            return Err(rustfail!(
+                "compile_failure",
+                "cannot execute abstract function: {}.{}",
+                modname,
+                f.f,
+            ));
+        }
+        let proto = lib.path_proto(&modname)?;
 
-        let func_ref = proto.find_modelem(&f.f).ok_or_else(|| {
+        let func_ref = proto.find_method(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
-        let closed;
-        let ftyp: &FuncType = match (&func_ref.typ, &f.t) {
-            (Type::Func(ref ft1), _) => {
-                closed = vec![];
-                ft1
-            }
-            (
-                Type::Generic(true, _ft1, _open),
-                Type::Generic(false, ref ft2, ref iclosed),
-            ) => {
-                match &**ft2 {
-                    // take the closed version that has real types
-                    Type::Func(ref ift2) => {
-                        closed = iclosed.clone();
-                        ift2
-                    }
-                    _ => {
-                        return Err(rustfail!(
-                            SEMFAIL,
-                            "open generic function is not a function: {}",
-                            ft2,
-                        ));
-                    }
-                }
-            }
-            _ => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "{}.{} original call type: {:?}, fields? {:?}, result call type {:?}",
-                    f.m,
-                    f.f,
-                    f.t,
-                    fields,
-                    func_ref.typ
-                ));
-            }
+        // what's going on here?
+        let closed = vec![];
+        let ftyp = if func_ref.typ.is_generic() {
+            func_ref.typ.try_func_ref()?
+        } else if f.t.is_closed() {
+            f.t.try_func_ref()?
+        } else {
+            return Err(rustfail!(
+                SEMFAIL,
+                "{}.{} original call type: {:?}, result call type {}",
+                f.m,
+                f.f,
+                f.t,
+                func_ref.typ
+            ));
         };
 
         sem.args = ftyp
@@ -1641,8 +1432,8 @@ impl Semantics
             .enumerate()
             .map(|(_i, kv)| {
                 match &kv.k {
-                    Some(Lstr::Sref(name)) => *name,
-                    Some(Lstr::Arc(ref name)) => {
+                    Lstr::Sref(name) => *name,
+                    Lstr::Arc(ref name) => {
                         panic!("func arg name is not a static: {}", name);
                     }
                     _ => "missing_field",
@@ -1650,9 +1441,9 @@ impl Semantics
             })
             .collect();
 
-        let mut macs = MacroApplication::new(proto, ftyp, &closed);
-        let mut scope_check = ScopeCheck::new(ftyp, proto)?;
-        let mut type_check = TypeCheck::new(proto, ftyp, fields, &aliases)?;
+        let mut macs = MacroApplication::new(lib, proto, &ftyp, &closed);
+        let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
+        let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
         let mut remove_extra = RemoveExtraCode;
 
         // This interleaves all the calls.
@@ -1664,16 +1455,23 @@ impl Semantics
             &mut macs,
             &mut type_check,
         ]);
-        let mut result = ltry!(ast2::walk(body, &mut pipe).map_err(|e| {
-            e.add_context(lstrf!("function: {}.{}", f.m.name, f.f))
-        }));
+        let mut result = lfctx!(
+            ast2::walk(body, &mut pipe),
+            "module": modname.as_lstr().clone(),
+            "function": Lstr::Sref(f.f)
+        );
 
-        result.typ = type_check.inferred_type(&result.typ, &[])?;
+        if result.typ.is_untyped_block() {
+            result.typ = ftyp.result.clone();
+        } else {
+            result.typ = type_check.inferred_type(&result.typ, &[])?;
+        }
         if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
             return Err(rustfail!(
                 SEMFAIL,
-                "bad return type in {}, expected: {}, found {}",
-                f,
+                "bad return type in {}.{}, expected: {}, found {}",
+                modname,
+                f.f,
                 ftyp.result,
                 result.typ,
             ));
@@ -1689,10 +1487,14 @@ impl Semantics
 #[cfg(test)]
 mod tests
 {
+    use super::TypeCheck;
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
+    use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
     use crate::leema::program;
+    use crate::leema::proto::{ProtoLib, ProtoModule};
+    use crate::leema::struple::StrupleItem;
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
@@ -1885,7 +1687,7 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("types do not match: (/core.Str != /core.Int)", f.msg.str());
+        assert_eq!("types do not match: (/core/Str != /core/Int)", f.msg.str());
         assert_eq!("semantic_failure", f.tag.str());
     }
 
@@ -1933,6 +1735,32 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         prog.read_semantics(&fref).unwrap();
+    }
+
+    #[test]
+    fn test_inferred_type_func()
+    {
+        let ftyp = Type::generic_f(
+            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
+            Type::open(Lstr::Sref("T")),
+            vec![StrupleItem::new(
+                Lstr::Sref("a"),
+                Type::open(Lstr::Sref("T")),
+            )],
+        );
+        let ftyp_args = ftyp.type_args();
+        let expected = Type::generic_f(
+            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
+            Type::STR,
+            vec![StrupleItem::new(Lstr::Sref("a"), Type::STR)],
+        );
+        let lib = ProtoLib::new();
+        let proto = ProtoModule::new(ModKey::from("foo"), "").unwrap();
+        let mainf = Type::f(Type::VOID, vec![]);
+        let mainfref = mainf.func_ref().unwrap();
+        let type_check = TypeCheck::new(&lib, &proto, &mainfref).unwrap();
+        let inferred = type_check.inferred_type(&ftyp, ftyp_args).unwrap();
+        assert_eq!(expected, inferred);
     }
 
     #[test]

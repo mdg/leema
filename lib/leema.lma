@@ -1,0 +1,17 @@
+## Copyright 2021 Matthew Graham
+
+datatype ModTyp
+|File
+|Enum
+|Protocol
+|Struct
+|Trait
+--
+
+## The type assigned to -RUST- function code blocks
+## automatically matches whatever is in the declared func type
+datatype RustBlock -RUST-
+
+## The type initially assigned to any types when the type checker
+## doesn't yet know what type it is
+datatype Unknown -RUST-

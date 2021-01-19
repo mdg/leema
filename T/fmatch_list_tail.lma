@@ -1,15 +1,15 @@
 import /io.print
 
-func inspect_list l:[Int]
-|0;_ >>
+func inspect_list :: l:[Int]
+|0;_ ->
     print("l has a 0\n")
-|h;t >>
+|h;t ->
     print("l is a list with head $h and tail $t\n")
-|_ >>
+|_ ->
     print("l is not a list with at least 1 element\n")
 --
 
-func main >>
+func main ->
     let l := [3, 2, 8]
     print("l: $l\n")
     inspect_list(l)

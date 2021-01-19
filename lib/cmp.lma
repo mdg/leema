@@ -1,4 +1,4 @@
-
+## Copyright 2021 Matthew Graham
 
 func equal(a, b): Bool -RUST-
 func less_than(a, b): Bool -RUST-

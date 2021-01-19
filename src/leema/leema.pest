@@ -15,6 +15,7 @@ plus = { "+" }
 dash = { "-" }
 star = { "*" }
 slash = { "/" }
+cons = { ";" }
 dot = { "." }
 question = { "?" }
 modulo = { "modulo" }
@@ -43,7 +44,7 @@ postfix_op = _{
 // keywords
 func_mode = { "func" | "macro" }
 let_mode = { "let" | "const" }
-interface_block = { double_dash }
+trait_block = { double_dash }
 rust_block = { "-RUST-" }
 mxport = { "import" | "export" }
 
@@ -51,7 +52,7 @@ anyspace_infix_op = _{
     modulo
     | equality | greater_than
     | and | or
-    | dot
+    | cons | dot
 }
 
 hspace_infix_op = _{
@@ -73,9 +74,9 @@ type_infix_op = _{
 }
 
 keywords = _{
-    func_mode
+    func_mode | "fn"
     | mxport
-    | "datatype"
+    | "datatype" | "trait"
     | "match" | "if"
     | and | or | not
 }
@@ -91,20 +92,21 @@ hs1 = _{ " "+ }
 as0 = _{ (" " | NEWLINE)* }
 as1 = _{ (" " | NEWLINE)+ }
 // vertical space required
-vs1 = _{ NEWLINE ~ as0 }
+vs1 = _{ ((NEWLINE | hs0 ~ comment_line) ~ as0)+ }
 
-modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT }
+modname_tail = _{ ASCII_ALPHA_LOWER | ASCII_DIGIT | "_" }
 modname = @{ !keywords ~ ASCII_ALPHA_LOWER ~ modname_tail* }
 
 id = @{
     keyword_prefix
-    | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )* | "#")
+    | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )*)
+    | "#"
 }
 def_id = _{ gen_type | id }
 
 hashtag = @{ "#" ~ id }
 
-term = _{ hashtag | id | number | str | tuple | list | gen_type }
+term = _{ hashtag | id | number | str | tuple | list | gen_type | canonical }
 pattern = _{ underscore | expr }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
@@ -114,6 +116,7 @@ xlist = _{ x_maybe_k ~ (as0 ~ "," ~ as0 ~ x_maybe_k)* ~ as0 ~ ","? }
 
 list = { "[]" | "[" ~ as0 ~ xlist? ~ as0 ~ "]" }
 tuple = { "(" ~ as0 ~ xlist? ~ as0 ~ ")" }
+canonical = { "(" ~ as0 ~ mxmod ~ as0 ~ ")" }
 
 blockx = { (block_arrow ~ vs1 ~ stmt_block ~ double_dash) }
 
@@ -121,6 +124,8 @@ case = { "|" ~ pattern ~ as1 ~ arrow_block }
 ifx = { "if" ~ vs1 ~ case+ ~ double_dash }
 matchargs = { "match" ~ vs1 ~ case+ ~ double_dash }
 matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ double_dash }
+
+anon_func = { "fn" ~ hs0 ~ tuple ~ as0 ~ func_block }
 
 prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
@@ -137,6 +142,7 @@ x2 = _{
 
 expr = !{
     blockx
+    | anon_func
     | x1 ~ x2+
     | x1
 }
@@ -155,7 +161,8 @@ tuple_type = { "(" ~ txlist? ~ ")" }
 gen_type = { "<" ~ typex ~ as1 ~ txlist ~ ">" }
 
 type_term = _{
-    tuple_type
+    "(" ~ type_func ~ ")"
+    | tuple_type
     | list_type
     | gen_type
     | id
@@ -188,17 +195,17 @@ def_func = !{
     func_mode ~ as1 ~ def_id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
 }
 
-def_struct_args = _{ def_id ~ def_func_args }
+def_struct_args = _{ def_id? ~ def_func_args }
 def_struct = !{ "datatype" ~ hs1 ~ def_struct_args ~ as1 ~ "--" }
 
-def_enum_variant = { vs1 ~ "|" ~ ( def_struct_args | def_id ) }
+def_enum_variant = { vs1 ~ "|" ~ def_struct_args }
 def_enum = !{ "datatype" ~ hs1 ~ def_id ~ def_enum_variant+ ~ vs1 ~ "--" }
 
 def_alias_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ ":=" ~ as1 ~ typex }
 
-def_interface = !{ "interface" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
+def_interface = !{ "trait" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
 def_impl = !{
-    "impl" ~ hs1 ~ def_id ~ (as1 ~ "as" ~ as1 ~ def_id)? ~ as1 ~ impl_block
+    "impl" ~ hs1 ~ def_id ~ as1 ~ "with" ~ as1 ~ def_id ~ as1 ~ impl_block
 }
 
 def_rust_type = !{ "datatype" ~ hs1 ~ id ~ as1 ~ rust_block }
@@ -249,7 +256,7 @@ impl_block = _{
 case_block = { case+ }
 func_block = _{
     rust_block
-    | interface_block
+    | trait_block
     | case_block ~ double_dash
     | (block_arrow ~ vs1 ~ stmt_block ~ double_dash)
     | (block_arrow ~ hs1 ~ expr ~ hs1 ~ double_dash)

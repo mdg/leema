@@ -1,14 +1,18 @@
+## Copyright 2021 Matthew Graham
 
 datatype Bool
 |False
 |True
 --
 
-datatype Failure --
-datatype Hashtag --
+datatype Any -RUST-
+datatype Failure -RUST-
+datatype Hashtag -RUST-
 datatype Int -RUST-
+datatype Kind -RUST-
 datatype Str -RUST-
 datatype # -RUST-
+datatype Tuple -RUST-
 datatype Void --
 datatype NoResult --
 
@@ -71,9 +75,4 @@ func <void T>:T :: num_void_args:Int -RUST-
 macro new_struct_val :: name num_args field_names ->
     let new_val_ := <void name>(num_args)
     new_val_(*field_names)
---
-
-macro new_enum_variant :: name variant field_names ->
-    let new_val_ := <void variant>()
-    new_val_(field_names)
 --

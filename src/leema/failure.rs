@@ -1,7 +1,7 @@
 use crate::leema::frame::FrameTrace;
-use crate::leema::lmap::LmapNode;
 use crate::leema::lstr::Lstr;
 use crate::leema::sendclone::SendClone;
+use crate::leema::struple::{StrupleItem, StrupleKV};
 use crate::leema::val::Val;
 
 use std::fmt;
@@ -42,6 +42,21 @@ macro_rules! ltry {
     };
 }
 
+macro_rules! lfctx {
+    ($x:expr, $($key:literal : $val:expr),+) => {
+        match $x {
+            Ok(success) => success,
+            Err(f) => {
+                return Err(f.with_context(vec![
+                    StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
+                    StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line!())),
+                    $(StrupleItem::new(Lstr::Sref($key), $val)),+
+                ]));
+            }
+        }
+    };
+}
+
 // need to move these to leema code
 #[derive(Copy)]
 #[derive(Clone)]
@@ -63,6 +78,7 @@ pub enum Mode
     // internal leema errors
     StaticLeemaFailure,
     RuntimeLeemaFailure,
+    LeemaTodoFailure,
 }
 
 impl Mode
@@ -84,6 +100,7 @@ impl Mode
             // internal leema errors
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
+            Mode::LeemaTodoFailure => -3,
         }
     }
 
@@ -104,10 +121,20 @@ impl Mode
             // internal leema errors
             Mode::StaticLeemaFailure => "static_leema_failure",
             Mode::RuntimeLeemaFailure => "runtime_leema_failure",
+            Mode::LeemaTodoFailure => "leema_todo_failure",
         }
     }
 }
 
+/// struct to hold all the necessary info about a failure
+/// data that should be on a failure:
+/// * tag (multiple?)
+/// * failure mode (multiple?)
+/// * a main message/reason/source that isn't just regular map
+/// * stack of tag, failure mode and reason? all 3 necessary?
+///   * maybe tag and mode are kind of the same thing?
+/// * map of Str -> Str
+/// * stacktrace
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct Failure
@@ -117,9 +144,7 @@ pub struct Failure
     pub trace: Option<Arc<FrameTrace>>,
     pub status: Mode,
     pub code: i8,
-    loc: Vec<(Lstr, u32)>,
-    meta: LmapNode,
-    context: Vec<Lstr>,
+    context: Vec<StrupleKV<Lstr, Lstr>>,
 }
 
 pub type Lresult<T> = Result<T, Failure>;
@@ -134,8 +159,6 @@ impl Failure
             trace: None,
             status: Mode::Ok,
             code: 0,
-            loc: vec![],
-            meta: None,
             context: vec![],
         }
     }
@@ -153,8 +176,6 @@ impl Failure
             trace,
             status: Mode::Ok,
             code,
-            loc: vec![],
-            meta: None,
             context: vec![],
         }
     }
@@ -169,29 +190,44 @@ impl Failure
     {
         Failure {
             tag: Val::Str(Lstr::Sref(status.as_str())),
-            msg: Val::Str(msg),
+            msg: Val::Str(msg.clone()),
             trace: None,
             status,
             code: 0,
-            loc: vec![(module, lineno as u32)],
-            meta: None,
-            context: vec![],
+            context: vec![vec![
+                StrupleItem::new(Lstr::Sref("module"), module),
+                StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", lineno)),
+                StrupleItem::new(Lstr::Sref("msg"), msg),
+            ]],
         }
     }
 
     pub fn loc(mut self, file: &'static str, line: u32) -> Self
     {
-        self.loc.push((Lstr::Sref(file), line));
+        self.context.push(vec![
+            StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file)),
+            StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line)),
+        ]);
         self
     }
 
     pub fn lstr_loc(mut self, file: Lstr, line: u32) -> Self
     {
-        self.loc.push((file, line));
+        self.context.push(vec![
+            StrupleItem::new(Lstr::Sref("file"), file),
+            StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line)),
+        ]);
         self
     }
 
     pub fn add_context(mut self, ctx: Lstr) -> Self
+    {
+        self.context
+            .push(vec![StrupleItem::new(Lstr::Sref("context"), ctx)]);
+        self
+    }
+
+    pub fn with_context(mut self, ctx: StrupleKV<Lstr, Lstr>) -> Self
     {
         self.context.push(ctx);
         self
@@ -214,11 +250,8 @@ impl fmt::Display for Failure
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         write!(f, "Failure({} ", self.tag)?;
-        if !self.loc.is_empty() {
-            write!(f, "\n @ {:?}\n", self.loc)?;
-        }
         for c in &self.context {
-            write!(f, "   {}\n", c)?;
+            write!(f, "   {:?}\n", c)?;
         }
         write!(f, "'{}')", self.msg)
     }
@@ -238,21 +271,13 @@ impl SendClone for Failure
 
     fn clone_for_send(&self) -> Failure
     {
-        let loc = self
-            .loc
-            .iter()
-            .map(|l| (l.0.clone_for_send(), l.1))
-            .collect();
         let context = self.context.iter().map(|c| c.clone_for_send()).collect();
-
         Failure {
             tag: self.tag.clone_for_send(),
             msg: self.msg.clone_for_send(),
             trace: self.trace.clone_for_send(),
             status: self.status,
             code: self.code,
-            loc,
-            meta: self.meta.clone_for_send(),
             context,
         }
     }

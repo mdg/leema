@@ -1,5 +1,6 @@
 use crate::leema::failure::Lresult;
 use crate::leema::sendclone::SendClone;
+use crate::leema::struple::StrupleItem;
 
 use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq, PartialOrd};
@@ -54,7 +55,12 @@ impl Lstr
         if let Lstr::Sref(s) = self {
             Ok(s)
         } else {
-            Err(rustfail!("failure", "string is not static"))
+            let msg = Lstr::Sref("string is not static");
+            let f = crate::leema::failure::Failure::new("leema_failure", msg);
+            Err(f.with_context(vec![
+                StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
+                StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", file!())),
+            ]))
         }
     }
 }
@@ -103,7 +109,7 @@ impl<'a> From<&'a String> for Lstr
     }
 }
 
-impl<'a> From<&'static str> for Lstr
+impl From<&'static str> for Lstr
 {
     fn from(s: &'static str) -> Lstr
     {

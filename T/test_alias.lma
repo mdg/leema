@@ -1,0 +1,13 @@
+import /io
+
+datatype Taco := Int
+
+func make_tacos:Str :: n:Taco ->
+    let double := n * 2
+    "$double tacos"
+--
+
+func main ->
+    let ts := make_tacos(3)
+    io.print("i want $ts\n")
+--

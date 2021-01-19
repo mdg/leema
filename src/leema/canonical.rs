@@ -1,16 +1,33 @@
+/// Canonical module and id type
+///
+/// /core/Str
+/// /core/<Option T>
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
+use crate::leema::sendclone;
 
-use std::borrow::Borrow;
+use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
 
 #[macro_export]
 macro_rules! canonical {
-    ($cm:expr) => {
-        crate::leema::canonical::Canonical(crate::leema::lstr::Lstr::Sref($cm))
+    ($c:expr) => {
+        crate::leema::canonical::Canonical::new(crate::leema::lstr::Lstr::Sref(
+            $c,
+        ))
     };
+}
+
+// imported path
+pub enum Impath
+{
+    Absolute,
+    Sibling,
+    Child,
+    Local(&'static Impath, &'static str),
+    Exported(&'static Impath, &'static str),
 }
 
 #[derive(Clone)]
@@ -21,11 +38,11 @@ macro_rules! canonical {
 #[derive(Hash)]
 pub struct Canonical(Lstr);
 
-const DEFAULT_CANONICAL: Canonical = canonical!("_");
-
 impl Canonical
 {
-    pub fn new(c: Lstr) -> Canonical
+    pub const DEFAULT: Canonical = canonical!("_");
+
+    pub const fn new(c: Lstr) -> Canonical
     {
         Canonical(c)
     }
@@ -33,60 +50,81 @@ impl Canonical
     /// Check if this module is a core module
     pub fn is_core(&self) -> bool
     {
-        // maybe memoize this as a struct var at some point
-        self.0.starts_with("/core")
+        // convert to a path which knows not to match /core to /corebad
+        self.as_path().starts_with("/core")
     }
 
     pub fn as_path(&self) -> &Path
     {
-        Path::new(self.0.str())
+        Path::new(self.0.as_str())
     }
 
-    // add an identifier to an existing canonical
-    // if the canonical is a module, add the id as an extension
-    // if the canonical is an ID already, upgrade the ID to a module
-    // and add the new sub id as an extension
-    pub fn sub_id(&self, sub: &str) -> Canonical
+    /// convert this canonical to an Lstr
+    pub fn to_lstr(&self) -> Lstr
     {
-        let p = Path::new(self.0.str());
-        let new_p = match p.extension() {
-            Some(ext) => {
-                let stem = p.file_stem().unwrap().to_str().unwrap();
-                let mut new_path = p.parent().unwrap().join(stem);
-                new_path.push(ext);
-                new_path.set_extension(sub);
-                new_path
-            }
-            None => p.with_extension(sub),
-        };
-        Canonical(Lstr::from(new_p.to_str().unwrap().to_string()))
+        self.0.clone()
     }
 
-    pub fn split_id(&self) -> Lresult<(Canonical, Lstr)>
+    /// add an identifier to an existing canonical
+    /// fails if sub is Absolute
+    pub fn join<S>(&self, sub: S) -> Lresult<Canonical>
+    where
+        S: AsRef<OsStr> + std::fmt::Debug,
+    {
+        let subpath = Path::new(sub.as_ref());
+        if subpath.is_absolute() {
+            return Err(rustfail!(
+                "leema_failure",
+                "cannot join an absolute path: {:?}",
+                sub,
+            ));
+        } else if subpath.starts_with("../") {
+            let sib_base = self.as_path().parent().unwrap();
+            let sib_path = subpath.strip_prefix("../").unwrap();
+            // recursing in here would be good to allow multiple ../
+            let sib = sib_base.join(sib_path);
+            Ok(Canonical::new(Lstr::from(format!("{}", sib.display()))))
+        } else {
+            let ch_path = self.as_path().join(subpath);
+            Ok(Canonical::new(Lstr::from(format!("{}", ch_path.display()))))
+        }
+    }
+
+    /// split the final .extension element off the end of Canonical
+    pub fn split_function(&self) -> Option<(Canonical, Lstr)>
     {
         match self.0 {
-            Lstr::Sref(s) => {
-                let p = Path::new(s);
-                let ext = p.extension().unwrap();
-                let stem = p.file_stem().unwrap();
-                let parent = Canonical(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
-                Ok((parent, Lstr::Sref(ext.to_str().unwrap())))
+            Lstr::Sref(ss) => {
+                let mut ssplit = ss.rsplitn(2, ".");
+                let sfunc = ssplit.next().unwrap();
+                let smodule = ssplit.next()?;
+                Some((Canonical::new(Lstr::Sref(smodule)), Lstr::Sref(sfunc)))
             }
             Lstr::Arc(ref s) => {
-                let p = Path::new(&**s);
-                let ext = p.extension().unwrap();
-                let stem = p.file_stem().unwrap();
-                let parent = Canonical(Lstr::from(
-                    p.with_file_name(stem).to_str().unwrap().to_string(),
-                ));
-                Ok((parent, Lstr::from(ext.to_str().unwrap().to_string())))
+                let mut split = s.rsplitn(2, ".");
+                let func = split.next().unwrap();
+                let module = split.next()?;
+                Some((
+                    Canonical::new(Lstr::from(module.to_string())),
+                    Lstr::from(func.to_string()),
+                ))
             }
             ref other => {
                 panic!("not a normal Lstr: {:?}", other);
             }
         }
+    }
+
+    /// get the Lstr out of the Canonical
+    pub fn as_lstr(&self) -> &Lstr
+    {
+        &self.0
+    }
+
+    /// get the str out of the Canonical
+    pub fn as_str(&self) -> &str
+    {
+        self.0.as_str()
     }
 
     pub fn ancestors(path: &Path) -> Vec<&Path>
@@ -128,22 +166,29 @@ impl Canonical
     }
 }
 
-impl From<&'static Path> for Canonical
+impl From<&Path> for Canonical
 {
-    fn from(cp: &'static Path) -> Canonical
+    fn from(cp: &Path) -> Canonical
     {
         if !cp.is_absolute() {
             panic!("canonical must be absolute: {:?}", cp);
         }
-        Canonical::new(Lstr::Sref(cp.to_str().expect("expected unicode path")))
+        let cstr: String =
+            cp.to_str().expect("expected unicode path").to_string();
+        Canonical(Lstr::from(cstr))
     }
 }
 
-impl Borrow<str> for Canonical
+impl From<PathBuf> for Canonical
 {
-    fn borrow(&self) -> &str
+    fn from(cp: PathBuf) -> Canonical
     {
-        self.0.str()
+        if !cp.is_absolute() {
+            panic!("canonical must be absolute: {:?}", cp);
+        }
+        let cstr: String =
+            cp.to_str().expect("expected unicode path").to_string();
+        Canonical(Lstr::from(cstr))
     }
 }
 
@@ -151,7 +196,15 @@ impl PartialEq<Canonical> for str
 {
     fn eq(&self, other: &Canonical) -> bool
     {
-        *self == other.0
+        self == other.0.as_str()
+    }
+}
+
+impl AsRef<str> for Canonical
+{
+    fn as_ref(&self) -> &str
+    {
+        self.0.as_str()
     }
 }
 
@@ -159,7 +212,7 @@ impl Default for Canonical
 {
     fn default() -> Canonical
     {
-        DEFAULT_CANONICAL
+        Canonical::DEFAULT
     }
 }
 
@@ -167,7 +220,7 @@ impl fmt::Display for Canonical
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        f.write_str(self.0.str())
+        write!(f, "{}", self.0)
     }
 }
 
@@ -175,6 +228,63 @@ impl fmt::Debug for Canonical
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "{:?}", self.0.str())
+        write!(f, "{}", self.0)
+    }
+}
+
+impl sendclone::SendClone for Canonical
+{
+    type Item = Canonical;
+
+    fn clone_for_send(&self) -> Canonical
+    {
+        Canonical(self.0.clone_for_send())
+    }
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::Canonical;
+    use crate::leema::lstr::Lstr;
+
+    use std::path::Path;
+
+    #[test]
+    fn test_canonical_ancestors()
+    {
+        let a = Canonical::ancestors(Path::new("/foo/bar/baz"));
+        let mut it = a.iter();
+        assert_eq!("/foo", it.next().unwrap().as_os_str());
+        assert_eq!("/foo/bar", it.next().unwrap().as_os_str());
+        assert_eq!("/foo/bar/baz", it.next().unwrap().as_os_str());
+        assert_eq!(3, a.len());
+    }
+
+    #[test]
+    fn test_canonical_push_sibling()
+    {
+        let cm = Canonical(Lstr::from("/foo/bar"));
+        let result = cm.join(&Path::new("../taco")).unwrap();
+        assert_eq!("/foo/taco", result.0.str());
+    }
+
+    #[test]
+    fn test_canonical_split_id_arc()
+    {
+        let ct = Canonical(Lstr::from("/taco.burrito".to_string()));
+        let (m, t) = ct.split_function().unwrap();
+        assert_eq!("/taco", m.0.str());
+        assert_eq!("burrito", t.str());
+    }
+
+    #[test]
+    fn test_canonical_split_id_sref()
+    {
+        let ct = Canonical(Lstr::from("/taco.burrito"));
+        let (m, t) = ct.split_function().unwrap();
+        assert_eq!("/taco", m.0.str());
+        assert_eq!("burrito", t.str());
     }
 }

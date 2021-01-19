@@ -1,17 +1,18 @@
+## Copyright 2021 Matthew Graham
 
 func <map A B>:[B] :: items:[A] f:(B :: A) ->
     _map([], items, f)
 --
 
-func _map'C'D:[C] :: result:[C] input:[D] f:(C :: D)
-|(result, [], _f) >> reverse(result)
-|(result, h;t, f) >> _map(f(h);result, t, f)
+func <_map C D>:[C] :: result:[C] input:[D] f:(C :: D)
+|(result, [], _f) -> reverse(result)
+|(result, h;t, f) -> _map(f(h);result, t, f)
 --
 
 func <reduce A B>:A :: init:A items:[B] f:(A :: A B) ->
     match items
-    |[] >> init
-    |head;tail >>
+    |[] -> init
+    |head;tail ->
         let new_val := f(init, head)
         reduce(new_val, tail, f)
     --
@@ -21,36 +22,36 @@ func <len T>:Int :: items:[T] ->
     reduce(0, items, fn(sum, _) -> sum + 1 --)
 --
 
-func filter[H] items:[H] f:(Fn H /Bool) /[H] >>
+func <filter H>:H :: items:[H] f:(Bool :: H) ->
     _filter([], items, f)
 --
 
-func reverse[E] items:[E] /[E] >>
+func <reverse E>:E :: items:[E] ->
     _reverse([], items)
 --
 
-func sort[T] items:[T] /[T] >> __RUST__ --
+func <sort T>:[T] :: items:[T] -RUST-
 
-func cat[T] a:[T] b:[T] /[T] >> __RUST__ --
+func <cat T>:[T] :: a:[T] b:[T] -RUST-
 
-func head[T] l:[T] /T
-|h;_ >> h
-|_ >> fail(#param_error, "cannot take head from empty list")
+func <head T>:T :: l:[T]
+|h;_ -> h
+|_ -> fail(#param_error, "cannot take head from empty list")
 --
 
-func _filter[T] acc:[T] in:[T] pred:(Fn T /Bool) /[T]
-|(acc, [], _) >> reverse(acc)
-|(acc, h;t, f) >>
+func <_filter T>:[T] :: acc:[T] in:[T] pred:(Bool :: T)
+|(acc, [], _) -> reverse(acc)
+|(acc, h;t, f) ->
     let matcher := f(h)
     let new_acc :=
         match f(h)
-        |True >> h;acc
-        |False >> acc
+        |True -> h;acc
+        |False -> acc
         --
     _filter(new_acc, t, f)
 --
 
-func _reverse[T] out:[T] in:[T] /[T]
-|(out, []) >> out
-|(out, h;t) >> _reverse(h;out, t)
+func <_reverse T>:[T] :: out:[T] in:[T]
+|(out, []) -> out
+|(out, h;t) -> _reverse(h;out, t)
 --

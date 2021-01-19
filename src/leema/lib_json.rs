@@ -4,7 +4,7 @@ use crate::leema::frame::Event;
 use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{CanonicalMod, ModKey};
+use crate::leema::module::ModKey;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Fref, Type, Val};
 use crate::leema::worker::RustFuncContext;
@@ -14,8 +14,7 @@ use serde::Serializer;
 use serde_json::{self, Value};
 
 
-const MODULE: CanonicalMod = canonical_typemod!("/json");
-const JSON_VAL_TYPE: Type = Type::User(MODULE, "Val");
+const JSON_VAL_TYPE: Type = user_type!("/json/Val");
 
 impl Serialize for Val
 {
@@ -82,31 +81,26 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
     match ctx.pc() {
         0 => {
             let fref = ctx.current_fref();
-            match &fref.t {
-                Type::Generic(true, _, _) => {
-                    panic!("generic is open: {}", fref);
-                }
-                Type::Generic(false, _inner, targs) => {
-                    let json_type = targs.first().unwrap().v.clone();
-                    let json_type2 = json_type.clone();
-                    let jtval = Val::Type(json_type);
-                    ctx.new_call(
-                        DECODE_WITH_ARGS,
-                        Fref {
-                            m: ModKey::from("core"),
-                            f: "type_fields",
-                            t: json_type2,
-                        },
-                        vec![StrupleItem::new_v(jtval)],
-                    )
-                }
-                Type::Func(_) => {
-                    panic!("function is not generic: {}", fref);
-                }
-                _ => {
-                    panic!("not a function: {}", fref);
-                }
+            if fref.t.is_open() {
+                panic!("generic is open: {}", fref);
             }
+            let funcref = fref.t.try_func_ref()?;
+            if funcref.type_args.is_empty() {
+                panic!("function is not generic: {}", fref);
+            }
+
+            let json_type = funcref.type_args.first().unwrap().v.clone();
+            let json_type2 = json_type.clone();
+            let jtval = Val::Type(json_type);
+            ctx.new_call(
+                DECODE_WITH_ARGS,
+                Fref {
+                    m: ModKey::from("core"),
+                    f: "type_fields",
+                    t: json_type2,
+                },
+                vec![StrupleItem::new_v(jtval)],
+            )
         }
         DECODE_WITH_ARGS => decode_with_args(ctx),
         what => panic!("unexpected pc: {}", what),
@@ -120,30 +114,35 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
         let fref = ctx.current_fref();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
-        let tparam = if let Type::Generic(_, _, args) = &fref.t {
-            &args.get(0).unwrap().v
-        } else {
+        if !fref.t.is_generic() {
             panic!("not a generic");
-        };
+        }
+        let tparam = fref.t.first_arg()?;
 
-        if *tparam == Type::BOOL {
-            let b = serde_json::from_str(text).unwrap();
-            Val::Bool(b)
-        } else if *tparam == Type::INT {
-            let i = serde_json::from_str(text).unwrap();
-            Val::Int(i)
-        } else if *tparam == Type::STR {
-            let v: String = serde_json::from_str(text).unwrap();
-            Val::Str(Lstr::from(v))
-        } else if *tparam == Type::HASHTAG {
-            let s: String = serde_json::from_str(text).unwrap();
-            Val::Hashtag(Lstr::from(s))
-        } else {
-            return Err(rustfail!(
-                "runtime_type_failure",
-                "cannot decode json into type: {}",
-                tparam,
-            ));
+        match tparam.v.path_str() {
+            Type::PATH_BOOL => {
+                let b = serde_json::from_str(text).unwrap();
+                Val::Bool(b)
+            }
+            Type::PATH_INT => {
+                let i = serde_json::from_str(text).unwrap();
+                Val::Int(i)
+            }
+            Type::PATH_STR => {
+                let v: String = serde_json::from_str(text).unwrap();
+                Val::Str(Lstr::from(v))
+            }
+            Type::PATH_HASHTAG => {
+                let s: String = serde_json::from_str(text).unwrap();
+                Val::Hashtag(Lstr::from(s))
+            }
+            _ => {
+                return Err(rustfail!(
+                    "runtime_type_failure",
+                    "cannot decode json into type: {}",
+                    tparam,
+                ));
+            }
         }
     };
     ctx.set_result(result);

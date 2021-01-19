@@ -6,7 +6,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::pratt;
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::Val;
+use crate::leema::val::{Type, Val};
 
 use pest::iterators::Pair;
 use pest::Parser;
@@ -256,6 +256,9 @@ impl LeemaPrec
             .postfix(Rule::tuple)
             //----
             .right()
+            .infix(Rule::cons)
+            //----
+            .right()
             .prefix(Rule::negative)
             .prefix(Rule::star)
             //----
@@ -452,8 +455,12 @@ impl LeemaPrec
             }
             Rule::def_struct => {
                 let mut inner = n.into_inner();
-                let id = self.primary(Mode::Type, inner.next().unwrap())?;
-                let arg_it = inner.next().unwrap().into_inner();
+                let n0 = inner.next().unwrap();
+                let (id, args_tok) = match inner.next() {
+                    Some(n1) => (self.primary(Mode::Type, n0)?, n1),
+                    None => (AstNode::void(), n0),
+                };
+                let arg_it = args_tok.into_inner();
                 let args: Xlist = self.parse_xlist(Mode::Type, arg_it)?;
                 let df = Ast::DefType(DataType::Struct, id, args);
                 Ok(AstNode::new(df, loc))
@@ -522,6 +529,26 @@ impl LeemaPrec
                 let items = self.parse_xlist(Mode::Type, n.into_inner())?;
                 Ok(AstNode::new(Ast::Tuple(items), loc))
             }
+            Rule::type_func => {
+                let mut inner = n.into_inner();
+                let result = self.primary(Mode::Type, inner.next().unwrap())?;
+                let args = self.parse_xlist(Mode::Type, inner)?;
+                Ok(AstNode::new(Ast::FuncType(result, args), loc))
+            }
+            Rule::anon_func => {
+                let mut inner = n.into_inner();
+                let args = self.primary(Mode::Type, inner.next().unwrap())?;
+                let body = self.primary(Mode::Value, inner.next().unwrap())?;
+                Ok(AstNode::new(
+                    Ast::DefFunc(
+                        AstNode::void(),
+                        vec![StrupleItem::new_v(args)],
+                        AstNode::new(Ast::Type(Type::UNKNOWN), loc),
+                        body,
+                    ),
+                    loc,
+                ))
+            }
             Rule::mxstmt => {
                 let mut inner = n.into_inner();
                 let mxpair = inner.next().unwrap();
@@ -547,23 +574,13 @@ impl LeemaPrec
                 let block = inner.next().unwrap().into_inner();
                 let funcs: Lresult<Vec<AstNode>> =
                     block.map(|f| self.primary(Mode::Value, f)).collect();
-                Ok(AstNode::new(Ast::DefInterface(id, funcs?), loc))
+                Ok(AstNode::new(Ast::DefTrait(id, funcs?), loc))
             }
             Rule::def_impl => {
                 let mut inner = n.into_inner();
                 let t0 = self.primary(Mode::Type, inner.next().unwrap())?;
-                let i1 = inner.next().unwrap();
-                let (t1, i2) = if let Some(i2) = inner.next() {
-                    // interface impl, use i1 as the real type
-                    // and i2 as the block
-                    (Some(self.primary(Mode::Type, i1)?), i2)
-                } else {
-                    // standard impl
-                    // no i2, so use i1 as the block
-                    (None, i1)
-                };
-
-                let block = i2.into_inner();
+                let t1 = self.primary(Mode::Type, inner.next().unwrap())?;
+                let block = inner.next().unwrap().into_inner();
                 let funcs: Lresult<Vec<AstNode>> =
                     block.map(|f| self.primary(Mode::Value, f)).collect();
                 Ok(AstNode::new(Ast::DefImpl(t0, t1, funcs?), loc))
@@ -575,8 +592,8 @@ impl LeemaPrec
                 Ok(AstNode::new(df, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
-            Rule::interface_block => Ok(AstNode::new(Ast::InterfaceBlock, loc)),
-            Rule::rust_block => Ok(AstNode::new(Ast::RustBlock, loc)),
+            Rule::trait_block => Ok(AstNode::new(Ast::BLOCK_ABSTRACT, loc)),
+            Rule::rust_block => Ok(AstNode::new(Ast::BLOCK_RUST, loc)),
             // ignore this level and go one deeper
             Rule::tx_maybe_k => {
                 pratt::parse(self, Mode::Type, &mut n.into_inner())
@@ -645,6 +662,7 @@ impl LeemaPrec
     {
         match op.as_rule() {
             Rule::dot
+            | Rule::cons
             | Rule::and
             | Rule::or
             | Rule::plus
@@ -1497,30 +1515,6 @@ mod tests
     }
 
     #[test]
-    fn interface_with_func()
-    {
-        let input = "interface Taco ::
-           func burrito:Int :: Self --
-        --";
-        let actual = parse(Rule::stmt, input).unwrap();
-        println!("{:#?}", actual);
-
-        let t = &actual[0];
-        if let Ast::DefInterface(iname, funcs) = &*t.node {
-            assert_matches!(*iname.node, Ast::Id("Taco"));
-            if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
-                assert_matches!(*fname.node, Ast::Id("burrito"));
-                assert_eq!(Ast::InterfaceBlock, *body.node);
-            } else {
-                panic!("expected a func, found {:?}", funcs);
-            }
-            assert_eq!(1, funcs.len());
-        } else {
-            panic!("expected an interface, found {:?}", t);
-        }
-    }
-
-    #[test]
     fn not_paren_infix()
     {
         let input = "not (a and b)";
@@ -1838,6 +1832,59 @@ mod tests
             panic!("expected StrExpr, found {:?}", actual[0]);
         }
         assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn trait_with_func()
+    {
+        let input = "trait Taco ::
+           func burrito:Int :: Self --
+        --";
+        let actual = parse(Rule::stmt, input).unwrap();
+        println!("{:#?}", actual);
+
+        let t = &actual[0];
+        if let Ast::DefTrait(iname, funcs) = &*t.node {
+            assert_matches!(*iname.node, Ast::Id("Taco"));
+            if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
+                assert_matches!(*fname.node, Ast::Id("burrito"));
+                assert_eq!(Ast::BLOCK_ABSTRACT, *body.node);
+            } else {
+                panic!("expected a func, found {:?}", funcs);
+            }
+            assert_eq!(1, funcs.len());
+        } else {
+            panic!("expected an interface, found {:?}", t);
+        }
+    }
+
+    #[test]
+    fn trait_with_struct()
+    {
+        let input = "trait Rectangle ::
+            datatype ::
+                length:Int
+                width:Int
+            --
+
+            func area:Int :: self --
+        --";
+        let actual = parse(Rule::stmt, input).unwrap();
+        println!("{:#?}", actual);
+
+        let t = &actual[0];
+        if let Ast::DefTrait(iname, stmts) = &*t.node {
+            assert_matches!(*iname.node, Ast::Id("Rectangle"));
+            if let Ast::DefFunc(fname, _, _, body) = &*stmts[1].node {
+                assert_matches!(*fname.node, Ast::Id("area"));
+                assert_eq!(Ast::BLOCK_ABSTRACT, *body.node);
+            } else {
+                panic!("expected a func, found {:?}", stmts);
+            }
+            assert_eq!(2, stmts.len());
+        } else {
+            panic!("expected an interface, found {:?}", t);
+        }
     }
 
     #[test]
