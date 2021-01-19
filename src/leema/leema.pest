@@ -74,7 +74,7 @@ type_infix_op = _{
 }
 
 keywords = _{
-    func_mode
+    func_mode | "fn"
     | mxport
     | "datatype" | "trait"
     | "match" | "if"
@@ -125,6 +125,8 @@ ifx = { "if" ~ vs1 ~ case+ ~ double_dash }
 matchargs = { "match" ~ vs1 ~ case+ ~ double_dash }
 matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ double_dash }
 
+anon_func = { "fn" ~ hs0 ~ tuple ~ as0 ~ func_block }
+
 prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
 x1 = _{
@@ -140,6 +142,7 @@ x2 = _{
 
 expr = !{
     blockx
+    | anon_func
     | x1 ~ x2+
     | x1
 }

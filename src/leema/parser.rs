@@ -6,7 +6,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::pratt;
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::Val;
+use crate::leema::val::{Type, Val};
 
 use pest::iterators::Pair;
 use pest::Parser;
@@ -528,6 +528,26 @@ impl LeemaPrec
             Rule::tuple_type => {
                 let items = self.parse_xlist(Mode::Type, n.into_inner())?;
                 Ok(AstNode::new(Ast::Tuple(items), loc))
+            }
+            Rule::type_func => {
+                let mut inner = n.into_inner();
+                let result = self.primary(Mode::Type, inner.next().unwrap())?;
+                let args = self.parse_xlist(Mode::Type, inner)?;
+                Ok(AstNode::new(Ast::FuncType(result, args), loc))
+            }
+            Rule::anon_func => {
+                let mut inner = n.into_inner();
+                let args = self.primary(Mode::Type, inner.next().unwrap())?;
+                let body = self.primary(Mode::Value, inner.next().unwrap())?;
+                Ok(AstNode::new(
+                    Ast::DefFunc(
+                        AstNode::void(),
+                        vec![StrupleItem::new_v(args)],
+                        AstNode::new(Ast::Type(Type::UNKNOWN), loc),
+                        body,
+                    ),
+                    loc,
+                ))
             }
             Rule::mxstmt => {
                 let mut inner = n.into_inner();

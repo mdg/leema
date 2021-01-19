@@ -12,7 +12,7 @@ func assign:[#] :: line:[#] col:Int rkr:# bb:Int bw:Int pcs:[#]
         assign(#bishop;line, col+1, rkr, 0, bw, pcs)
     |col == bw ->
         assign(#bishop;line, col+1, rkr, bb, 0, pcs)
-    |else ->
+    |_ ->
         match (rkr, pcs)
         |(#rook, #rkr;apieces) ->
             assign(#rook;line, col+1, #king, bb, bw, apieces)
