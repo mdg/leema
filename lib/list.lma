@@ -19,7 +19,7 @@ func <reduce A B>:A :: init:A items:[B] f:(A :: A B) ->
 --
 
 func <len T>:Int :: items:[T] ->
-    reduce(0, items, fn(sum, _) -> sum + 1 --)
+    reduce(0, items, fn :: sum _ -> sum + 1 --)
 --
 
 func <filter H>:H :: items:[H] f:(Bool :: H) ->

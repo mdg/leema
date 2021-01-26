@@ -6,7 +6,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
 use crate::leema::pratt;
 use crate::leema::struple::StrupleItem;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::Val;
 
 use pest::iterators::Pair;
 use pest::Parser;
@@ -537,15 +537,14 @@ impl LeemaPrec
             }
             Rule::anon_func => {
                 let mut inner = n.into_inner();
-                let args = self.primary(Mode::Type, inner.next().unwrap())?;
+                let func_result =
+                    self.primary(Mode::Type, inner.next().unwrap())?;
+                let func_arg_it = inner.next().unwrap().into_inner();
+                let func_args: Xlist =
+                    self.parse_xlist(Mode::Type, func_arg_it)?;
                 let body = self.primary(Mode::Value, inner.next().unwrap())?;
                 Ok(AstNode::new(
-                    Ast::DefFunc(
-                        AstNode::void(),
-                        vec![StrupleItem::new_v(args)],
-                        AstNode::new(Ast::Type(Type::UNKNOWN), loc),
-                        body,
-                    ),
+                    Ast::DefFunc(AstNode::void(), func_args, func_result, body),
                     loc,
                 ))
             }

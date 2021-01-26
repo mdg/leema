@@ -1083,7 +1083,7 @@ impl ProtoModule
                 Type::tuple(inner_t?)
             }
             Ast::FuncType(args, result) => {
-                ltry!(self.ast_to_ftype(args, result, opens))
+                ltry!(self.ast_to_arg_ftype(args, result, opens))
             }
             Ast::Generic(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
@@ -1149,8 +1149,25 @@ impl ProtoModule
     {
         let arg_types = self.xlist_to_types(args, &opens)?;
         let result_type = ltry!(self.ast_to_type(&result, opens));
-        let gens = Vec::from(opens);
-        Ok(Type::generic_f(gens, result_type, arg_types))
+        if opens.is_empty() {
+            Ok(Type::f(result_type, arg_types))
+        } else {
+            let gens = Vec::from(opens);
+            Ok(Type::generic_f(gens, result_type, arg_types))
+        }
+    }
+
+    /// argument func types aren't generic b/c they don't declare new type vars
+    fn ast_to_arg_ftype(
+        &self,
+        result: &AstNode,
+        args: &Xlist,
+        opens: &TypeArgSlice,
+    ) -> Lresult<Type>
+    {
+        let arg_types = self.xlist_to_types(args, &opens)?;
+        let result_type = ltry!(self.ast_to_type(&result, opens));
+        Ok(Type::f(result_type, arg_types))
     }
 
     fn xlist_to_types(

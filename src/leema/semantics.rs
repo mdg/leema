@@ -750,6 +750,32 @@ impl<'p> TypeCheck<'p>
                 let k1 = &t1.first_arg()?.k;
                 lfailoc!(self.close_generic(k1.as_str(), t0, opens))
             }
+            (Type::PATH_FN, Type::PATH_FN) => {
+                let f0 = t0.func_ref().unwrap();
+                let f1 = t1.func_ref().unwrap();
+                if !f0.type_args.is_empty() {
+                    panic!("unexpected type args: {:?}", f0);
+                }
+                if !f1.type_args.is_empty() {
+                    panic!("unexpected type args: {:?}", f1);
+                }
+                let result = self.match_type(f0.result, f1.result, opens)?;
+                if f0.args.len() != f1.args.len() {
+                    return Err(rustfail!(
+                        "compile_error",
+                        "function arg count mismatch: {:?} != {:?}",
+                        f0,
+                        f1,
+                    ));
+                }
+                let mut args = Vec::with_capacity(f0.args.len());
+                for a in f0.args.iter().zip(f1.args.iter()) {
+                    let a2 = self.match_type(&a.0.v, &a.1.v, opens)?;
+                    let k = a.0.k.clone();
+                    args.push(StrupleItem::new(k, a2));
+                }
+                Ok(Type::f(result, args))
+            }
             // type names match
             (p0, p1) if p0 == p1 && t0.argc() == t1.argc() => {
                 let im: Lresult<TypeArgs>;
@@ -827,6 +853,7 @@ impl<'p> TypeCheck<'p>
         }
     }
 
+    /// close_generic does what?
     pub fn close_generic(
         &mut self,
         var: &str,
@@ -846,6 +873,7 @@ impl<'p> TypeCheck<'p>
             })?;
 
         let open = &opens[open_idx].v;
+        // if open is unknown, set it to t
         if *open == Type::UNKNOWN {
             // newly defined type, set it in opens
             opens[open_idx].v = t.clone();

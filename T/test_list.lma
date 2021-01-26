@@ -1,21 +1,20 @@
 
-import list
+import /list
 
-func cat(acc, x)
->>
+func cat:[Int] :: acc:[Int] x:Int ->
     x;acc
 --
 
 func test_one_deep ->
     let input := [3, 4, 5, 6, 7]
-    let output := list::reduce([], input, cat)
+    let output := list.reduce([], input, cat)
     println("output: $output")
 --
 
 func test_nested_reduce ->
     let input := [[3, 4, 5, 6, 7], [8, 9, 10, 11, 12]]
-    let output := list::reduce([], input, fn(acc, i) >>
-        let rev := list::reduce([], i, cat)
+    let output := list.reduce([], input, fn(acc, i) >>
+        let rev := list.reduce([], i, cat)
         rev;acc
     --)
     println("nested output: $output")
@@ -23,8 +22,8 @@ func test_nested_reduce ->
 
 func test_nested_flat ->
     let input := [[3, 4, 5, 6, 7], [8, 9, 10, 11, 12], [13, 14, 15]]
-    let output := list::reduce([], input, fn(acc, i) >>
-        list::reduce(acc, i, cat)
+    let output := list.reduce([], input, fn(acc, i) >>
+        list.reduce(acc, i, cat)
     --)
     println("flat output: $output")
 --

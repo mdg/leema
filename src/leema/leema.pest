@@ -125,7 +125,7 @@ ifx = { "if" ~ vs1 ~ case+ ~ double_dash }
 matchargs = { "match" ~ vs1 ~ case+ ~ double_dash }
 matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ double_dash }
 
-anon_func = { "fn" ~ hs0 ~ tuple ~ as0 ~ func_block }
+anon_func = { "fn" ~ def_func_type_body }
 
 prefix1 = _{ prefix_op ~ as0 ~ term }
 postfix1 = _{ term ~ postfix_op }
@@ -191,8 +191,9 @@ any_type = { type_func | typex }
 
 def_func_args = { (hs0 ~ "::" ~ (as0 ~ tx_maybe_k)+)? }
 def_func_result = { (as0 ~ ":" ~ typex)? }
+def_func_type_body = _{ def_func_result ~ def_func_args ~ as1 ~ func_block }
 def_func = !{
-    func_mode ~ as1 ~ def_id ~ def_func_result ~ def_func_args ~ as1 ~ func_block
+    func_mode ~ as1 ~ def_id ~ def_func_type_body
 }
 
 def_struct_args = _{ def_id? ~ def_func_args }
