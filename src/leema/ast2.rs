@@ -327,8 +327,8 @@ impl Ast
                 write!(f, "DefType {:?} {:?} {:?}", dtype, name, fields)
             }
             // Ast::Def(v) => write!(f, "Def {}", v),
-            Ast::FuncType(args, result) => {
-                write!(f, "FuncType {:?} / {:?}]", args, result)
+            Ast::FuncType(result, args) => {
+                write!(f, "FuncType {:?} :: {:?}]", result, args)
             }
             Ast::Generic(id, args) => write!(f, "Generic {:?}[{:?}]", id, args),
             Ast::Id(id) => write!(f, "Id {}", id),
@@ -746,14 +746,18 @@ impl Walker
             | Ast::ConstVal(_)
             | Ast::DataMember(_, _)
             | Ast::Id(_)
+            | Ast::Type(_)
             | Ast::Wildcard => {
                 // nowhere else to go
             }
             Ast::Copy(src) => {
                 steptry!(self.walk(src, op));
             }
-            Ast::FuncType(_, _) | Ast::Type(_) => {
-                panic!("func type crawling not implemented");
+            Ast::FuncType(result, args) => {
+                steptry!(self.walk(result, op));
+                for a in args.iter_mut() {
+                    steptry!(self.walk(&mut a.v, op));
+                }
             }
             // these ASTs should already be processed in the proto phase
             Ast::DefMacro(_, _, _) => {

@@ -635,6 +635,7 @@ struct TypeCheck<'p>
 {
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
+    closed: &'p TypeArgs,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
@@ -647,11 +648,13 @@ impl<'p> TypeCheck<'p>
         lib: &'p ProtoLib,
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncTypeRef<'p>,
+        closed: &'p TypeArgs,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
             lib,
             local_mod,
+            closed,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -660,9 +663,10 @@ impl<'p> TypeCheck<'p>
 
         for arg in ftyp.args.iter() {
             let argname = arg.k.sref()?;
-            check.vartypes.insert(argname, arg.v.clone());
+            let argt = check.inferred_type(&arg.v, &check.closed)?;
+            check.vartypes.insert(argname, argt);
         }
-        check.result = (*ftyp.result).clone();
+        check.result = check.inferred_type(&ftyp.result, &check.closed)?;
         Ok(check)
     }
 
@@ -921,6 +925,9 @@ impl<'p> TypeCheck<'p>
                 Ast::ConstVal(Val::Type(t)) => {
                     a.0.v = t.clone();
                 }
+                Ast::Type(t) => {
+                    a.0.v = t.clone();
+                }
                 Ast::Id(id) => {
                     a.0.v = self
                         .local_mod
@@ -970,8 +977,8 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let mut funcref = calltype.try_func_ref_mut()?;
-        self.match_argtypes(&mut funcref, args)
+        let mut funcref = ltry!(calltype.try_func_ref_mut());
+        Ok(ltry!(self.match_argtypes(&mut funcref, args)))
     }
 
     fn match_argtypes<'a>(
@@ -1437,8 +1444,22 @@ impl Semantics
         let func_ref = proto.find_method(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
+        let ft = f.t.func_ref().unwrap();
+        let func_ref_t = func_ref.typ.func_ref().unwrap();
         // what's going on here?
-        let closed = vec![];
+        let closed = if func_ref.typ.is_open() {
+            if f.t.is_open() {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "cannot compile open func: {:?}",
+                    f,
+                ));
+            }
+            Vec::from(ft.type_args.clone())
+        } else {
+            vec![]
+        };
+
         let ftyp = if func_ref.typ.is_generic() {
             func_ref.typ.try_func_ref()?
         } else if f.t.is_closed() {
@@ -1471,7 +1492,7 @@ impl Semantics
 
         let mut macs = MacroApplication::new(lib, proto, &ftyp, &closed);
         let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
-        let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
+        let mut type_check = TypeCheck::new(lib, proto, &ftyp, &closed)?;
         let mut remove_extra = RemoveExtraCode;
 
         // This interleaves all the calls.
@@ -1492,15 +1513,16 @@ impl Semantics
         if result.typ.is_untyped_block() {
             result.typ = ftyp.result.clone();
         } else {
-            result.typ = type_check.inferred_type(&result.typ, &[])?;
+            result.typ = type_check.inferred_type(&result.typ, &closed)?;
         }
-        if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
+        let ftyp_result = type_check.inferred_type(&ftyp.result, &closed)?;
+        if ftyp_result != result.typ && ftyp_result != Type::VOID {
             return Err(rustfail!(
                 SEMFAIL,
                 "bad return type in {}.{}, expected: {}, found {}",
                 modname,
                 f.f,
-                ftyp.result,
+                ftyp_result,
                 result.typ,
             ));
         }

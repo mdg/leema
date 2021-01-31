@@ -361,7 +361,7 @@ impl Type
         }
         // can't be generic if no args and not a func
         if let Some(f) = self.func_ref() {
-            f.type_args.is_empty()
+            !f.type_args.is_empty()
         } else {
             false
         }
