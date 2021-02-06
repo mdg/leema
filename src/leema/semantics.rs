@@ -1007,21 +1007,14 @@ impl<'p> TypeCheck<'p>
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let typ = ltry!(self
-                .match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args)
-                .map_err(|f| {
-                    f.add_context(lstrf!(
-                        "function param: {}, expected {}, found {} column:{}",
-                        arg.0.k.as_ref(),
-                        arg.0.v,
-                        arg.1.v.typ,
-                        arg.1.v.loc.column,
-                    ))
-                    .lstr_loc(
-                        self.local_mod.key.best_path(),
-                        arg.1.v.loc.lineno as u32,
-                    )
-                }));
+            let typ = lfctx!(
+                self.match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args),
+                "function_param": arg.0.k.clone(),
+                "expected": lstrf!("{}", arg.0.v),
+                "found": lstrf!("{}", arg.1.v.typ),
+                "loc": lstrf!("{:?}", arg.1.v.loc),
+                "file": lstrf!("{}:{}", self.local_mod.key.best_path(), arg.1.v.loc.lineno)
+            );
             arg.0.v = typ.clone();
             arg.1.v.typ = typ;
         }
@@ -1067,6 +1060,27 @@ impl<'p> TypeCheck<'p>
         /*
         error message for some other scenario, maybe unnecessary
         */
+        Ok(AstStep::Ok)
+    }
+
+    /// like post_call but for function objects where fref isn't known
+    /// at compile time
+    fn post_var_call(
+        &mut self,
+        result_typ: &mut Type,
+        call_typ: &mut Type,
+        args: &mut Xlist,
+        loc: Loc,
+    ) -> Lresult<AstStep>
+    {
+        // an optimization here might be to iterate over
+        // ast args and initialize any constants
+        // actually better might be to stop having
+        // the args in the Val::Call const?
+        *result_typ =
+            ltry!(self.applied_call_type(call_typ, args).map_err(|f| {
+                f.lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
+            }));
         Ok(AstStep::Ok)
     }
 
@@ -1239,7 +1253,13 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     // do they get handled like regular non-method calls
                     // and rely on the callx.typ?
                     closure => {
-                        panic!("closures not supported: {:?}", closure);
+                        steptry!(self.post_var_call(
+                            &mut node.typ,
+                            &mut callx.typ,
+                            args,
+                            node.loc,
+                        ));
+                        return Ok(AstStep::Ok);
                     }
                 }
             }
