@@ -316,7 +316,7 @@ impl Ast
                         Ok(StrupleItem::new(k, a.1.v.node.to_type(&m)?))
                     })
                     .collect();
-                let ftype = Type::generic_f(type_args?, Type::UNKNOWN, vec![]);
+                let ftype = Type::generic_f(type_args?, Type::VOID, vec![]);
                 Ok(Fref::new(m, id, ftype))
             }
             other => {

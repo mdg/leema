@@ -114,7 +114,8 @@ fn real_main() -> Lresult<()>
     let fref = match args.flag_func {
         Some(func) => {
             let sfunc = Interloader::static_str(func);
-            Fref::with_modules(main_key.clone(), sfunc)
+            let fref_node = parser::parse_fref(sfunc)?;
+            fref_node.node.to_fref(main_key.clone())?
         }
         None => {
             let main_type = Type::f(Type::VOID, vec![]);
