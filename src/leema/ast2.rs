@@ -1,11 +1,11 @@
 use crate::leema::canonical::Canonical;
 use crate::leema::failure::Lresult;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ImportedMod;
+use crate::leema::module::{ImportedMod, ModKey};
 use crate::leema::reg::Reg;
-use crate::leema::struple::{self, StrupleKV};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::token::TokenSrc;
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{Fref, Type, TypeArgs, Val};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -291,6 +291,58 @@ impl Ast
     pub fn is_void(&self) -> bool
     {
         *self == Ast::VOID
+    }
+
+    pub fn to_fref(&self, m: ModKey) -> Lresult<Fref>
+    {
+        match self {
+            Ast::Id(id) => Ok(Fref::with_modules(m, id)),
+            Ast::Generic(base, args) => {
+                let id = if let Ast::Id(id) = *base.node {
+                    id
+                } else {
+                    return Err(rustfail!(
+                        "leema_failure",
+                        "cannot convert node to id: {:?}",
+                        base,
+                    ));
+                };
+                let type_args: Lresult<TypeArgs> = args
+                    .iter()
+                    .enumerate()
+                    .map(|a| {
+                        let opt_k = a.1.k.map(|k| Lstr::Sref(k));
+                        let k = Type::unwrap_name(&opt_k, a.0);
+                        Ok(StrupleItem::new(k, a.1.v.node.to_type(&m)?))
+                    })
+                    .collect();
+                let ftype = Type::generic_f(type_args?, Type::UNKNOWN, vec![]);
+                Ok(Fref::new(m, id, ftype))
+            }
+            other => {
+                Err(rustfail!(
+                    "leema_failure",
+                    "cannot convert node to Fref: {:?}",
+                    other,
+                ))
+            }
+        }
+    }
+
+    pub fn to_type(&self, _m: &ModKey) -> Lresult<Type>
+    {
+        match self {
+            Ast::Id(t) => {
+                Ok(Type::new(Canonical::new(lstrf!("/core/{}", t)), vec![]))
+            }
+            other => {
+                Err(rustfail!(
+                    "leema_failure",
+                    "cannot convert node to type: {:?}",
+                    other,
+                ))
+            }
+        }
     }
 
     pub fn fmt_inner(&self, f: &mut fmt::Formatter) -> fmt::Result

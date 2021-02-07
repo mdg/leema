@@ -635,7 +635,7 @@ struct TypeCheck<'p>
 {
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
-    closed: &'p TypeArgs,
+    closed: &'p TypeArgSlice,
     result: Type,
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
@@ -648,7 +648,7 @@ impl<'p> TypeCheck<'p>
         lib: &'p ProtoLib,
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncTypeRef<'p>,
-        closed: &'p TypeArgs,
+        closed: &'p TypeArgSlice,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
@@ -1832,7 +1832,7 @@ mod tests
         let proto = ProtoModule::new(ModKey::from("foo"), "").unwrap();
         let mainf = Type::f(Type::VOID, vec![]);
         let mainfref = mainf.func_ref().unwrap();
-        let type_check = TypeCheck::new(&lib, &proto, &mainfref).unwrap();
+        let type_check = TypeCheck::new(&lib, &proto, &mainfref, &[]).unwrap();
         let inferred = type_check.inferred_type(&ftyp, ftyp_args).unwrap();
         assert_eq!(expected, inferred);
     }

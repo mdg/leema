@@ -146,6 +146,11 @@ pub fn parse_file(text: &'static str) -> Lresult<Vec<AstNode>>
     }
 }
 
+pub fn parse_fref(text: &'static str) -> Lresult<AstNode>
+{
+    Ok(parse(Rule::def_id, text)?.drain(0..1).next().unwrap())
+}
+
 pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
 {
     let it = LeemaParser::parse(r, text).map_err(|e| {

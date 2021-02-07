@@ -147,7 +147,12 @@ impl Fiber
                 ev
             }
         };
-        Ok(ltry!(result, "pc": lstrf!("{}", opc)))
+        Ok(ltry!(
+            result,
+            "pc": lstrf!("{}", opc),
+            "mod": self.head.function.m.name.to_lstr(),
+            "func": Lstr::Sref(self.head.function.f),
+        ))
     }
 
     pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
