@@ -845,10 +845,10 @@ impl<'p> TypeCheck<'p>
             if var_type == *t {
                 Ok(var_type)
             } else {
-                Ok(lfctx!(
+                Ok(ltry!(
                     self.match_type(&var_type, t, opens),
                     "inferring type var": var.clone(),
-                    "as type": lstrf!("{}", var_type)
+                    "as type": lstrf!("{}", var_type),
                 ))
             }
         } else {
@@ -1007,13 +1007,17 @@ impl<'p> TypeCheck<'p>
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let typ = lfctx!(
+            let typ = ltry!(
                 self.match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args),
                 "function_param": arg.0.k.clone(),
                 "expected": lstrf!("{}", arg.0.v),
                 "found": lstrf!("{}", arg.1.v.typ),
                 "loc": lstrf!("{:?}", arg.1.v.loc),
-                "file": lstrf!("{}:{}", self.local_mod.key.best_path(), arg.1.v.loc.lineno)
+                "file": lstrf!(
+                    "{}:{}",
+                    self.local_mod.key.best_path(),
+                    arg.1.v.loc.lineno,
+                ),
             );
             arg.0.v = typ.clone();
             arg.1.v.typ = typ;
@@ -1524,10 +1528,10 @@ impl Semantics
             &mut macs,
             &mut type_check,
         ]);
-        let mut result = lfctx!(
+        let mut result = ltry!(
             ast2::walk(body, &mut pipe),
             "module": modname.as_lstr().clone(),
-            "function": Lstr::Sref(f.f)
+            "function": Lstr::Sref(f.f),
         );
 
         if result.typ.is_untyped_block() {

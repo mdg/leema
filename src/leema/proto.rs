@@ -51,22 +51,22 @@ use std::path::{Path, PathBuf};
 use lazy_static::lazy_static;
 
 
-// special module field names
-// Func
+/// special module field names
+/// Func
 pub const MODNAME_CONSTRUCT: &'static str = "__construct";
-// Type
+/// Type
 pub const MODNAME_DATATYPE: &'static str = "__datatype";
-// Bool
+/// Bool
 pub const MODNAME_EXPORTALL: &'static str = "__exportall";
-// Struple2<Type>
+/// Struple2<Type>
 pub const MODNAME_FIELDS: &'static str = "__fields";
-// Str
+/// Str
 pub const MODNAME_FILE: &'static str = "__file";
-// ModTyp Enum
+/// ModTyp Enum
 pub const MODNAME_MODTYP: &'static str = "__modtyp";
-// Str
+/// Str
 pub const MODNAME_NAME: &'static str = "__name";
-// Struple2<Type>
+/// Struple2<Type>
 pub const MODNAME_VARIANTS: &'static str = "__variants";
 
 const NUM_MODNAMES: usize = 7;
@@ -847,11 +847,11 @@ impl ProtoModule
         };
 
         ltry!(self.refute_redefines_default(id, loc));
-        let ftyp = lfctx!(
+        let ftyp = ltry!(
             self.ast_to_ftype(&result, &args, &opens),
             "file": self.key.best_path(),
             "line": lstrf!("{}", name.loc.lineno),
-            "func": Lstr::Sref(id)
+            "func": Lstr::Sref(id),
         );
         Ok((id, ftyp))
     }
@@ -1438,7 +1438,11 @@ impl ProtoLib
         loc: Loc,
     ) -> Lresult<&AstNode>
     {
-        let proto = lfctx!(self.path_proto(modname), "elem": Lstr::from(elem.to_string()), "line": lstrf!("{}", loc.lineno));
+        let proto = ltry!(
+            self.path_proto(modname),
+            "elem": Lstr::from(elem.to_string()),
+            "line": lstrf!("{}", loc.lineno),
+        );
         if proto.localdef.contains(elem) {
             return Err(Failure::static_leema(
                 failure::Mode::CompileFailure,

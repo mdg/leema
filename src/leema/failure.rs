@@ -40,11 +40,20 @@ macro_rules! ltry {
             }
         }
     };
-}
-
-macro_rules! lfctx {
-    ($x:expr, $($key:literal : $val:expr),+) => {
-        match $x {
+    ($r:expr, $key:literal : $val:expr) => {
+        match $r {
+            Ok(success) => success,
+            Err(f) => {
+                return Err(f.with_context(vec![
+                    StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
+                    StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line!())),
+                    StrupleItem::new(Lstr::Sref($key), $val),
+                ]));
+            }
+        }
+    };
+    ($r:expr, $($key:literal : $val:expr),+, $(,)?) => {
+        match $r {
             Ok(success) => success,
             Err(f) => {
                 return Err(f.with_context(vec![

@@ -147,7 +147,7 @@ impl Fiber
                 ev
             }
         };
-        Ok(lfctx!(result, "pc": lstrf!("{}", opc)))
+        Ok(ltry!(result, "pc": lstrf!("{}", opc)))
     }
 
     pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
@@ -246,9 +246,9 @@ impl Fiber
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
-        lfctx!(
+        ltry!(
             self.head.e.set_reg(reg, v.clone()),
-            "cannot_load_constant": lstrf!("{:?}", v)
+            "cannot_load_constant": lstrf!("{:?}", v),
         );
         self.head.pc += 1;
         Ok(Event::Uneventful)

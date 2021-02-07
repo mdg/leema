@@ -567,14 +567,14 @@ impl Type
 
     pub fn first_arg(&self) -> Lresult<&TypeArg>
     {
-        let first = lfctx!(
+        let first = ltry!(
             self.args.first().ok_or_else(|| {
                 rustfail!(
                     "leema_failure",
                     "no first argument to return",
                 )
             }),
-            "path": self.path.to_lstr()
+            "path": self.path.to_lstr(),
         );
         Ok(&first)
     }
@@ -1861,7 +1861,7 @@ impl Env
             Reg::Param(r) => lfailoc!(self.params.ireg_get(r)),
             Reg::Local(i) => {
                 let reg_str: Lstr = lstrf!("{}", reg);
-                Ok(lfctx!(self.locals.ireg_get(i), "reg": reg_str))
+                Ok(ltry!(self.locals.ireg_get(i), "reg": reg_str))
             }
             Reg::Stack(i) => lfailoc!(self.stack.ireg_get(i)),
             Reg::Void => {
