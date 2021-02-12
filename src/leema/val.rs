@@ -1841,6 +1841,13 @@ impl Env
                 }
                 self.stack.ireg_set(i, v)
             }
+            Reg::Param(i) => {
+                // debatable whether param should allow writes
+                // might need to reverse this at some point and
+                // copy params before writing
+                // Struple.ireg_set checks bounds
+                self.params.ireg_set(i, v)
+            }
             Reg::Void => {
                 // do nothing, void reg is like /dev/null
                 Ok(())

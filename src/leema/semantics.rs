@@ -1538,17 +1538,18 @@ impl Semantics
             result.typ = ftyp.result.clone();
         } else {
             result.typ = type_check.inferred_type(&result.typ, &closed)?;
-        }
-        let ftyp_result = type_check.inferred_type(&ftyp.result, &closed)?;
-        if ftyp_result != result.typ && ftyp_result != Type::VOID {
-            return Err(rustfail!(
-                SEMFAIL,
-                "bad return type in {}.{}, expected: {}, found {}",
-                modname,
-                f.f,
-                ftyp_result,
-                result.typ,
-            ));
+            let ftyp_result =
+                type_check.inferred_type(&ftyp.result, &closed)?;
+            if ftyp_result != result.typ && ftyp_result != Type::VOID {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "bad return type in {}.{}, expected: {}, found {}",
+                    modname,
+                    f.f,
+                    ftyp_result,
+                    result.typ,
+                ));
+            }
         }
 
         sem.infers = type_check.infers;
