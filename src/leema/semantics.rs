@@ -1023,6 +1023,12 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = typ;
         }
 
+        for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
+            let inferred = self.inferred_type(&arg.0.v, &ftyp.type_args)?;
+            arg.0.v = inferred.clone();
+            arg.1.v.typ = inferred;
+        }
+
         *ftyp.result = self.inferred_type(&ftyp.result, &ftyp.type_args)?;
         Ok((*ftyp.result).clone())
     }
