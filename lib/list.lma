@@ -4,9 +4,11 @@ func <map A B>:[B] :: items:[A] f:(B :: A) ->
     _map([], items, f)
 --
 
-func <_map C D>:[C] :: result:[C] input:[D] f:(C :: D)
-|(result, [], _f) -> reverse(result)
-|(result, h;t, f) -> _map(f(h);result, t, f)
+func <_map C D>:[C] :: result:[C] input:[D] f:(C :: D) ->
+    match input
+    |[] -> reverse(result)
+    |h;t -> _map(f(h);result, t, f)
+    --
 --
 
 func <reduce A B>:A :: init:A items:[B] f:(A :: A B) ->
