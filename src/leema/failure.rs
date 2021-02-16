@@ -22,6 +22,18 @@ macro_rules! rustfail {
     };
 }
 
+macro_rules! lfail {
+    ($mode:expr, $msg:expr) => {
+        crate::leema::failure::Failure::with_status($mode, $msg).with_context(
+            vec![
+                StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
+                StrupleItem::new(Lstr::Sref("msg"), Lstr::Sref($msg)),
+            ],
+        )
+    };
+}
+
 macro_rules! lfailoc {
     ($r:expr) => {
         match $r {
@@ -113,7 +125,7 @@ impl Mode
         }
     }
 
-    fn as_str(&self) -> &'static str
+    pub fn as_str(&self) -> &'static str
     {
         match self {
             Mode::Ok => "ok",
@@ -167,6 +179,18 @@ impl Failure
             msg: Val::Str(msg),
             trace: None,
             status: Mode::Ok,
+            code: 0,
+            context: vec![],
+        }
+    }
+
+    pub fn with_status(mode: Mode, msg: &'static str) -> Failure
+    {
+        Failure {
+            tag: Val::Hashtag(Lstr::Sref(mode.as_str())),
+            msg: Val::Str(Lstr::Sref(msg)),
+            trace: None,
+            status: mode,
             code: 0,
             context: vec![],
         }

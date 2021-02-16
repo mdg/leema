@@ -637,9 +637,11 @@ struct TypeCheck<'p>
     local_mod: &'p ProtoModule,
     closed: &'p TypeArgSlice,
     result: Type,
+    /// types of specific variables
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
+    next_call_index: u32,
 }
 
 impl<'p> TypeCheck<'p>
@@ -659,6 +661,7 @@ impl<'p> TypeCheck<'p>
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
+            next_call_index: 0,
         };
 
         for arg in ftyp.args.iter() {
@@ -686,6 +689,7 @@ impl<'p> TypeCheck<'p>
                 self.inferred_local(local)
             }
             TypeRef(Type::PATH_OPENVAR, [StrupleItem { k: open, .. }, ..]) => {
+                // this should always be found or it's an error
                 struple::find(opens, open)
                     .map(|item| item.clone())
                     .unwrap_or_else(|| Type::open(open.clone()))
@@ -693,6 +697,12 @@ impl<'p> TypeCheck<'p>
             _ => t.map_v(&|a| self.inferred_type(a, opens))?,
         };
         Ok(newt)
+    }
+
+    pub fn match_types(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
+    {
+        let mut opens = TypeArgs::new();
+        self.match_type(t0, t1, &mut opens)
     }
 
     /// match one type to another
@@ -714,6 +724,15 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         match (t0.path_str(), t1.path_str()) {
+            // open var cases should not happen
+            (Type::PATH_OPENVAR, _) => {
+                let k0 = &t0.first_arg()?.k;
+                dbg!(lfailoc!(self.close_generic(k0.as_str(), t1, opens)))
+            }
+            (_, Type::PATH_OPENVAR) => {
+                let k1 = &t1.first_arg()?.k;
+                dbg!(lfailoc!(self.close_generic(k1.as_str(), t0, opens)))
+            }
             // unknown and failure cases
             // failure defaults to the other type b/c possible failure
             // is implicit in types
@@ -745,15 +764,6 @@ impl<'p> TypeCheck<'p>
                 let v1 = &t1.first_arg()?.k;
                 lfailoc!(self.infer_type(v1, t0, opens))
             }
-            // open var cases
-            (Type::PATH_OPENVAR, _) => {
-                let k0 = &t0.first_arg()?.k;
-                lfailoc!(self.close_generic(k0.as_str(), t1, opens))
-            }
-            (_, Type::PATH_OPENVAR) => {
-                let k1 = &t1.first_arg()?.k;
-                lfailoc!(self.close_generic(k1.as_str(), t0, opens))
-            }
             (Type::PATH_FN, Type::PATH_FN) => {
                 let f0 = t0.func_ref().unwrap();
                 let f1 = t1.func_ref().unwrap();
@@ -772,7 +782,7 @@ impl<'p> TypeCheck<'p>
                         f1,
                     ));
                 }
-                let mut args = Vec::with_capacity(f0.args.len());
+                let mut args: TypeArgs = Vec::with_capacity(f0.args.len());
                 for a in f0.args.iter().zip(f1.args.iter()) {
                     let a2 = self.match_type(&a.0.v, &a.1.v, opens)?;
                     let k = a.0.k.clone();
@@ -1056,6 +1066,23 @@ impl<'p> TypeCheck<'p>
         loc: Loc,
     ) -> Lresult<AstStep>
     {
+        if fref.t.is_open() {
+            let call_index = self.generic_call_index();
+            let mut fref_t = fref.t.clone();
+            let ct_ref = fref.t.try_func_ref()?;
+            for ta in ct_ref.type_args.iter() {
+                let lvar = Type::local(lstrf!(
+                    "{}-{}-{}-{}",
+                    fref.m.name,
+                    fref.f,
+                    ta.k,
+                    call_index
+                ));
+                fref_t = fref_t.replace_openvar(ta.k.as_str(), &lvar)?;
+            }
+            fref.t = fref_t;
+        }
+
         // an optimization here might be to iterate over
         // ast args and initialize any constants
         // actually better might be to stop having
@@ -1071,6 +1098,13 @@ impl<'p> TypeCheck<'p>
         error message for some other scenario, maybe unnecessary
         */
         Ok(AstStep::Ok)
+    }
+
+    fn generic_call_index(&mut self) -> u32
+    {
+        let result = self.next_call_index;
+        self.next_call_index += 1;
+        result
     }
 
     /// like post_call but for function objects where fref isn't known

@@ -593,10 +593,11 @@ impl Type
     pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
     {
         let op = |t: &Type| -> Lresult<Option<Type>> {
-            if t.is_openvar() && t.path.as_str() == id {
-                Ok(Some(new_type.clone()))
-            } else {
-                Ok(None)
+            match (t.path.as_str(), t.args.first()) {
+                (Self::PATH_OPENVAR, Some(open)) if *open.k == *id => {
+                    Ok(Some(new_type.clone()))
+                }
+                _ => Ok(None),
             }
         };
         self.map(&op)
