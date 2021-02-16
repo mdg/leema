@@ -389,6 +389,7 @@ impl Type
     pub fn is_local(&self) -> bool
     {
         self.path.as_str() == Type::PATH_LOCAL
+            || self.args.iter().any(|a| a.v.is_local())
     }
 
     pub fn is_openvar(&self) -> bool
@@ -823,7 +824,6 @@ pub const FAILURE_INTERNAL: i8 = -7;
 pub const FAILURE_TYPE: i8 = -8;
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -882,7 +882,15 @@ impl fmt::Display for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({}::{} {:?})", self.m, self.f, self.t)
+        write!(f, "({}.{} {})", self.m.name, self.f, self.t)
+    }
+}
+
+impl fmt::Debug for Fref
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "({}.{} {:?})", self.m.name, self.f, self.t)
     }
 }
 
