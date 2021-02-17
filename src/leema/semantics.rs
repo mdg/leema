@@ -1519,6 +1519,12 @@ impl Semantics
                     f,
                 ));
             }
+            if f.t.is_local() {
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "cannot compile func with local variable"
+                ));
+            }
             Vec::from(ft.type_args.clone())
         } else {
             vec![]
@@ -1580,6 +1586,14 @@ impl Semantics
             result.typ = type_check.inferred_type(&result.typ, &closed)?;
             let ftyp_result =
                 type_check.inferred_type(&ftyp.result, &closed)?;
+            let matched_result =
+                type_check.match_types(&ftyp_result, &result.typ)?;
+            if matched_result.is_local() {
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "unresolved result type"
+                ));
+            }
             if ftyp_result != result.typ && ftyp_result != Type::VOID {
                 return Err(rustfail!(
                     SEMFAIL,
