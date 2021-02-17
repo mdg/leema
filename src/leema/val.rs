@@ -78,7 +78,6 @@ pub type TypeArgs = StrupleKV<Lstr, Type>;
 pub type TypeArgSlice = [StrupleItem<Lstr, Type>];
 
 #[derive(Clone)]
-#[derive(Debug)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
 #[derive(Eq)]
@@ -102,6 +101,66 @@ impl<'a> FuncTypeRef<'a>
             .chain(self.closed_args.iter())
             .map(|a| StrupleItem::new(Some(a.k.clone()), Val::VOID))
             .collect()
+    }
+}
+
+impl<'a> fmt::Display for FuncTypeRef<'a>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        if !self.type_args.is_empty() {
+            write!(f, "<(")?;
+        }
+        write!(f, "{} ::", self.result)?;
+        for a in self.args.iter() {
+            if a.v.is_func() {
+                write!(f, " ({})", a.v)?;
+            } else {
+                write!(f, " {}", a.v)?;
+            }
+        }
+        if !self.type_args.is_empty() {
+            write!(f, ")")?;
+            for ta in self.type_args.iter() {
+                if ta.v.is_open() {
+                    write!(f, " {}", ta.k)?;
+                } else {
+                    write!(f, " {}", ta.v)?;
+                }
+            }
+            write!(f, ">")?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Debug for FuncTypeRef<'a>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        if !self.type_args.is_empty() {
+            write!(f, "<")?;
+        }
+        write!(f, "{:?} ::", self.result)?;
+        for a in self.args.iter() {
+            if a.v.is_func() {
+                write!(f, " ({:?})", a.v)?;
+            } else {
+                write!(f, " {:?}", a.v)?;
+            }
+        }
+        if !self.type_args.is_empty() {
+            write!(f, ")")?;
+            for ta in self.type_args.iter() {
+                if ta.v.is_open() {
+                    write!(f, " {}", ta.k)?;
+                } else {
+                    write!(f, " {:?}", ta.v)?;
+                }
+            }
+            write!(f, ">")?;
+        }
+        Ok(())
     }
 }
 
@@ -680,10 +739,12 @@ impl fmt::Display for Type
     {
         if self.is_local() {
             let first = self.first_arg().unwrap();
-            write!(f, "local:{}", first.k)
+            write!(f, "{}", first.k)
         } else if self.is_openvar() {
             let first = self.first_arg().unwrap();
-            write!(f, "open:{}", first.k)
+            write!(f, "{}", first.k)
+        } else if let Some(ft) = self.func_ref() {
+            write!(f, "{}", ft)
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
@@ -697,9 +758,6 @@ impl fmt::Display for Type
                     write!(f, "[")?;
                     write!(f, "{}", self.args.first().unwrap().v)?;
                     write!(f, "]")
-                }
-                Type::PATH_FN => {
-                    write!(f, "(func type: {:?})", self.args)
                 }
                 _ => {
                     if self.args.is_empty() {
@@ -727,6 +785,8 @@ impl fmt::Debug for Type
         } else if self.is_openvar() {
             let first = self.first_arg().unwrap();
             write!(f, "open:{}", first.k)
+        } else if let Some(ft) = self.func_ref() {
+            write!(f, "{:?}", ft)
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
@@ -740,9 +800,6 @@ impl fmt::Debug for Type
                     write!(f, "[")?;
                     write!(f, "{:?}", self.args.first().unwrap().v)?;
                     write!(f, "]")
-                }
-                Type::PATH_FN => {
-                    write!(f, "(func type: {:?})", self.args)
                 }
                 _ => {
                     if self.args.is_empty() {
@@ -882,7 +939,7 @@ impl fmt::Display for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({}.{} {})", self.m.name, self.f, self.t)
+        write!(f, "({}.{}: {})", self.m.name, self.f, self.t)
     }
 }
 
@@ -890,7 +947,7 @@ impl fmt::Debug for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({}.{} {:?})", self.m.name, self.f, self.t)
+        write!(f, "({}.{}: {:?})", self.m.name, self.f, self.t)
     }
 }
 
