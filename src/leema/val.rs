@@ -270,7 +270,7 @@ impl Type
         Type { path, args }
     }
 
-    /// Create a type w/ the given path name and no type arguments
+    /// Create a type w/ the given path name
     pub const fn t(path: &'static str, args: TypeArgs) -> Type
     {
         Type {
@@ -650,17 +650,18 @@ impl Type
         }
     }
 
-    pub fn replace_openvar(&self, id: &str, new_type: &Type) -> Lresult<Type>
+    // replace an open variable in this type with the new type
+    pub fn replace_openvar(&mut self, id: &str, new_type: &Type) -> Lresult<()>
     {
-        let op = |t: &Type| -> Lresult<Option<Type>> {
-            match (t.path.as_str(), t.args.first()) {
-                (Self::PATH_OPENVAR, Some(open)) if *open.k == *id => {
-                    Ok(Some(new_type.clone()))
+        if let Some(_ft) = self.func_ref_mut() {
+        } else {
+            for a in self.args.iter_mut() {
+                if a.k == *id {
+                    a.v = new_type.clone();
                 }
-                _ => Ok(None),
             }
-        };
-        self.map(&op)
+        }
+        Ok(())
     }
 
     pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
@@ -1975,6 +1976,48 @@ mod tests
     use crate::leema::reg::Reg;
     use crate::leema::struple::{self, StrupleItem};
 
+    #[test]
+    fn replace_openvar_func()
+    {
+        let a = Lstr::Sref("A");
+        let b = Lstr::Sref("B");
+        let init_type_args = vec![
+            StrupleItem::new(a.clone(), Type::UNKNOWN),
+            StrupleItem::new(b.clone(), Type::UNKNOWN),
+        ];
+        let init = Type::generic_f(
+            init_type_args,
+            Type::open(a.clone()),
+            vec![StrupleItem::new(Lstr::Sref("x"), Type::open(b.clone()))],
+        );
+        let mut actual = init.clone();
+        let expected = Type::generic_f(
+            vec![
+                StrupleItem::new(a.clone(), Type::INT),
+                StrupleItem::new(b.clone(), Type::UNKNOWN),
+            ],
+            Type::INT,
+            vec![StrupleItem::new(Lstr::Sref("x"), Type::open(b.clone()))],
+        );
+        actual.replace_openvar("A", &Type::INT).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn replace_openvar_struct()
+    {
+        let init = Type::t("/app/Test", vec![
+            StrupleItem::new(Lstr::Sref("A"), Type::UNKNOWN),
+            StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
+        ]);
+        let mut actual = init.clone();
+        let expected = Type::t("/app/Test", vec![
+            StrupleItem::new(Lstr::Sref("A"), Type::INT),
+            StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
+        ]);
+        actual.replace_openvar("A", &Type::INT).unwrap();
+        assert_eq!(expected, actual);
+    }
 
     #[test]
     fn test_tuple_from_list()
