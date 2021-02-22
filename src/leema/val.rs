@@ -651,13 +651,33 @@ impl Type
     }
 
     // replace an open variable in this type with the new type
-    pub fn replace_openvar(&mut self, id: &str, new_type: &Type) -> Lresult<()>
+    pub fn replace_openvar(&mut self, id: &str, new_type: &Type)
+        -> Lresult<()>
     {
-        if let Some(_ft) = self.func_ref_mut() {
+        if self.path.as_str() == Self::PATH_OPENVAR {
+            if let Some(open) = self.args.first() {
+                if open.k == *id {
+                    *self = new_type.clone();
+                    return Ok(());
+                }
+            } // else this is bad
+        }
+        if let Some(ft) = self.func_ref_mut() {
+            for a in ft.type_args.iter_mut() {
+                if a.k == *id {
+                    a.v = new_type.clone();
+                }
+            }
+            ft.result.replace_openvar(id, new_type)?;
+            for a in ft.args.iter_mut() {
+                a.v.replace_openvar(id, new_type)?;
+            }
         } else {
             for a in self.args.iter_mut() {
                 if a.k == *id {
                     a.v = new_type.clone();
+                } else {
+                    a.v.replace_openvar(id, new_type)?;
                 }
             }
         }
@@ -2006,15 +2026,77 @@ mod tests
     #[test]
     fn replace_openvar_struct()
     {
-        let init = Type::t("/app/Test", vec![
-            StrupleItem::new(Lstr::Sref("A"), Type::UNKNOWN),
-            StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
-        ]);
+        let init = Type::t(
+            "/app/Test",
+            vec![
+                StrupleItem::new(Lstr::Sref("A"), Type::UNKNOWN),
+                StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
+            ],
+        );
         let mut actual = init.clone();
-        let expected = Type::t("/app/Test", vec![
-            StrupleItem::new(Lstr::Sref("A"), Type::INT),
-            StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
-        ]);
+        let expected = Type::t(
+            "/app/Test",
+            vec![
+                StrupleItem::new(Lstr::Sref("A"), Type::INT),
+                StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
+            ],
+        );
+        actual.replace_openvar("A", &Type::INT).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn replace_openvar_listmap()
+    {
+        let a = Lstr::Sref("A");
+        let b = Lstr::Sref("B");
+        let mut actual = Type::generic_f(
+            vec![
+                StrupleItem::new(a.clone(), Type::UNKNOWN),
+                StrupleItem::new(b.clone(), Type::UNKNOWN),
+            ],
+            Type::list(Type::open(a.clone())),
+            vec![
+                StrupleItem::new(
+                    Lstr::Sref("i"),
+                    Type::list(Type::open(b.clone())),
+                ),
+                StrupleItem::new(
+                    Lstr::Sref("f"),
+                    Type::f(
+                        Type::open(a.clone()),
+                        vec![StrupleItem::new(
+                            Lstr::Sref("i"),
+                            Type::open(b.clone()),
+                        )],
+                    ),
+                ),
+            ],
+        );
+
+        let expected = Type::generic_f(
+            vec![
+                StrupleItem::new(a.clone(), Type::INT),
+                StrupleItem::new(b.clone(), Type::UNKNOWN),
+            ],
+            Type::list(Type::INT),
+            vec![
+                StrupleItem::new(
+                    Lstr::Sref("i"),
+                    Type::list(Type::open(b.clone())),
+                ),
+                StrupleItem::new(
+                    Lstr::Sref("f"),
+                    Type::f(
+                        Type::INT,
+                        vec![StrupleItem::new(
+                            Lstr::Sref("i"),
+                            Type::open(b.clone()),
+                        )],
+                    ),
+                ),
+            ],
+        );
         actual.replace_openvar("A", &Type::INT).unwrap();
         assert_eq!(expected, actual);
     }
