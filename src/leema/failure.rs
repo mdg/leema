@@ -42,6 +42,16 @@ macro_rules! lfail {
             ],
         )
     };
+    ($mode:expr, $msg:expr, $($key:literal : $val:expr),+, $(,)?) => {
+        crate::leema::failure::Failure::with_status($mode, $msg).with_context(
+            vec![
+                StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
+                StrupleItem::new(Lstr::Sref("msg"), Lstr::Sref($msg)),
+                $(StrupleItem::new(Lstr::Sref($key), $val)),+
+            ],
+        )
+    };
 }
 
 macro_rules! lfailoc {
@@ -62,7 +72,7 @@ macro_rules! ltry {
             }
         }
     };
-    ($r:expr, $key:literal : $val:expr) => {
+    ($r:expr, $key:literal : $val:expr $(,)?) => {
         match $r {
             Ok(success) => success,
             Err(f) => {

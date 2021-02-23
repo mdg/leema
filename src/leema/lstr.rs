@@ -10,24 +10,26 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 
+/// Return a formatted Lstr
 macro_rules! lstrf {
     ($fmt:expr, $($arg:tt)*) => {
         crate::leema::lstr::Lstr::from(format!($fmt, $($arg)*))
     };
 }
 
+/// format a value with Display and return as Lstr
 macro_rules! ldisplay {
     ($val:expr) => {
         crate::leema::lstr::Lstr::from(format!("{}", $val))
     };
 }
 
-/* commented until it's used
+/// format a value with Debug and return as Lstr
 macro_rules! ldebug {
     ($val:expr) => {
         crate::leema::lstr::Lstr::from(format!("{:?}", $val))
     };
-} */
+}
 
 #[derive(Clone)]
 #[derive(Eq)]

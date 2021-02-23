@@ -1187,55 +1187,9 @@ impl<'p> TypeCheck<'p>
             }
         }
     }
-}
 
-impl<'p> ast2::Op for TypeCheck<'p>
-{
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
-    {
-        match &mut *node.node {
-            Ast::Id(id) => {
-                // mode == value
-                // if the type is known, assign it to this variable
-                if let Some(typ) = self.vartypes.get(id) {
-                    node.typ = typ.clone();
-                // put the node back the way it was
-                // *node.node = Ast::Id(id);
-                } else {
-                    let tvar = Type::local(Lstr::Sref(id));
-                    self.vartypes.insert(id, tvar.clone());
-                    node.typ = tvar;
-                    // put the node back the way it was
-                    // *node.node = Ast::Id(id);
-                }
-            }
-            Ast::ConstVal(c) if node.typ.is_open() => {
-                node.typ = c.get_type();
-            }
-            Ast::Wildcard => {
-                node.typ = Type::UNKNOWN;
-            }
-            Ast::Op2(_, _, _) => {
-                // handled in post
-            }
-            Ast::Block(_)
-            | Ast::Call(_, _)
-            | Ast::Tuple(_)
-            | Ast::Let(_, _, _) => {
-                // handled in post
-            }
-            Ast::ConstVal(Val::Type(utb)) if utb.is_untyped_block() => {
-                node.typ = self.result.clone();
-            }
-            _ => {
-                // should handle matches later, but for now it's fine
-            }
-        }
-        Ok(AstStep::Ok)
-    }
-
-    /// TypeCheck post
-    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    /// TypeCheck post check
+    fn post_check(&mut self, node: &mut AstNode) -> StepResult
     {
         match &mut *node.node {
             Ast::Block(items) => {
@@ -1408,6 +1362,81 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
         }
         Ok(AstStep::Ok)
+    }
+}
+
+impl<'p> ast2::Op for TypeCheck<'p>
+{
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Id(id) => {
+                // mode == value
+                // if the type is known, assign it to this variable
+                if let Some(typ) = self.vartypes.get(id) {
+                    node.typ = typ.clone();
+                // put the node back the way it was
+                // *node.node = Ast::Id(id);
+                } else {
+                    let tvar = Type::local(Lstr::Sref(id));
+                    self.vartypes.insert(id, tvar.clone());
+                    node.typ = tvar;
+                    // put the node back the way it was
+                    // *node.node = Ast::Id(id);
+                }
+            }
+            Ast::ConstVal(c) if node.typ.is_open() => {
+                node.typ = c.get_type();
+            }
+            Ast::Wildcard => {
+                node.typ = Type::UNKNOWN;
+            }
+            Ast::Op2(_, _, _) => {
+                // handled in post
+            }
+            Ast::Block(_)
+            | Ast::Call(_, _)
+            | Ast::Tuple(_)
+            | Ast::Let(_, _, _) => {
+                // handled in post
+            }
+            Ast::ConstVal(Val::Type(utb)) if utb.is_untyped_block() => {
+                node.typ = self.result.clone();
+            }
+            _ => {
+                // should handle matches later, but for now it's fine
+            }
+        }
+        Ok(AstStep::Ok)
+    }
+
+    /// TypeCheck post
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    {
+        steptry!(self.post_check(node));
+        // make sure that the type has been fully resolved and
+        // is no-longer a local type variable or open generic
+        if node.typ.contains_local() {
+            Err(lfail!(
+                failure::Mode::TypeFailure,
+                "expression contains unresolved local type variable",
+                "type": ldisplay!(node.typ),
+                "node": ldebug!(node.node),
+                "file": self.local_mod.key.best_path(),
+                "line": ldisplay!(node.loc.lineno),
+            ))
+        } else if node.typ.is_open() {
+            Err(lfail!(
+                failure::Mode::TypeFailure,
+                "expression contains unresolved open generic type variable",
+                "type": ldisplay!(node.typ),
+                "node": ldebug!(node.node),
+                "file": self.local_mod.key.best_path(),
+                "line": ldisplay!(node.loc.lineno),
+            ))
+        } else {
+            Ok(AstStep::Ok)
+        }
     }
 }
 
