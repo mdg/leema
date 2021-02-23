@@ -448,7 +448,11 @@ impl Type
     pub fn is_local(&self) -> bool
     {
         self.path.as_str() == Type::PATH_LOCAL
-            || self.args.iter().any(|a| a.v.is_local())
+    }
+
+    pub fn contains_local(&self) -> bool
+    {
+        self.is_local() || self.args.iter().any(|a| a.v.contains_local())
     }
 
     pub fn is_openvar(&self) -> bool
@@ -758,14 +762,14 @@ impl fmt::Display for Type
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        if self.is_local() {
+        if let Some(ft) = self.func_ref() {
+            write!(f, "{}", ft)
+        } else if self.is_local() {
             let first = self.first_arg().unwrap();
             write!(f, "{}", first.k)
         } else if self.is_openvar() {
             let first = self.first_arg().unwrap();
             write!(f, "{}", first.k)
-        } else if let Some(ft) = self.func_ref() {
-            write!(f, "{}", ft)
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {

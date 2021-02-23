@@ -16,6 +16,19 @@ macro_rules! lstrf {
     };
 }
 
+macro_rules! ldisplay {
+    ($val:expr) => {
+        crate::leema::lstr::Lstr::from(format!("{}", $val))
+    };
+}
+
+/* commented until it's used
+macro_rules! ldebug {
+    ($val:expr) => {
+        crate::leema::lstr::Lstr::from(format!("{:?}", $val))
+    };
+} */
+
 #[derive(Clone)]
 #[derive(Eq)]
 pub enum Lstr

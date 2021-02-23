@@ -1078,7 +1078,7 @@ impl<'p> TypeCheck<'p>
                     ta.k,
                     call_index
                 ));
-                fref_t = fref_t.replace_openvar(ta.k.as_str(), &lvar)?;
+                fref_t.replace_openvar(ta.k.as_str(), &lvar)?;
             }
             fref.t = fref_t;
         }
@@ -1508,7 +1508,7 @@ impl Semantics
         let func_ref = proto.find_method(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
-        let ft = f.t.func_ref().unwrap();
+
         let func_ref_t = func_ref.typ.func_ref().unwrap();
         // what's going on here?
         let closed = if func_ref.typ.is_open() {
@@ -1519,13 +1519,17 @@ impl Semantics
                     f,
                 ));
             }
-            if f.t.is_local() {
+            if f.t.contains_local() {
                 return Err(lfail!(
                     failure::Mode::TypeFailure,
-                    "cannot compile func with local variable"
+                    "cannot compile func with local variable",
+                    "variable": ldisplay!(f),
                 ));
             }
-            Vec::from(ft.type_args.clone())
+            match f.t.func_ref() {
+                Some(ft) => Vec::from(ft.type_args),
+                None => vec![],
+            }
         } else {
             vec![]
         };
@@ -1534,6 +1538,8 @@ impl Semantics
             func_ref.typ.try_func_ref()?
         } else if f.t.is_closed() {
             f.t.try_func_ref()?
+        } else if f.t == Type::UNKNOWN {
+            func_ref.typ.try_func_ref()?
         } else {
             return Err(rustfail!(
                 SEMFAIL,
@@ -1588,7 +1594,7 @@ impl Semantics
                 type_check.inferred_type(&ftyp.result, &closed)?;
             let matched_result =
                 type_check.match_types(&ftyp_result, &result.typ)?;
-            if matched_result.is_local() {
+            if matched_result.contains_local() {
                 return Err(lfail!(
                     failure::Mode::TypeFailure,
                     "unresolved result type"
