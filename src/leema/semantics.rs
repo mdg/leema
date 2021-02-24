@@ -892,7 +892,7 @@ impl<'p> TypeCheck<'p>
             // newly defined type, set it in opens
             opens[open_idx].v = t.clone();
             Ok(t.clone())
-        } else if open.is_openvar() {
+        } else if open.is_open() {
             if open.first_arg()?.k.as_str() == var {
                 // newly defined type, set it in opens
                 opens[open_idx].v = t.clone();
@@ -943,11 +943,12 @@ impl<'p> TypeCheck<'p>
                         .local_mod
                         .find_type(id)
                         .ok_or_else(|| {
-                            rustfail!(
-                                TYPEFAIL,
-                                "undefined type: {} in module {}",
-                                id,
-                                self.local_mod.key.name,
+                            lfail!(
+                                failure::Mode::TypeFailure,
+                                "undefined type",
+                                "type": Lstr::Sref(id),
+                                "file": self.local_mod.key.best_path(),
+                                "line": ldisplay!(a.1.v.loc.lineno),
                             )
                         })?
                         .clone();
@@ -969,7 +970,7 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<(usize, &'static str)>
     {
         for (idx, i) in typeargs.iter().enumerate() {
-            if i.v.is_openvar() || i.v == Type::UNKNOWN {
+            if i.v.is_open() || i.v == Type::UNKNOWN {
                 return Ok((idx, i.k));
             }
         }
@@ -1058,6 +1059,28 @@ impl<'p> TypeCheck<'p>
         Ok(prev_typ.unwrap())
     }
 
+    fn localize_generic(&mut self, t: &mut Type) -> Lresult<()>
+    {
+        if !t.is_open() {
+            return Ok(());
+        }
+
+        let gen_index = self.generic_call_index();
+        let TypeRefMut(_p, type_args) = t.try_generic_ref_mut()?;
+
+        for ta in type_args.iter_mut() {
+            // just do the opens
+            if ta.v.is_closed() {
+                continue;
+            }
+
+            let lvar = Type::local(lstrf!("{}-{}", ta.k, gen_index));
+            ta.v = lvar;
+        }
+        t.close_openvars();
+        Ok(())
+    }
+
     fn post_call(
         &mut self,
         call_typ: &mut Type,
@@ -1078,7 +1101,7 @@ impl<'p> TypeCheck<'p>
                     ta.k,
                     call_index
                 ));
-                fref_t.replace_openvar(ta.k.as_str(), &lvar)?;
+                fref_t.replace_openvar(ta.k.as_str(), &lvar);
             }
             fref.t = fref_t;
         }
@@ -1387,17 +1410,19 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
             Ast::ConstVal(c) if node.typ.is_open() => {
                 node.typ = c.get_type();
+                self.localize_generic(&mut node.typ)?;
             }
+            Ast::ConstVal(_) if node.typ.is_func() => {}
             Ast::Wildcard => {
                 node.typ = Type::UNKNOWN;
+            }
+            Ast::Let(_, _, _) => {
+                node.typ = Type::VOID;
             }
             Ast::Op2(_, _, _) => {
                 // handled in post
             }
-            Ast::Block(_)
-            | Ast::Call(_, _)
-            | Ast::Tuple(_)
-            | Ast::Let(_, _, _) => {
+            Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) => {
                 // handled in post
             }
             Ast::ConstVal(Val::Type(utb)) if utb.is_untyped_block() => {
@@ -1415,17 +1440,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
     {
         steptry!(self.post_check(node));
         // make sure that the type has been fully resolved and
-        // is no-longer a local type variable or open generic
-        if node.typ.contains_local() {
-            Err(lfail!(
-                failure::Mode::TypeFailure,
-                "expression contains unresolved local type variable",
-                "type": ldisplay!(node.typ),
-                "node": ldebug!(node.node),
-                "file": self.local_mod.key.best_path(),
-                "line": ldisplay!(node.loc.lineno),
-            ))
-        } else if node.typ.is_open() {
+        // is no longer an open generic
+        if node.typ.contains_open() {
             Err(lfail!(
                 failure::Mode::TypeFailure,
                 "expression contains unresolved open generic type variable",

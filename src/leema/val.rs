@@ -390,7 +390,7 @@ impl Type
             self.path.to_lstr()
         } else if self.is_local() {
             Lstr::from(format!("local:{}", self.path))
-        } else if self.is_openvar() {
+        } else if self.is_open() {
             Lstr::from(format!("open:{}", self.path))
         } else {
             lstrf!("{}", self)
@@ -455,20 +455,14 @@ impl Type
         self.is_local() || self.args.iter().any(|a| a.v.contains_local())
     }
 
-    pub fn is_openvar(&self) -> bool
+    pub fn is_open(&self) -> bool
     {
         self.path.as_str() == Type::PATH_OPENVAR
     }
 
-    pub fn is_open(&self) -> bool
+    pub fn contains_open(&self) -> bool
     {
-        if self.is_openvar() {
-            true
-        } else if *self == Type::UNKNOWN {
-            true
-        } else {
-            self.args.iter().any(|a| a.v.is_open())
-        }
+        self.is_open() || self.args.iter().any(|a| a.v.is_open())
     }
 
     pub fn is_closed(&self) -> bool
@@ -656,13 +650,12 @@ impl Type
 
     // replace an open variable in this type with the new type
     pub fn replace_openvar(&mut self, id: &str, new_type: &Type)
-        -> Lresult<()>
     {
         if self.path.as_str() == Self::PATH_OPENVAR {
             if let Some(open) = self.args.first() {
                 if open.k == *id {
                     *self = new_type.clone();
-                    return Ok(());
+                    return;
                 }
             } // else this is bad
         }
@@ -672,20 +665,35 @@ impl Type
                     a.v = new_type.clone();
                 }
             }
-            ft.result.replace_openvar(id, new_type)?;
+            ft.result.replace_openvar(id, new_type);
             for a in ft.args.iter_mut() {
-                a.v.replace_openvar(id, new_type)?;
+                a.v.replace_openvar(id, new_type);
             }
         } else {
             for a in self.args.iter_mut() {
                 if a.k == *id {
                     a.v = new_type.clone();
                 } else {
-                    a.v.replace_openvar(id, new_type)?;
+                    a.v.replace_openvar(id, new_type);
                 }
             }
         }
-        Ok(())
+    }
+
+    pub fn close_openvars(&mut self)
+    {
+        if let Some(ft) = self.func_ref_mut() {
+            for ta in ft.type_args.iter() {
+                // can't close open vars
+                if ta.v.is_open() {
+                    continue;
+                }
+                ft.result.replace_openvar(ta.k.as_str(), &ta.v);
+                for a in ft.args.iter_mut() {
+                    a.v.replace_openvar(ta.k.as_str(), &ta.v);
+                }
+            }
+        }
     }
 
     pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
@@ -767,7 +775,7 @@ impl fmt::Display for Type
         } else if self.is_local() {
             let first = self.first_arg().unwrap();
             write!(f, "{}", first.k)
-        } else if self.is_openvar() {
+        } else if self.is_open() {
             let first = self.first_arg().unwrap();
             write!(f, "{}", first.k)
         } else {
@@ -807,7 +815,7 @@ impl fmt::Debug for Type
         if self.is_local() {
             let first = self.first_arg().unwrap();
             write!(f, "local:{}", first.k)
-        } else if self.is_openvar() {
+        } else if self.is_open() {
             let first = self.first_arg().unwrap();
             write!(f, "open:{}", first.k)
         } else if let Some(ft) = self.func_ref() {

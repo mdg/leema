@@ -58,7 +58,7 @@ macro_rules! lfailoc {
     ($r:expr) => {
         match $r {
             Ok(x) => Ok(x),
-            Err(f) => Err(f.loc(file!(), line!())),
+            Err(f) => Err(f.rloc(file!(), line!())),
         }
     };
 }
@@ -68,7 +68,7 @@ macro_rules! ltry {
         match $r {
             Ok(x) => x,
             Err(f) => {
-                return Err(f.loc(file!(), line!()));
+                return Err(f.rloc(file!(), line!()));
             }
         }
     };
@@ -77,8 +77,8 @@ macro_rules! ltry {
             Ok(success) => success,
             Err(f) => {
                 return Err(f.with_context(vec![
-                    StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
-                    StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line!())),
+                    StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                    StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
                     StrupleItem::new(Lstr::Sref($key), $val),
                 ]));
             }
@@ -89,8 +89,8 @@ macro_rules! ltry {
             Ok(success) => success,
             Err(f) => {
                 return Err(f.with_context(vec![
-                    StrupleItem::new(Lstr::Sref("file"), Lstr::Sref(file!())),
-                    StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", line!())),
+                    StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                    StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
                     $(StrupleItem::new(Lstr::Sref($key), $val)),+
                 ]));
             }
@@ -253,6 +253,15 @@ impl Failure
                 StrupleItem::new(Lstr::Sref("msg"), msg),
             ]],
         }
+    }
+
+    pub fn rloc(mut self, file: &'static str, line: u32) -> Self
+    {
+        self.context.push(vec![
+            StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file)),
+            StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line)),
+        ]);
+        self
     }
 
     pub fn loc(mut self, file: &'static str, line: u32) -> Self
