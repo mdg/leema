@@ -1580,11 +1580,11 @@ impl Semantics
         };
 
         let ftyp = if func_ref.typ.is_generic() {
-            func_ref.typ.try_func_ref()?
-        } else if f.t.is_closed() {
-            f.t.try_func_ref()?
+            ltry!(func_ref.typ.try_func_ref())
         } else if f.t == Type::UNKNOWN {
-            func_ref.typ.try_func_ref()?
+            ltry!(func_ref.typ.try_func_ref())
+        } else if f.t.is_closed() {
+            ltry!(f.t.try_func_ref())
         } else {
             return Err(rustfail!(
                 SEMFAIL,

@@ -596,8 +596,10 @@ impl LeemaPrec
                 Ok(AstNode::new(df, loc))
             }
             Rule::EOI => Ok(AstNode::void()),
-            Rule::trait_block => Ok(AstNode::new(Ast::BLOCK_ABSTRACT, loc)),
-            Rule::rust_block => Ok(AstNode::new(Ast::BLOCK_RUST, loc)),
+            Rule::trait_block => {
+                Ok(AstNode::new_constval(Val::BLOCK_ABSTRACT, loc))
+            }
+            Rule::rust_block => Ok(AstNode::new_constval(Val::BLOCK_RUST, loc)),
             // ignore this level and go one deeper
             Rule::tx_maybe_k => {
                 pratt::parse(self, Mode::Type, &mut n.into_inner())
