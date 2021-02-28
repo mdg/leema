@@ -1267,7 +1267,7 @@ impl<'p> TypeCheck<'p>
                     // handle closure call
                     // do they get handled like regular non-method calls
                     // and rely on the callx.typ?
-                    closure => {
+                    _func_obj => {
                         steptry!(self.post_var_call(
                             &mut node.typ,
                             &mut callx.typ,
