@@ -1,6 +1,6 @@
 ## Copyright 2021 Matthew Graham
 
-func <map A B>:[B] :: items:[A] f:(B :: A) ->
+func <map A B>:[A] :: items:[B] f:(A :: B) ->
     _map([], items, f)
 --
 
