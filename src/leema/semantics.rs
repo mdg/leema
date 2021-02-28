@@ -1620,24 +1620,22 @@ impl Semantics
         if result.typ.is_untyped_block() {
             result.typ = ftyp.result.clone();
         } else {
-            result.typ = type_check.inferred_type(&result.typ, &closed)?;
-            let ftyp_result =
-                type_check.inferred_type(&ftyp.result, &closed)?;
             let matched_result =
-                type_check.match_types(&ftyp_result, &result.typ)?;
+                type_check.match_types(&ftyp.result, &result.typ)?;
             if matched_result.contains_local() {
                 return Err(lfail!(
                     failure::Mode::TypeFailure,
                     "unresolved result type"
                 ));
             }
-            if ftyp_result != result.typ && ftyp_result != Type::VOID {
+            result.typ = matched_result;
+            if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
                 return Err(rustfail!(
                     SEMFAIL,
                     "bad return type in {}.{}, expected: {}, found {}",
                     modname,
                     f.f,
-                    ftyp_result,
+                    ftyp.result,
                     result.typ,
                 ));
             }
