@@ -1,0 +1,20 @@
+
+import /io.print
+import /list
+
+func double_one:Int :: i:Int ->
+    i * 2
+--
+
+func test_double_all :: input:[Int] ->
+    let output := list.map(input, double_one)
+    print("output: $output\n")
+    ## let quads := list.map(input, fn :: i ->
+    ##     i * 4
+    ## --)
+    ## print("quads: $quads\n")
+--
+
+func main ->
+    test_double_all([3, 4, 5])
+--
