@@ -1055,7 +1055,7 @@ impl<'p> TypeCheck<'p>
 
     fn localize_generic(&mut self, t: &mut Type) -> Lresult<()>
     {
-        if !t.is_open() {
+        if !t.contains_open() {
             return Ok(());
         }
 
@@ -1083,7 +1083,7 @@ impl<'p> TypeCheck<'p>
         loc: Loc,
     ) -> Lresult<AstStep>
     {
-        if fref.t.is_open() {
+        if fref.t.contains_open() {
             let call_index = self.generic_call_index();
             let mut fref_t = fref.t.clone();
             let ct_ref = fref.t.try_func_ref()?;
@@ -1206,7 +1206,7 @@ impl<'p> TypeCheck<'p>
     }
 
     /// TypeCheck post check
-    fn post_check(&mut self, node: &mut AstNode) -> StepResult
+    fn post_check(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Block(items) => {
@@ -1370,6 +1370,12 @@ impl<'p> TypeCheck<'p>
             Ast::ConstVal(_) => {
                 // leave as is
             }
+            Ast::Op2(";", h, t) if mode.is_pattern() => {
+                // show that [h] = t
+                let mut opens = [];
+                let hlist = Type::list(h.typ.clone());
+                node.typ = self.match_type(&hlist, &t.typ, &mut opens)?;
+            }
             Ast::Wildcard => {} // wildcard is whatever type
             Ast::Return(_) => {
                 node.typ = Type::named(Type::PATH_NORETURN);
@@ -1402,7 +1408,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     // *node.node = Ast::Id(id);
                 }
             }
-            Ast::ConstVal(c) if node.typ.is_open() => {
+            Ast::ConstVal(c) if node.typ.contains_open() => {
                 node.typ = c.get_type();
                 self.localize_generic(&mut node.typ)?;
             }
@@ -1429,9 +1435,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
     }
 
     /// TypeCheck post
-    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
-        steptry!(self.post_check(node));
+        steptry!(self.post_check(node, mode));
         // make sure that the type has been fully resolved and
         // is no longer an open generic
         if node.typ.contains_open() {
@@ -1487,6 +1493,9 @@ impl<'l> ast2::Op for ResolveTypes<'l>
 {
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
+        if node.typ == Type::UNKNOWN {
+            panic!("unknown type: {:#?}", node);
+        }
         match &mut *node.node {
             Ast::Type(t) if t.contains_local() => {
                 ltry!(t.replace_localvars(&self.infers));

@@ -464,7 +464,7 @@ impl Type
 
     pub fn contains_open(&self) -> bool
     {
-        self.is_open() || self.args.iter().any(|a| a.v.is_open())
+        self.is_open() || self.args.iter().any(|a| a.v.contains_open())
     }
 
     pub fn is_closed(&self) -> bool
