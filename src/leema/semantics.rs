@@ -717,11 +717,11 @@ impl<'p> TypeCheck<'p>
             // open var cases should not happen
             (Type::PATH_OPENVAR, _) => {
                 let k0 = &t0.first_arg()?.k;
-                dbg!(lfailoc!(self.close_generic(k0.as_str(), t1, opens)))
+                lfailoc!(self.close_generic(k0.as_str(), t1, opens))
             }
             (_, Type::PATH_OPENVAR) => {
                 let k1 = &t1.first_arg()?.k;
-                dbg!(lfailoc!(self.close_generic(k1.as_str(), t0, opens)))
+                lfailoc!(self.close_generic(k1.as_str(), t0, opens))
             }
             // unknown and failure cases
             // failure defaults to the other type b/c possible failure
@@ -1406,7 +1406,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = c.get_type();
                 self.localize_generic(&mut node.typ)?;
             }
-            Ast::ConstVal(_) if node.typ.is_func() => {}
             Ast::Wildcard => {
                 node.typ = Type::UNKNOWN;
             }
@@ -1547,8 +1546,6 @@ impl Semantics
         let func_ref = proto.find_method(&f.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
-
-        let func_ref_t = func_ref.typ.func_ref().unwrap();
 
         let func_typ = if f.t == Type::UNKNOWN {
             &func_ref.typ
