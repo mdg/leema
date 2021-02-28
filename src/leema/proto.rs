@@ -934,7 +934,7 @@ impl ProtoModule
         let generic = match self.find_modelem(func.f) {
             Some(fconst) => {
                 // check if this is a locally defined function
-                fconst.typ.is_open()
+                fconst.typ.is_generic()
             }
             None => {
                 return Err(rustfail!(
@@ -952,7 +952,11 @@ impl ProtoModule
             self.funcsrc.remove(func.f).map(|fsrc| fsrc.1)
         };
         src.ok_or_else(|| {
-            rustfail!("semantic_failure", "no function source for {}", func)
+            lfail!(
+                failure::Mode::ScopeFailure,
+                "no function source",
+                "function": ldisplay!(func),
+            )
         })
     }
 

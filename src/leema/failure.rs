@@ -115,6 +115,7 @@ pub enum Mode
     Timeout,
     ParseFailure,
     CompileFailure,
+    ScopeFailure,
     TypeFailure,
     // internal leema errors
     StaticLeemaFailure,
@@ -137,7 +138,8 @@ impl Mode
             Mode::Timeout => 5,
             Mode::ParseFailure => 6,
             Mode::CompileFailure => 7,
-            Mode::TypeFailure => 8,
+            Mode::ScopeFailure => 9,
+            Mode::TypeFailure => 10,
             // internal leema errors
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
@@ -158,6 +160,7 @@ impl Mode
             Mode::Timeout => "timeout",
             Mode::ParseFailure => "parse_failure",
             Mode::CompileFailure => "compile_failure",
+            Mode::ScopeFailure => "scope_failure",
             Mode::TypeFailure => "type_failure",
             // internal leema errors
             Mode::StaticLeemaFailure => "static_leema_failure",
