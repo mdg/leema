@@ -602,8 +602,7 @@ pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
 pub fn assign_registers(input: &mut AstNode) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
-    Registration::assign_registers(input, RegStack::new())?;
-    Ok(())
+    Registration::assign_registers(input, RegStack::new())
 }
 
 pub struct Registration {}
