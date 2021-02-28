@@ -39,7 +39,6 @@ struct MacroApplication<'l>
     lib: &'l ProtoLib,
     local: &'l ProtoModule,
     ftype: &'l FuncTypeRef<'l>,
-    closed: &'l TypeArgs,
 }
 
 impl<'l> MacroApplication<'l>
@@ -48,15 +47,9 @@ impl<'l> MacroApplication<'l>
         lib: &'l ProtoLib,
         local: &'l ProtoModule,
         ftype: &'l FuncTypeRef<'l>,
-        closed: &'l TypeArgs,
     ) -> MacroApplication<'l>
     {
-        MacroApplication {
-            lib,
-            local,
-            ftype,
-            closed,
-        }
+        MacroApplication { lib, local, ftype }
     }
 
     fn apply_macro(mac: &Ast, loc: Loc, args: &Xlist) -> AstResult
@@ -269,14 +262,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     _ => {} // nothing
                 }
             }
-            Ast::Id(id) => {
-                let nloc = node.loc;
-                if let Some(ctype) = struple::find(self.closed, &id) {
-                    let type_ast = Ast::Type(ctype.clone());
-                    *node = AstNode::new(type_ast, nloc);
-                    return Ok(AstStep::Rewrite);
-                }
-            }
             Ast::Matchx(None, cases) => {
                 let node_loc = node.loc;
                 let args: Lresult<Xlist> = self
@@ -409,6 +394,7 @@ struct ScopeCheck<'p>
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
     blocks: Blockstack,
+    type_args: &'p TypeArgSlice,
 }
 
 impl<'p> ScopeCheck<'p>
@@ -434,6 +420,7 @@ impl<'p> ScopeCheck<'p>
             lib,
             local_mod,
             blocks: Blockstack::with_args(args),
+            type_args: &ftyp.type_args,
         })
     }
 }
@@ -471,7 +458,11 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 }
             }
             Ast::Id(id) => {
-                if let Some(r) = self.blocks.var_in_scope(id) {
+                if let Some(ctype) = struple::find(self.type_args, &id) {
+                    let type_ast = Ast::Type(ctype.clone());
+                    *node = AstNode::new(type_ast, loc);
+                    return Ok(AstStep::Rewrite);
+                } else if let Some(r) = self.blocks.var_in_scope(id) {
                     node.dst = r;
                 } else if let Some(me) = self.local_mod.find_modelem(id) {
                     node.replace((*me.node).clone(), me.typ.clone());
@@ -650,13 +641,12 @@ impl<'p> TypeCheck<'p>
         lib: &'p ProtoLib,
         local_mod: &'p ProtoModule,
         ftyp: &'p FuncTypeRef<'p>,
-        closed: &'p TypeArgSlice,
     ) -> Lresult<TypeCheck<'p>>
     {
         let mut check = TypeCheck {
             lib,
             local_mod,
-            closed,
+            closed: &ftyp.type_args,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
@@ -939,19 +929,23 @@ impl<'p> TypeCheck<'p>
                     a.0.v = t.clone();
                 }
                 Ast::Id(id) => {
-                    a.0.v = self
-                        .local_mod
-                        .find_type(id)
-                        .ok_or_else(|| {
-                            lfail!(
-                                failure::Mode::TypeFailure,
-                                "undefined type",
-                                "type": Lstr::Sref(id),
-                                "file": self.local_mod.key.best_path(),
-                                "line": ldisplay!(a.1.v.loc.lineno),
-                            )
-                        })?
-                        .clone();
+                    if let Some(ctype) = struple::find(self.closed, &id) {
+                        a.0.v = ctype.clone();
+                    } else {
+                        a.0.v = self
+                            .local_mod
+                            .find_type(id)
+                            .ok_or_else(|| {
+                                lfail!(
+                                    failure::Mode::TypeFailure,
+                                    "undefined type",
+                                    "type": Lstr::Sref(id),
+                                    "file": self.local_mod.key.best_path(),
+                                    "line": ldisplay!(a.1.v.loc.lineno),
+                                )
+                            })?
+                            .clone();
+                    }
                 }
                 what => {
                     let t = self.local_mod.ast_to_type(&a.1.v, &[])?;
@@ -1555,46 +1549,37 @@ impl Semantics
         })?;
 
         let func_ref_t = func_ref.typ.func_ref().unwrap();
-        // what's going on here?
-        let closed = if func_ref.typ.is_open() {
-            if f.t.is_open() {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "cannot compile open func: {:?}",
-                    f,
-                ));
-            }
-            if f.t.contains_local() {
-                return Err(lfail!(
-                    failure::Mode::TypeFailure,
-                    "cannot compile func with local variable",
-                    "variable": ldisplay!(f),
-                ));
-            }
-            match f.t.func_ref() {
-                Some(ft) => Vec::from(ft.type_args),
-                None => vec![],
-            }
-        } else {
-            vec![]
-        };
 
-        let ftyp = if func_ref.typ.is_generic() {
-            ltry!(func_ref.typ.try_func_ref())
-        } else if f.t == Type::UNKNOWN {
-            ltry!(func_ref.typ.try_func_ref())
-        } else if f.t.is_closed() {
-            ltry!(f.t.try_func_ref())
+        let func_typ = if f.t == Type::UNKNOWN {
+            &func_ref.typ
+        } else if func_ref.typ.is_generic() {
+            &f.t
         } else {
-            return Err(rustfail!(
-                SEMFAIL,
-                "{}.{} original call type: {:?}, result call type {}",
-                f.m,
-                f.f,
-                f.t,
-                func_ref.typ
-            ));
+            &func_ref.typ
         };
+        if func_typ.contains_open() {
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "cannot compile open generic function",
+                "module": f.m.name.as_lstr().clone(),
+                "function": Lstr::Sref(f.f),
+                "type": ldisplay!(func_typ),
+                "called_type": ldisplay!(f.t),
+                "found_type": ldisplay!(func_ref.typ),
+            ));
+        }
+        if func_typ.contains_local() {
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "cannot compile func with local variable",
+                "module": f.m.name.as_lstr().clone(),
+                "function": Lstr::Sref(f.f),
+                "type": ldisplay!(func_typ),
+                "called_type": ldisplay!(f.t),
+                "found_type": ldisplay!(func_ref.typ),
+            ));
+        }
+        let ftyp = ltry!(func_typ.try_func_ref());
 
         sem.args = ftyp
             .args
@@ -1611,9 +1596,9 @@ impl Semantics
             })
             .collect();
 
-        let mut macs = MacroApplication::new(lib, proto, &ftyp, &closed);
+        let mut macs = MacroApplication::new(lib, proto, &ftyp);
         let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
-        let mut type_check = TypeCheck::new(lib, proto, &ftyp, &closed)?;
+        let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
         let mut remove_extra = RemoveExtraCode;
 
         // This interleaves all the calls.
@@ -1629,6 +1614,7 @@ impl Semantics
             ast2::walk(body, &mut pipe),
             "module": modname.as_lstr().clone(),
             "function": Lstr::Sref(f.f),
+            "type": ldebug!(ftyp),
         );
 
         if result.typ.is_untyped_block() {

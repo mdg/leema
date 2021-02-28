@@ -139,7 +139,7 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         if !self.type_args.is_empty() {
-            write!(f, "<")?;
+            write!(f, "<(")?;
         }
         write!(f, "{:?} ::", self.result)?;
         for a in self.args.iter() {
@@ -774,7 +774,7 @@ impl fmt::Display for Type
             write!(f, "{}", ft)
         } else if self.is_local() {
             let first = self.first_arg().unwrap();
-            write!(f, "{}", first.k)
+            write!(f, "local:{}", first.k)
         } else if self.is_open() {
             let first = self.first_arg().unwrap();
             write!(f, "{}", first.k)
