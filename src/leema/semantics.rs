@@ -8,8 +8,8 @@ use crate::leema::lstr::Lstr;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
-    Fref, FuncTypeRef, FuncTypeRefMut, Type, TypeArgSlice, TypeArgs, TypeRef,
-    TypeRefMut, Val,
+    Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArgSlice,
+    TypeArgs, TypeRef, TypeRefMut, Val,
 };
 
 use std::cmp::Ordering;
@@ -1457,6 +1457,59 @@ impl<'l> fmt::Debug for TypeCheck<'l>
     }
 }
 
+/// Resolve any unresolved type variables
+struct ResolveTypes<'l>
+{
+    infers: &'l LocalTypeVars,
+    pub calls: HashSet<Fref>,
+}
+
+impl<'l> ResolveTypes<'l>
+{
+    pub fn new(infers: &'l LocalTypeVars) -> ResolveTypes
+    {
+        ResolveTypes {
+            infers,
+            calls: HashSet::new(),
+        }
+    }
+
+    pub fn infer_local_typevar(&self, t: &mut Type) -> Lresult<()>
+    {
+        if t.contains_local() {
+            t.replace_localvars(&self.infers)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'l> ast2::Op for ResolveTypes<'l>
+{
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Type(t) if t.contains_local() => {
+                ltry!(t.replace_localvars(&self.infers));
+                Ok(AstStep::Rewrite)
+            }
+            Ast::ConstVal(cv) if node.typ.is_func() => {
+                if let Val::Call(f, _args) = cv {
+                    if f.t.contains_local() {
+                        ltry!(f.t.replace_localvars(&self.infers));
+                        return Ok(AstStep::Rewrite);
+                    }
+                }
+                Ok(AstStep::Ok)
+            }
+            _ if node.typ.contains_local() => {
+                ltry!(node.typ.replace_localvars(&self.infers));
+                Ok(AstStep::Rewrite)
+            }
+            _ => Ok(AstStep::Ok),
+        }
+    }
+}
+
 #[derive(Debug)]
 struct RemoveExtraCode;
 
@@ -1613,34 +1666,34 @@ impl Semantics
             "function": Lstr::Sref(f.f),
             "type": ldebug!(ftyp),
         );
-
         if result.typ.is_untyped_block() {
             result.typ = ftyp.result.clone();
         } else {
-            let matched_result =
-                type_check.match_types(&ftyp.result, &result.typ)?;
-            if matched_result.contains_local() {
-                return Err(lfail!(
-                    failure::Mode::TypeFailure,
-                    "unresolved result type"
-                ));
-            }
-            result.typ = matched_result;
-            if *ftyp.result != result.typ && *ftyp.result != Type::VOID {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "bad return type in {}.{}, expected: {}, found {}",
-                    modname,
-                    f.f,
-                    ftyp.result,
-                    result.typ,
-                ));
-            }
+            result.typ = type_check.match_types(&ftyp.result, &result.typ)?;
         }
 
-        sem.infers = type_check.infers;
+        let mut resolver = ResolveTypes::new(&type_check.infers);
+        let resolved = ltry!(
+            ast2::walk(result, &mut resolver),
+            "module": modname.as_lstr().clone(),
+            "function": Lstr::Sref(f.f),
+            "type": ldebug!(ftyp),
+        );
+
+        if *ftyp.result != resolved.typ && *ftyp.result != Type::VOID {
+            return Err(rustfail!(
+                SEMFAIL,
+                "bad return type in {}.{}, expected: {}, found {}",
+                modname,
+                f.f,
+                ftyp.result,
+                resolved.typ,
+            ));
+        }
+
         sem.calls = type_check.calls.into_iter().collect();
-        sem.src = result;
+        sem.infers = type_check.infers;
+        sem.src = resolved;
         Ok(sem)
     }
 }

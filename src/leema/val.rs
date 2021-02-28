@@ -1,5 +1,5 @@
 use crate::leema::canonical::Canonical;
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
@@ -11,6 +11,7 @@ use crate::leema::sendclone;
 use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
+use std::collections::HashMap;
 use std::fmt;
 use std::io::Error;
 use std::sync::mpsc::Receiver;
@@ -76,6 +77,7 @@ pub enum FuncType2
 pub type TypeArg = StrupleItem<Lstr, Type>;
 pub type TypeArgs = StrupleKV<Lstr, Type>;
 pub type TypeArgSlice = [StrupleItem<Lstr, Type>];
+pub type LocalTypeVars = HashMap<Lstr, Type>;
 
 #[derive(Clone)]
 #[derive(PartialEq)]
@@ -694,6 +696,29 @@ impl Type
                 }
             }
         }
+    }
+
+    pub fn replace_localvars(&mut self, locals: &LocalTypeVars) -> Lresult<()>
+    {
+        if self.path.as_str() == Type::PATH_LOCAL {
+            *self = {
+                let var = &self.first_arg()?.k;
+                if let Some(result) = locals.get(var) {
+                    result.clone()
+                } else {
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "unknown type variable",
+                        "variable": var.clone(),
+                    ));
+                }
+            };
+        } else {
+            for a in self.args.iter_mut() {
+                a.v.replace_localvars(locals)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn map<Op>(&self, op: &Op) -> Lresult<Type>
