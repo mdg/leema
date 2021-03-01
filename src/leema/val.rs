@@ -2056,7 +2056,7 @@ mod tests
             Type::INT,
             vec![StrupleItem::new(Lstr::Sref("x"), Type::open(b.clone()))],
         );
-        actual.replace_openvar("A", &Type::INT).unwrap();
+        actual.replace_openvar("A", &Type::INT);
         assert_eq!(expected, actual);
     }
 
@@ -2078,7 +2078,7 @@ mod tests
                 StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
             ],
         );
-        actual.replace_openvar("A", &Type::INT).unwrap();
+        actual.replace_openvar("A", &Type::INT);
         assert_eq!(expected, actual);
     }
 
@@ -2134,7 +2134,7 @@ mod tests
                 ),
             ],
         );
-        actual.replace_openvar("A", &Type::INT).unwrap();
+        actual.replace_openvar("A", &Type::INT);
         assert_eq!(expected, actual);
     }
 

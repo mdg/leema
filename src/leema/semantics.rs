@@ -1981,7 +1981,7 @@ mod tests
         let proto = ProtoModule::new(ModKey::from("foo"), "").unwrap();
         let mainf = Type::f(Type::VOID, vec![]);
         let mainfref = mainf.func_ref().unwrap();
-        let type_check = TypeCheck::new(&lib, &proto, &mainfref, &[]).unwrap();
+        let type_check = TypeCheck::new(&lib, &proto, &mainfref).unwrap();
         let inferred = type_check.inferred_type(&ftyp, ftyp_args).unwrap();
         assert_eq!(expected, inferred);
     }
