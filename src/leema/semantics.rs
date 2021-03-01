@@ -1055,13 +1055,13 @@ impl<'p> TypeCheck<'p>
 
     fn localize_generic(&mut self, t: &mut Type) -> Lresult<()>
     {
-        if !t.contains_open() {
+        let gen_index = self.generic_call_index();
+        if *t == Type::UNKNOWN {
+            *t = Type::local(lstrf!("lvar-{}", gen_index));
             return Ok(());
         }
 
-        let gen_index = self.generic_call_index();
-        let TypeRefMut(_p, type_args) = t.try_generic_ref_mut()?;
-
+        let TypeRefMut(_p, type_args) = ltry!(t.try_generic_ref_mut());
         for ta in type_args.iter_mut() {
             // just do the opens
             if ta.v.is_closed() {
@@ -1393,6 +1393,9 @@ impl<'p> ast2::Op for TypeCheck<'p>
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
+            Ast::Id("_") if node.typ == Type::UNKNOWN => {
+                ltry!(self.localize_generic(&mut node.typ));
+            }
             Ast::Id(id) => {
                 // mode == value
                 // if the type is known, assign it to this variable
