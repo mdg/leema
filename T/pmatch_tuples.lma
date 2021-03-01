@@ -8,8 +8,8 @@ func match_zero:Str :: x:Int y:Int
 --
 
 func main ->
-    io.print(match_zero(0, 0) \n)
-    io.print(match_zero(0, 1) \n)
-    io.print(match_zero(2, 0) \n)
-    io.print(match_zero(4, 3) \n)
+    io.println(match_zero(0, 0))
+    io.println(match_zero(0, 1))
+    io.println(match_zero(2, 0))
+    io.println(match_zero(4, 3))
 --
