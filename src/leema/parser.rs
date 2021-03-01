@@ -341,7 +341,19 @@ impl LeemaPrec
                 let mut s = strs?;
                 let result = match s.len() {
                     0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), loc),
-                    1 => s.remove(0),
+                    1 => {
+                        let is_id;
+                        is_id = if let Ast::Id(_) = *s.first().unwrap().node {
+                            true
+                        } else {
+                            false
+                        };
+                        if is_id {
+                            AstNode::new(Ast::StrExpr(s), loc)
+                        } else {
+                            s.remove(0)
+                        }
+                    }
                     _ => AstNode::new(Ast::StrExpr(s), loc),
                 };
                 Ok(result)
@@ -1738,6 +1750,30 @@ mod tests
         );
         let ast = parse(Rule::expr, input).unwrap();
         assert_eq!(Ast::ConstVal(Val::Str(Lstr::Sref("taco"))), *ast[0].node);
+    }
+
+    #[test]
+    fn str_onevar()
+    {
+        let input = r#""$taco""#;
+        parses_to!(
+            parser: LeemaParser,
+            input: input,
+            rule: Rule::expr,
+            tokens: [
+                expr(0, 7, [
+                    str(0, 7, [id(2, 6)])
+                ])
+            ]
+        );
+        let ast = parse(Rule::expr, input).unwrap();
+        assert_matches!(*ast[0].node, Ast::StrExpr(_));
+        if let Ast::StrExpr(items) = &*ast[0].node {
+            assert_eq!(Ast::Id("taco"), *items[0].node);
+            assert_eq!(1, items.len());
+        } else {
+            panic!("expected StrExpr, found {:?}", *ast[0].node);
+        }
     }
 
     #[test]
