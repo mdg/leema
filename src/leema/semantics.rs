@@ -1677,8 +1677,11 @@ impl Semantics
         );
         if result.typ.is_untyped_block() {
             result.typ = ftyp.result.clone();
+        } else if *ftyp.result == Type::VOID {
+            result.typ = Type::VOID;
         } else {
-            result.typ = type_check.match_types(&ftyp.result, &result.typ)?;
+            result.typ =
+                ltry!(type_check.match_types(&ftyp.result, &result.typ));
         }
 
         let mut resolver = ResolveTypes::new(&type_check.infers);
