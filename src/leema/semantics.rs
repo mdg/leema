@@ -1346,11 +1346,17 @@ impl<'p> TypeCheck<'p>
                 patt.typ = typ.clone();
                 x.typ = typ;
             }
-            Ast::List(ref inner) => {
-                let inner_typ = inner
-                    .first()
-                    .map(|item| item.v.typ.clone())
-                    .unwrap_or(Type::UNKNOWN);
+            Ast::List(ref mut inner) => {
+                let mut opens = vec![];
+                let mut inner_typ = Type::UNKNOWN;
+                for i in inner.iter_mut() {
+                    inner_typ = ltry!(
+                        self.match_type(&i.v.typ, &inner_typ, &mut opens)
+                    );
+                    if i.v.typ != inner_typ {
+                        i.v.typ = inner_typ.clone();
+                    }
+                }
                 node.typ = Type::list(inner_typ);
             }
             Ast::Tuple(ref items) => {
