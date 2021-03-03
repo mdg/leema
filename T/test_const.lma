@@ -2,10 +2,7 @@
 import /rgb
 import /io
 
-func main
->>
-    let r := rgb::HEX_RED
-    io::println("red is: $r")
-    let types := rgb::TYPES
-    io::println("rgb types: $types")
+func main ->
+    let r := rgb.HEX_RED
+    io.println("red is: $r")
 --

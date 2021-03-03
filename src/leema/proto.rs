@@ -687,7 +687,7 @@ impl ProtoModule
                     let vval =
                         Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
-                    m.modscope.insert(sname_id, vast);
+                    m.modscope.insert(var_name, vast);
                 } else {
                     m.add_typed_struct(flds, loc)?;
                 }
@@ -1848,6 +1848,34 @@ mod tests
         let proto = new_proto("datatype Point :: x:Int y:Int --");
         let point_type = proto.modscope.get("Point").expect("no Point type");
         assert_eq!(Ast::Canonical(canonical!("/foo/Point")), *point_type.node);
+    }
+
+    #[test]
+    fn test_proto_enum_tokens()
+    {
+        let proto = new_proto(
+            r#"datatype Food
+        |Burrito
+        |Taco
+        |Torta
+        --"#,
+        );
+        let expected_type = user_type!("/foo/Food");
+        let foodc = proto.find_modelem("Food").expect("no Food mod");
+
+        assert_eq!(Ast::Canonical(canonical!("/foo/Food")), *foodc.node);
+        let food = struple::find(&proto.submods, "Food").unwrap();
+        assert_eq!(1, proto.submods.len());
+
+        for var_name in ["Burrito", "Taco", "Torta"].iter() {
+            let variant = food.find_modelem(var_name).unwrap();
+            if let Ast::ConstVal(ref val) = &*variant.node {
+                assert_eq!(
+                    Val::EnumToken(expected_type.clone(), Lstr::Sref(var_name)),
+                    *val
+                );
+            }
+        }
     }
 
     #[test]
