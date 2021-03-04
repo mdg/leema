@@ -471,11 +471,12 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     node.replace_node(b.clone());
                     return Ok(AstStep::Rewrite);
                 } else {
-                    return Err(rustfail!(
-                        SEMFAIL,
-                        "var not in scope: {} @ {:?}",
-                        id,
-                        loc,
+                    return Err(lfail!(
+                        failure::Mode::CompileFailure,
+                        "var not in scope",
+                        "id": Lstr::Sref(id),
+                        "file": self.local_mod.key.best_path(),
+                        "line": ldisplay!(loc.lineno),
                     ));
                 }
             }
@@ -2212,7 +2213,7 @@ mod tests
         let mut prog = core_program(&[("/baz", baz_input)]);
         let fref = Fref::from(("/baz", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("semantic_failure", f.tag.str());
+        assert_eq!("compile_failure", f.tag.str());
     }
 
     #[test]

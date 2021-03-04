@@ -84,6 +84,8 @@ lazy_static! {
         ids.insert("#", Ast::canonical("/core/#"));
         // constants
         ids.insert("False", Ast::ConstVal(Val::FALSE));
+        ids.insert("None", Ast::ConstVal(Val::EnumToken(Type::option(None), Lstr::Sref("None"))));
+        ids.insert("Some", Ast::canonical("/core/Option/Some"));
         ids.insert("True", Ast::ConstVal(Val::TRUE));
         ids.insert("Void", Ast::ConstVal(Val::VOID));
         // functions
@@ -1091,9 +1093,6 @@ impl ProtoModule
             }
             Ast::Generic(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
-                if genbase.argc() > 0 {
-                    panic!("generic inner generic: {}", genbase);
-                }
                 let genargsr: Lresult<TypeArgs> = typeargs
                     .iter()
                     .enumerate()

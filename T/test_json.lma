@@ -1,7 +1,6 @@
 
 import /json
 import /map
-import /option
 import /io.print
 
 
@@ -16,9 +15,9 @@ datatype User ::
 --
 
 func test_decode ->
-    let s := json.decode'Str("\"coded  '\"")
-    let i := json.decode'Int("9")
-    let b := json.decode'Bool("true")
+    let s := <json.decode Str>("\"coded  '\"")
+    let i := <json.decode Int>("9")
+    let b := <json.decode Bool>("true")
     println("$s $i or $b")
 --
 
@@ -34,7 +33,7 @@ func test_encode ->
     println(json.encode("hello"))
     println(json.encode(#world))
     println(json.encode(["a", "b"]))
-    ## let m := map::set({}, "x", 4)
+    ## let m := map.set({}, "x", 4)
     ## print(json.encode(m) \n)
     let u := User(4, "Javier")
     println(json.encode(u))

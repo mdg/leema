@@ -3,7 +3,7 @@ import /list
 import /map
 
 
-func encode'T:Str :: val:T ->
+func <encode T>:Str :: val:T ->
     let fields := *val
     list.reduce({:}, fields, fn(obj, (k, v)) ->
         map.put(obj, k, v)
@@ -11,47 +11,47 @@ func encode'T:Str :: val:T ->
     --)
 --
 
-func decode'T:T :: input:Str ->
+func <decode T>:T :: input:Str ->
     let json_val := decode_val(input)
     from_jsonval'T(val)
 --
 
-func from_jsonval'T:T :: input:Val ->
+func <from_jsonval T>:T :: input:Val ->
     let field_types := *T
     list.map(field_types, default(T), fn((k, v) ->
         k.$k = from_jsonval'(*V)()
     --)
 --
 
-func from_jsonval'Int:Int :: input:Val ->
+func <from_jsonval Int>:Int :: input:Val ->
     match
     |Integer(i) -> i
     |_ -> fail(#input_error, "json value is not an integer")
     --
 --
 
-func from_jsonval'Str:Str :: input:Val ->
+func <from_jsonval Str>:Str :: input:Val ->
     match
     |String(s) -> s
     |_ -> fail(#input_error, "json value is not a string $input")
     --
 --
 
-func from_jsonval'Bool:Bool :: input:Val ->
+func <from_jsonval Bool>:Bool :: input:Val ->
     match
     |Boolean(b) -> b
     |_ -> fail(#input_error, "json value is not a boolean $input")
     --
 --
 
-func from_jsonval'(Option'T):Option'T :: input:Val ->
+func <from_jsonval <Option T>>:<Option T> :: input:Val ->
     match
     |Null(b) -> None,
     |other -> Some(from_jsonval'T(other))
     --
 --
 
-func from_jsonval'[T]: :: input:Val ->
+func <from_jsonval [T]>: :: input:Val ->
     match
     |Array(items) ->
         list.map(items, fn(i) ->
@@ -92,7 +92,7 @@ func obj_bool:Bool :: v:Val, name:Str ->
     bool_val(object_val(v, name))
 --
 
-func obj_fields(v: Val): map::T[Str, Val] ->
+func obj_fields:{Str:Val} :: v: Val ->
     match v
     |Object(flds) >> flds
     |_ >> fail(#input_error, "json value is not an object: $v")
