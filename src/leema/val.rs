@@ -651,7 +651,11 @@ impl Type
     }
 
     // replace an open variable in this type with the new type
-    pub fn localize_generics(&mut self, type_args: &TypeArgSlice, mut local_id: String)
+    pub fn localize_generics(
+        &mut self,
+        type_args: &TypeArgSlice,
+        mut local_id: String,
+    )
     {
         if self.path.as_str() == Self::PATH_OPENVAR {
             if let Some(open) = self.args.first() {

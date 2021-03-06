@@ -692,7 +692,12 @@ impl ProtoModule
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     m.modscope.insert(var_name, vast);
                 } else {
-                    let mut var_sub = ltry!(ProtoModule::with_ast(var_key, Some(data_t.clone()), None, vec![]));
+                    let mut var_sub = ltry!(ProtoModule::with_ast(
+                        var_key,
+                        Some(data_t.clone()),
+                        None,
+                        vec![]
+                    ));
                     var_sub.add_typed_struct(flds, loc)?;
                     struple::push_unique(&mut m.submods, var_name, var_sub)?;
                 }

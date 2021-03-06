@@ -590,7 +590,8 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 // if function defines any new type args, replace those
                 // parameter types with local variabls
                 if node.typ.contains_open() {
-                    let local_id = format!("{}.{}-{}",
+                    let local_id = format!(
+                        "{}.{}-{}",
                         fref.m.name,
                         fref.f,
                         self.localized_id(&node.loc),
