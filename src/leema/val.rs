@@ -651,6 +651,44 @@ impl Type
     }
 
     // replace an open variable in this type with the new type
+    pub fn localize_generics(&mut self, type_args: &TypeArgSlice, mut local_id: String)
+    {
+        if self.path.as_str() == Self::PATH_OPENVAR {
+            if let Some(open) = self.args.first() {
+                if let Some(found) = struple::find(type_args, &open.k) {
+                    *self = found.clone();
+                } else {
+                    *self = Self::local(lstrf!("{}-{}", local_id, open.k));
+                }
+                return;
+            } // else this is an invalid openvar (bad)
+        }
+        if let Some(ft) = self.func_ref_mut() {
+            let inner_args = if ft.type_args.is_empty() {
+                type_args
+            } else {
+                local_id = format!("{}.sub", local_id);
+                for a in ft.type_args.iter_mut() {
+                    if a.v.is_open() {
+                        a.v.localize_generics(&[], local_id.clone());
+                    }
+                    // else, dunno why this would be, but don't localize
+                    // anything if it's not open
+                }
+                &ft.type_args
+            };
+            for a in ft.args.iter_mut() {
+                a.v.localize_generics(inner_args, local_id.clone());
+            }
+            ft.result.localize_generics(inner_args, local_id);
+        } else {
+            for a in self.args.iter_mut() {
+                a.v.localize_generics(type_args, local_id.clone());
+            }
+        }
+    }
+
+    // replace an open variable in this type with the new type
     pub fn replace_openvar(&mut self, id: &str, new_type: &Type)
     {
         if self.path.as_str() == Self::PATH_OPENVAR {

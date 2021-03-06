@@ -395,6 +395,7 @@ struct ScopeCheck<'p>
     local_mod: &'p ProtoModule,
     blocks: Blockstack,
     type_args: &'p TypeArgSlice,
+    next_local_id: u32,
 }
 
 impl<'p> ScopeCheck<'p>
@@ -421,7 +422,15 @@ impl<'p> ScopeCheck<'p>
             local_mod,
             blocks: Blockstack::with_args(args),
             type_args: &ftyp.type_args,
+            next_local_id: 0,
         })
+    }
+
+    fn localized_id(&mut self, loc: &Loc) -> String
+    {
+        let local_id = self.next_local_id;
+        self.next_local_id += 1;
+        format!("{}@{}", local_id, loc.lineno)
     }
 }
 
@@ -574,6 +583,22 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                     // else is a regular var in scope
                 }
                 // else it's probably (hopefully?) a method or something
+            }
+            Ast::ConstVal(Val::Call(fref, _args)) => {
+                // for functions, if any types match function type args
+                // replace them w/ the concrete types
+                // if function defines any new type args, replace those
+                // parameter types with local variabls
+                if node.typ.contains_open() {
+                    let local_id = format!("{}.{}-{}",
+                        fref.m.name,
+                        fref.f,
+                        self.localized_id(&node.loc),
+                    );
+                    fref.t.localize_generics(&self.type_args, local_id);
+                    node.typ = fref.t.clone();
+                    return Ok(AstStep::Rewrite);
+                }
             }
             Ast::Generic(_base, _args) => {
                 // what's happening w/ generics here?

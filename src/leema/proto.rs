@@ -677,7 +677,7 @@ impl ProtoModule
 
         let m = ltry!(self.add_selfmod(
             ModTyp::Data,
-            Some(data_t),
+            Some(data_t.clone()),
             None,
             vec![],
             loc
@@ -685,13 +685,16 @@ impl ProtoModule
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
+                let var_key = ltry!(m.key.submod(ModTyp::Data, var_name));
                 if flds.is_empty() {
                     let vval =
                         Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     m.modscope.insert(var_name, vast);
                 } else {
-                    m.add_typed_struct(flds, loc)?;
+                    let mut var_sub = ltry!(ProtoModule::with_ast(var_key, Some(data_t.clone()), None, vec![]));
+                    var_sub.add_typed_struct(flds, loc)?;
+                    struple::push_unique(&mut m.submods, var_name, var_sub)?;
                 }
             } else {
                 return Err(rustfail!(
