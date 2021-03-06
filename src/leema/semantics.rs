@@ -653,13 +653,12 @@ struct TypeCheck<'p>
 {
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
-    closed: &'p TypeArgSlice,
     result: Type,
     /// types of specific variables
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
-    next_call_index: u32,
+    next_local_index: u32,
 }
 
 impl<'p> TypeCheck<'p>
@@ -673,20 +672,19 @@ impl<'p> TypeCheck<'p>
         let mut check = TypeCheck {
             lib,
             local_mod,
-            closed: &ftyp.type_args,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
-            next_call_index: 0,
+            next_local_index: 0,
         };
 
         for arg in ftyp.args.iter() {
             let argname = arg.k.sref()?;
-            let argt = check.inferred_type(&arg.v, &check.closed)?;
+            let argt = check.inferred_type(&arg.v)?;
             check.vartypes.insert(argname, argt);
         }
-        check.result = check.inferred_type(&ftyp.result, &check.closed)?;
+        check.result = check.inferred_type(&ftyp.result)?;
         Ok(check)
     }
 
@@ -698,20 +696,20 @@ impl<'p> TypeCheck<'p>
             .unwrap_or_else(|| Type::local(local_tvar.clone()))
     }
 
-    pub fn inferred_type(&self, t: &Type, opens: &TypeArgSlice)
-        -> Lresult<Type>
+    pub fn inferred_type(&self, t: &Type) -> Lresult<Type>
     {
         let newt = match t.type_ref() {
             TypeRef(Type::PATH_LOCAL, [StrupleItem { k: local, .. }, ..]) => {
                 self.inferred_local(local)
             }
             TypeRef(Type::PATH_OPENVAR, [StrupleItem { k: open, .. }, ..]) => {
-                // this should always be found or it's an error
-                struple::find(opens, open)
-                    .map(|item| item.clone())
-                    .unwrap_or_else(|| Type::open(open.clone()))
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "cannot infer open type var",
+                    "type": open.clone(),
+                ));
             }
-            _ => t.map_v(&|a| self.inferred_type(a, opens))?,
+            _ => t.map_v(&|a| self.inferred_type(a))?,
         };
         Ok(newt)
     }
@@ -956,23 +954,19 @@ impl<'p> TypeCheck<'p>
                     a.0.v = t.clone();
                 }
                 Ast::Id(id) => {
-                    if let Some(ctype) = struple::find(self.closed, &id) {
-                        a.0.v = ctype.clone();
-                    } else {
-                        a.0.v = self
-                            .local_mod
-                            .find_type(id)
-                            .ok_or_else(|| {
-                                lfail!(
-                                    failure::Mode::TypeFailure,
-                                    "undefined type",
-                                    "type": Lstr::Sref(id),
-                                    "file": self.local_mod.key.best_path(),
-                                    "line": ldisplay!(a.1.v.loc.lineno),
-                                )
-                            })?
-                            .clone();
-                    }
+                    a.0.v = self
+                        .local_mod
+                        .find_type(id)
+                        .ok_or_else(|| {
+                            lfail!(
+                                failure::Mode::TypeFailure,
+                                "undefined type",
+                                "type": Lstr::Sref(id),
+                                "file": self.local_mod.key.best_path(),
+                                "line": ldisplay!(a.1.v.loc.lineno),
+                            )
+                        })?
+                        .clone();
                 }
                 what => {
                     let t = self.local_mod.ast_to_type(&a.1.v, &[])?;
@@ -981,7 +975,7 @@ impl<'p> TypeCheck<'p>
                 }
             }
         }
-        let t = self.inferred_type(&calltype, calltype.type_args())?;
+        let t = self.inferred_type(&calltype)?;
         *calltype = t;
         Ok(calltype.clone())
     }
@@ -1056,12 +1050,12 @@ impl<'p> TypeCheck<'p>
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let inferred = self.inferred_type(&arg.0.v, &ftyp.type_args)?;
+            let inferred = self.inferred_type(&arg.0.v)?;
             arg.0.v = inferred.clone();
             arg.1.v.typ = inferred;
         }
 
-        *ftyp.result = self.inferred_type(&ftyp.result, &ftyp.type_args)?;
+        *ftyp.result = self.inferred_type(&ftyp.result)?;
         Ok((*ftyp.result).clone())
     }
 
@@ -1080,26 +1074,11 @@ impl<'p> TypeCheck<'p>
         Ok(prev_typ.unwrap())
     }
 
-    fn localize_generic(&mut self, t: &mut Type) -> Lresult<()>
+    fn next_local_typevar(&mut self) -> Type
     {
-        let gen_index = self.generic_call_index();
-        if *t == Type::UNKNOWN {
-            *t = Type::local(lstrf!("lvar-{}", gen_index));
-            return Ok(());
-        }
-
-        let TypeRefMut(_p, type_args) = ltry!(t.try_generic_ref_mut());
-        for ta in type_args.iter_mut() {
-            // just do the opens
-            if ta.v.is_closed() {
-                continue;
-            }
-
-            let lvar = Type::local(lstrf!("{}-{}", ta.k, gen_index));
-            ta.v = lvar;
-        }
-        t.close_openvars();
-        Ok(())
+        let local_index = self.next_local_index;
+        self.next_local_index += 1;
+        Type::local(lstrf!("local-{}", local_index))
     }
 
     fn post_call(
@@ -1111,20 +1090,15 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<AstStep>
     {
         if fref.t.contains_open() {
-            let call_index = self.generic_call_index();
-            let mut fref_t = fref.t.clone();
-            let ct_ref = fref.t.try_func_ref()?;
-            for ta in ct_ref.type_args.iter() {
-                let lvar = Type::local(lstrf!(
-                    "{}-{}-{}-{}",
-                    fref.m.name,
-                    fref.f,
-                    ta.k,
-                    call_index
-                ));
-                fref_t.replace_openvar(ta.k.as_str(), &lvar);
-            }
-            fref.t = fref_t;
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "unexpected open type variable",
+                "type": ldisplay!(fref.t),
+                "module": fref.m.name.as_lstr().clone(),
+                "function": Lstr::Sref(fref.f),
+                "file": self.local_mod.key.best_path(),
+                "line": ldisplay!(loc.lineno),
+            ));
         }
 
         // an optimization here might be to iterate over
@@ -1142,13 +1116,6 @@ impl<'p> TypeCheck<'p>
         error message for some other scenario, maybe unnecessary
         */
         Ok(AstStep::Ok)
-    }
-
-    fn generic_call_index(&mut self) -> u32
-    {
-        let result = self.next_call_index;
-        self.next_call_index += 1;
-        result
     }
 
     /// like post_call but for function objects where fref isn't known
@@ -1246,8 +1213,7 @@ impl<'p> TypeCheck<'p>
             Ast::Id(_id) => {
                 // does this _id need to be used? should be ok b/c the type
                 // incorporates the id from pre phase
-                let nopens = vec![];
-                let id_type = self.inferred_type(&node.typ, &nopens)?;
+                let id_type = self.inferred_type(&node.typ)?;
                 node.typ = id_type;
             }
             // set struct fields w/ name(x: y) syntax
@@ -1427,7 +1393,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
     {
         match &mut *node.node {
             Ast::Id("_") if node.typ == Type::UNKNOWN => {
-                ltry!(self.localize_generic(&mut node.typ));
+                node.typ = self.next_local_typevar();
             }
             Ast::Id(id) => {
                 // mode == value
@@ -1445,8 +1411,14 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 }
             }
             Ast::ConstVal(c) if node.typ.contains_open() => {
-                node.typ = c.get_type();
-                self.localize_generic(&mut node.typ)?;
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "unexpected open type for constant",
+                    "type": ldisplay!(node.typ),
+                    "val": ldisplay!(c),
+                    "file": self.local_mod.key.best_path(),
+                    "line": ldisplay!(node.loc.lineno),
+                ));
             }
             Ast::Wildcard => {
                 node.typ = Type::UNKNOWN;
