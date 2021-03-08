@@ -124,26 +124,6 @@ lazy_static! {
     };
 }
 
-const STATIC_INDEX_NAMES: [&'static str; 17] = [
-    "statixName0",
-    "statixName1",
-    "statixName2",
-    "statixName3",
-    "statixName4",
-    "statixName5",
-    "statixName6",
-    "statixName7",
-    "statixName8",
-    "statixName9",
-    "statixName10",
-    "statixName11",
-    "statixName12",
-    "statixName13",
-    "statixName14",
-    "statixName15",
-    "statixName16",
-];
-
 #[derive(Clone)]
 #[derive(Debug)]
 struct ProtoType
@@ -521,7 +501,7 @@ impl ProtoModule
             .iter()
             .enumerate()
             .map(|(i, f)| {
-                let k = f.k.unwrap_or(STATIC_INDEX_NAMES[i]);
+                let k = Type::unwrap_static_name(&f.k, i).unwrap();
                 StrupleItem::new(f.k, AstNode::new(Ast::Id(k), loc))
             })
             .collect();
@@ -537,13 +517,21 @@ impl ProtoModule
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
         ];
 
+        let construct_args: Xlist = fields
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let sk = Type::unwrap_static_name(&f.k, i).unwrap();
+                StrupleItem::new(Some(sk), f.v.clone())
+            })
+            .collect();
         let construction = AstNode::new(Ast::Call(macro_call, macro_args), loc);
         let mut type_node = AstNode::new(Ast::Type(typ.clone()), loc);
         type_node.typ = Type::KIND;
         let constructor_ast = AstNode::new(
             Ast::DefFunc(
                 AstNode::new(Ast::Id(MODNAME_CONSTRUCT), loc),
-                fields.clone(),
+                construct_args,
                 AstNode::new(Ast::Type(typ.clone()), loc),
                 construction.clone(),
             ),

@@ -802,6 +802,30 @@ impl Type
             }
         }
     }
+
+    /// unwrap a field name or return a new one for an unnamed field
+    /// return Err if the field index is too high for the static fields
+    pub fn unwrap_static_name(
+        name: &Option<&'static str>,
+        i: usize,
+    ) -> Lresult<&'static str>
+    {
+        match name {
+            Some(n) => Ok(n),
+            None => {
+                match UNNAMED_NAMES.get(i) {
+                    Some(un) => Ok(un),
+                    None => {
+                        Err(lfail!(
+                            failure::Mode::TypeFailure,
+                            "unnamed name overflow",
+                            "field_index": ldisplay!(i),
+                        ))
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl From<Canonical> for Type
