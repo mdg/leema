@@ -1,5 +1,5 @@
 use crate::leema::ast2::{Ast, AstNode, Case, Xlist};
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Lresult};
 use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::list;
@@ -828,10 +828,11 @@ impl Registration
             }
             pnode => {
                 // do nothing with other pattern values
-                return Err(rustfail!(
-                    CODEFAIL,
-                    "cannot make a pattern val: {:?}",
-                    pnode,
+                return Err(lfail!(
+                    failure::Mode::CodeFailure,
+                    "cannot make a pattern val",
+                    "pattern": ldebug!(pnode),
+                    "line": ldisplay!(node.loc.lineno),
                 ));
             }
         };

@@ -117,6 +117,7 @@ pub enum Mode
     CompileFailure,
     ScopeFailure,
     TypeFailure,
+    CodeFailure,
     // internal leema errors
     StaticLeemaFailure,
     RuntimeLeemaFailure,
@@ -140,6 +141,7 @@ impl Mode
             Mode::CompileFailure => 7,
             Mode::ScopeFailure => 9,
             Mode::TypeFailure => 10,
+            Mode::CodeFailure => 11,
             // internal leema errors
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
@@ -162,6 +164,7 @@ impl Mode
             Mode::CompileFailure => "compile_failure",
             Mode::ScopeFailure => "scope_failure",
             Mode::TypeFailure => "type_failure",
+            Mode::CodeFailure => "code_failure",
             // internal leema errors
             Mode::StaticLeemaFailure => "static_leema_failure",
             Mode::RuntimeLeemaFailure => "runtime_leema_failure",
