@@ -1688,22 +1688,25 @@ impl Semantics
             })
             .collect();
 
-        let mut macs = MacroApplication::new(lib, proto, &ftyp);
+        // check scope and apply macros
         let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
+        let mut macs = MacroApplication::new(lib, proto, &ftyp);
+        let mut scope_pipe =
+            ast2::Pipeline::new(vec![&mut scope_check, &mut macs]);
+        let scoped = ltry!(
+            ast2::walk(body, &mut scope_pipe),
+            "module": modname.as_lstr().clone(),
+            "function": Lstr::Sref(f.f),
+            "type": ldebug!(ftyp),
+        );
+
+        // type check and remove unnecessary code
         let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
         let mut remove_extra = RemoveExtraCode;
-
-        // This interleaves all the calls.
-        // Should it be that way or do each op completely before
-        // starting the next?
-        let mut pipe = ast2::Pipeline::new(vec![
-            &mut remove_extra,
-            &mut scope_check,
-            &mut macs,
-            &mut type_check,
-        ]);
+        let mut type_pipe =
+            ast2::Pipeline::new(vec![&mut remove_extra, &mut type_check]);
         let mut result = ltry!(
-            ast2::walk(body, &mut pipe),
+            ast2::walk(scoped, &mut type_pipe),
             "module": modname.as_lstr().clone(),
             "function": Lstr::Sref(f.f),
             "type": ldebug!(ftyp),
