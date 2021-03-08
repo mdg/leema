@@ -154,10 +154,9 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
         if !self.type_args.is_empty() {
             write!(f, ")")?;
             for ta in self.type_args.iter() {
-                if ta.v.is_open() {
-                    write!(f, " {}", ta.k)?;
-                } else {
-                    write!(f, " {:?}", ta.v)?;
+                write!(f, " {}", ta.k)?;
+                if !ta.v.is_open() {
+                    write!(f, ":{:?}", ta.v)?;
                 }
             }
             write!(f, ">")?;
@@ -539,10 +538,10 @@ impl Type
         if let Some(fref) = ft.func_ref_mut() {
             return Ok(fref);
         }
-        Err(rustfail!(
-            "leema_failure",
-            "type is not a function: {}",
-            self,
+        Err(lfail!(
+            failure::Mode::TypeFailure,
+            "type is not a function",
+            "type": ldisplay!(self),
         ))
     }
 

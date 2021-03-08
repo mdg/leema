@@ -9,7 +9,7 @@ use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArgSlice,
-    TypeArgs, TypeRef, TypeRefMut, Val,
+    TypeArgs, TypeRef, Val,
 };
 
 use std::cmp::Ordering;
@@ -598,6 +598,12 @@ impl<'p> ScopeCheck<'p>
                     return Ok(AstStep::Rewrite);
                 }
             }
+            Ast::ConstVal(Val::Type(t)) => {
+                if t.contains_open() {
+                    let local_id = self.localized_id(&node.loc);
+                    t.localize_generics(&self.type_args, local_id);
+                }
+            }
             Ast::Generic(_base, _args) => {
                 // what's happening w/ generics here?
                 /*
@@ -737,37 +743,30 @@ impl<'p> TypeCheck<'p>
 
     pub fn match_types(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
     {
-        let mut opens = TypeArgs::new();
-        self.match_type(t0, t1, &mut opens)
+        self.match_type(t0, t1)
     }
 
     /// match one type to another
-    /// 1. List(OpenVarA) == LocalX
-    ///    OpenVarA == LocalX.Inner
-    ///    nah, use 2 instead
-    /// 2. match List(OpenVarA) == LocalX
-    ///    infer LocalX = List(LocalX.Inner0)
-    ///    match List(OpenVarA) == List(LocalX.Inner0)
-    /// 3. match List(LocalX) == OpenVarA
-    ///    close_generic(OpenVarA, List(LocalX)
-    /// 4. match Tuple(OpenVarA, OpenVarB) == LocalX
-    ///    Tuple(OpenVarA, OpenVarB) == Tuple(LocalX.Inner0, LocalX.Inner1)
-    pub fn match_type(
-        &mut self,
-        t0: &Type,
-        t1: &Type,
-        opens: &mut TypeArgSlice,
-    ) -> Lresult<Type>
+    /// should be no open type vars
+    pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
     {
         match (t0.path_str(), t1.path_str()) {
             // open var cases should not happen
             (Type::PATH_OPENVAR, _) => {
                 let k0 = &t0.first_arg()?.k;
-                lfailoc!(self.close_generic(k0.as_str(), t1, opens))
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "unexpected open generic",
+                    "type": k0.clone(),
+                ));
             }
             (_, Type::PATH_OPENVAR) => {
                 let k1 = &t1.first_arg()?.k;
-                lfailoc!(self.close_generic(k1.as_str(), t0, opens))
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "unexpected open generic",
+                    "type": k1.clone(),
+                ));
             }
             // unknown and failure cases
             // failure defaults to the other type b/c possible failure
@@ -785,20 +784,20 @@ impl<'p> TypeCheck<'p>
                 match Ord::cmp(v0, v1) {
                     Ordering::Equal => Ok(self.inferred_local(v0)),
                     Ordering::Less => {
-                        lfailoc!(self.infer_type(v0, t1, opens))
+                        lfailoc!(self.infer_type(v0, t1))
                     }
                     Ordering::Greater => {
-                        lfailoc!(self.infer_type(v1, t0, opens))
+                        lfailoc!(self.infer_type(v1, t0))
                     }
                 }
             }
             (Type::PATH_LOCAL, _) => {
                 let v0 = &t0.first_arg()?.k;
-                lfailoc!(self.infer_type(v0, t1, opens))
+                lfailoc!(self.infer_type(v0, t1))
             }
             (_, Type::PATH_LOCAL) => {
                 let v1 = &t1.first_arg()?.k;
-                lfailoc!(self.infer_type(v1, t0, opens))
+                lfailoc!(self.infer_type(v1, t0))
             }
             (Type::PATH_FN, Type::PATH_FN) => {
                 let f0 = t0.func_ref().unwrap();
@@ -809,7 +808,7 @@ impl<'p> TypeCheck<'p>
                 if !f1.type_args.is_empty() {
                     panic!("unexpected type args: {:?}", f1);
                 }
-                let result = self.match_type(f0.result, f1.result, opens)?;
+                let result = self.match_type(f0.result, f1.result)?;
                 if f0.args.len() != f1.args.len() {
                     return Err(rustfail!(
                         "compile_error",
@@ -820,7 +819,7 @@ impl<'p> TypeCheck<'p>
                 }
                 let mut args: TypeArgs = Vec::with_capacity(f0.args.len());
                 for a in f0.args.iter().zip(f1.args.iter()) {
-                    let a2 = self.match_type(&a.0.v, &a.1.v, opens)?;
+                    let a2 = self.match_type(&a.0.v, &a.1.v)?;
                     let k = a.0.k.clone();
                     args.push(StrupleItem::new(k, a2));
                 }
@@ -835,7 +834,7 @@ impl<'p> TypeCheck<'p>
                     .zip(t1.args.iter())
                     .map(|iz| {
                         let k = iz.0.k.clone();
-                        let v = ltry!(self.match_type(&iz.0.v, &iz.1.v, opens));
+                        let v = ltry!(self.match_type(&iz.0.v, &iz.1.v));
                         Ok(StrupleItem::new(k, v))
                     })
                     .collect();
@@ -844,10 +843,10 @@ impl<'p> TypeCheck<'p>
             // case for alias types where the types may need to be
             // dereferenced before they will match
             _ => {
-                if let Some(r) = self.match_type_alias(&t0.path, t1, opens)? {
+                if let Some(r) = self.match_type_alias(&t0.path, t1)? {
                     return Ok(r);
                 }
-                if let Some(r) = self.match_type_alias(&t1.path, t0, opens)? {
+                if let Some(r) = self.match_type_alias(&t1.path, t0)? {
                     return Ok(r);
                 }
                 Err(rustfail!(
@@ -865,12 +864,11 @@ impl<'p> TypeCheck<'p>
         &mut self,
         u0: &Canonical,
         t1: &Type,
-        opens: &mut TypeArgSlice,
     ) -> Lresult<Option<Type>>
     {
         if let Ok(proto) = self.lib.path_proto(u0) {
             if let Some(alias) = proto.alias_type() {
-                return Ok(Some(ltry!(self.match_type(alias, t1, opens))));
+                return Ok(Some(ltry!(self.match_type(alias, t1))));
             }
             if let Some(supert) = proto.trait_with_impl(t1) {
                 return Ok(Some(supert.clone()));
@@ -879,12 +877,7 @@ impl<'p> TypeCheck<'p>
         Ok(None)
     }
 
-    pub fn infer_type(
-        &mut self,
-        var: &Lstr,
-        t: &Type,
-        opens: &mut TypeArgSlice,
-    ) -> Lresult<Type>
+    pub fn infer_type(&mut self, var: &Lstr, t: &Type) -> Lresult<Type>
     {
         if self.infers.contains_key(var) {
             let var_type = self.inferred_local(var);
@@ -892,7 +885,7 @@ impl<'p> TypeCheck<'p>
                 Ok(var_type)
             } else {
                 Ok(ltry!(
-                    self.match_type(&var_type, t, opens),
+                    self.match_type(&var_type, t),
                     "inferring type var": var.clone(),
                     "as type": lstrf!("{}", var_type),
                 ))
@@ -903,52 +896,6 @@ impl<'p> TypeCheck<'p>
         }
     }
 
-    /// close_generic does what?
-    pub fn close_generic(
-        &mut self,
-        var: &str,
-        t: &Type,
-        opens: &mut TypeArgSlice,
-    ) -> Lresult<Type>
-    {
-        let open_idx =
-            struple::find_idx(opens, var).map(|i| i.0).ok_or_else(|| {
-                rustfail!(
-                    TYPEFAIL,
-                    "open type var {:?} not found in {:?} for {:?}",
-                    var,
-                    opens,
-                    t,
-                )
-            })?;
-
-        let open = &opens[open_idx].v;
-        // if open is unknown, set it to t
-        if *open == Type::UNKNOWN {
-            // newly defined type, set it in opens
-            opens[open_idx].v = t.clone();
-            Ok(t.clone())
-        } else if open.is_open() {
-            if open.first_arg()?.k.as_str() == var {
-                // newly defined type, set it in opens
-                opens[open_idx].v = t.clone();
-                Ok(t.clone())
-            } else {
-                panic!("unexpected var: {}", open);
-            }
-        } else if open == t {
-            // already the same type, good
-            Ok(t.clone())
-        } else {
-            // different type, run a match and then assign the result
-            // this upgrades inference local vars to concrete types
-            let old_type = opens[open_idx].v.clone();
-            let new_type = ltry!(self.match_type(&old_type, t, opens));
-            opens[open_idx].v = new_type.clone();
-            Ok(new_type)
-        }
-    }
-
     /// What does apply_typecall do?
     pub fn apply_typecall(
         &mut self,
@@ -956,46 +903,39 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let TypeRefMut(_p, targs) = calltype.try_generic_ref_mut()?;
+        let fref = calltype.try_func_ref_mut()?;
 
-        if args.len() != targs.len() {
+        if args.len() != fref.type_args.len() {
             return Err(rustfail!(
                 TYPEFAIL,
                 "wrong number of args, expected {}, found {}",
-                targs.len(),
+                fref.type_args.len(),
                 args.len(),
             ));
         }
-        for a in targs.iter_mut().zip(args.iter_mut()) {
-            match &*a.1.v.node {
-                Ast::ConstVal(Val::Type(t)) => {
-                    a.0.v = t.clone();
-                }
-                Ast::Type(t) => {
-                    a.0.v = t.clone();
-                }
+        for a in fref.type_args.iter_mut().zip(args.iter_mut()) {
+            let next_type = match &*a.1.v.node {
+                Ast::ConstVal(Val::Type(t)) => t,
+                Ast::Type(t) => t,
                 Ast::Id(id) => {
-                    a.0.v = self
-                        .local_mod
-                        .find_type(id)
-                        .ok_or_else(|| {
-                            lfail!(
-                                failure::Mode::TypeFailure,
-                                "undefined type",
-                                "type": Lstr::Sref(id),
-                                "file": self.local_mod.key.best_path(),
-                                "line": ldisplay!(a.1.v.loc.lineno),
-                            )
-                        })?
-                        .clone();
+                    self.local_mod.find_type(id).ok_or_else(|| {
+                        lfail!(
+                            failure::Mode::TypeFailure,
+                            "undefined type",
+                            "type": Lstr::Sref(id),
+                            "file": self.local_mod.key.best_path(),
+                            "line": ldisplay!(a.1.v.loc.lineno),
+                        )
+                    })?
                 }
                 what => {
-                    let t = self.local_mod.ast_to_type(&a.1.v, &[])?;
-                    a.0.v = t;
+                    self.local_mod.ast_to_type(&a.1.v, &[])?;
                     panic!("unexpected type setting: {:#?}", what);
                 }
-            }
+            };
+            a.0.v = ltry!(self.match_type(&a.0.v, next_type));
         }
+        calltype.close_openvars();
         let t = ltry!(self.inferred_type(&calltype));
         *calltype = t;
         Ok(calltype.clone())
@@ -1055,7 +995,7 @@ impl<'p> TypeCheck<'p>
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
             let typ = ltry!(
-                self.match_type(&arg.0.v, &arg.1.v.typ, &mut ftyp.type_args),
+                self.match_type(&arg.0.v, &arg.1.v.typ),
                 "function_param": arg.0.k.clone(),
                 "expected": lstrf!("{}", arg.0.v),
                 "found": lstrf!("{}", arg.1.v.typ),
@@ -1083,10 +1023,9 @@ impl<'p> TypeCheck<'p>
     fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
     {
         let mut prev_typ: Option<Type> = None;
-        let mut opens = vec![];
         for case in cases.iter() {
             let next_typ = if let Some(ref pt) = prev_typ {
-                ltry!(self.match_type(pt, &case.body.typ, &mut opens))
+                ltry!(self.match_type(pt, &case.body.typ))
             } else {
                 case.body.typ.clone()
             };
@@ -1259,7 +1198,7 @@ impl<'p> TypeCheck<'p>
                             args,
                             node.loc
                         ));
-                        callx.typ = fref.t.clone();
+                        callx.typ = ltry!(self.inferred_type(&fref.t));
                     }
                     // handle a method call
                     Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
@@ -1326,22 +1265,16 @@ impl<'p> TypeCheck<'p>
             }
             Ast::Ifx(ref mut cases) => {
                 // all if cases should be boolean
-                let mut opens = vec![];
                 for case in cases.iter_mut() {
-                    ltry!(self.match_type(
-                        &case.cond.typ,
-                        &Type::BOOL,
-                        &mut opens
-                    ));
+                    ltry!(self.match_type(&case.cond.typ, &Type::BOOL,));
                     case.cond.typ = Type::BOOL.clone();
                 }
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Matchx(Some(ref mut input), ref mut cases) => {
-                let mut opens = vec![];
                 for case in cases.iter_mut() {
                     let it = self
-                        .match_type(&input.typ, &case.cond.typ, &mut opens)
+                        .match_type(&input.typ, &case.cond.typ)
                         .map_err(|f| {
                             f.add_context(lstrf!(
                                 "for pattern {:?} at {:?}",
@@ -1359,18 +1292,14 @@ impl<'p> TypeCheck<'p>
                 node.typ = self.match_case_types(cases)?;
             }
             Ast::Let(ref mut patt, _, ref mut x) => {
-                let mut opens = vec![];
-                let typ = ltry!(self.match_type(&patt.typ, &x.typ, &mut opens));
+                let typ = ltry!(self.match_type(&patt.typ, &x.typ));
                 patt.typ = typ.clone();
                 x.typ = typ;
             }
             Ast::List(ref mut inner) => {
-                let mut opens = vec![];
                 let mut inner_typ = Type::UNKNOWN;
                 for i in inner.iter_mut() {
-                    inner_typ = ltry!(
-                        self.match_type(&i.v.typ, &inner_typ, &mut opens)
-                    );
+                    inner_typ = ltry!(self.match_type(&i.v.typ, &inner_typ));
                     if i.v.typ != inner_typ {
                         i.v.typ = inner_typ.clone();
                     }
@@ -1396,9 +1325,8 @@ impl<'p> TypeCheck<'p>
             }
             Ast::Op2(";", h, t) if mode.is_pattern() => {
                 // show that [h] = t
-                let mut opens = [];
                 let hlist = Type::list(h.typ.clone());
-                node.typ = self.match_type(&hlist, &t.typ, &mut opens)?;
+                node.typ = self.match_type(&hlist, &t.typ)?;
             }
             Ast::Wildcard => {} // wildcard is whatever type
             Ast::Return(_) => {
