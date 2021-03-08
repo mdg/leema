@@ -432,11 +432,8 @@ impl<'p> ScopeCheck<'p>
         self.next_local_id += 1;
         format!("{}@{}", local_id, loc.lineno)
     }
-}
 
-impl<'p> ast2::Op for ScopeCheck<'p>
-{
-    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    fn pre_scope(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         let loc = node.loc;
         match &mut *node.node {
@@ -618,6 +615,28 @@ impl<'p> ast2::Op for ScopeCheck<'p>
         }
         Ok(AstStep::Ok)
     }
+}
+
+impl<'p> ast2::Op for ScopeCheck<'p>
+{
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    {
+        steptry!(self.pre_scope(node, mode));
+        // make sure that all open types have been converted
+        // to concrete types or local type vars
+        if node.typ.contains_open() {
+            Err(lfail!(
+                failure::Mode::TypeFailure,
+                "expression contains unexpected open generic type variable",
+                "type": ldisplay!(node.typ),
+                "node": ldebug!(node.node),
+                "file": self.local_mod.key.best_path(),
+                "line": ldisplay!(node.loc.lineno),
+            ))
+        } else {
+            Ok(AstStep::Ok)
+        }
+    }
 
     fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
@@ -681,10 +700,10 @@ impl<'p> TypeCheck<'p>
 
         for arg in ftyp.args.iter() {
             let argname = arg.k.sref()?;
-            let argt = check.inferred_type(&arg.v)?;
+            let argt = ltry!(check.inferred_type(&arg.v));
             check.vartypes.insert(argname, argt);
         }
-        check.result = check.inferred_type(&ftyp.result)?;
+        check.result = ltry!(check.inferred_type(&ftyp.result));
         Ok(check)
     }
 
@@ -709,7 +728,9 @@ impl<'p> TypeCheck<'p>
                     "type": open.clone(),
                 ));
             }
-            _ => t.map_v(&|a| self.inferred_type(a))?,
+            _ => {
+                ltry!(t.map_v(&|a| self.inferred_type(a)), "type": ldisplay!(t),)
+            }
         };
         Ok(newt)
     }
@@ -975,7 +996,7 @@ impl<'p> TypeCheck<'p>
                 }
             }
         }
-        let t = self.inferred_type(&calltype)?;
+        let t = ltry!(self.inferred_type(&calltype));
         *calltype = t;
         Ok(calltype.clone())
     }
@@ -1050,12 +1071,12 @@ impl<'p> TypeCheck<'p>
         }
 
         for arg in ftyp.args.iter_mut().zip(args.iter_mut()) {
-            let inferred = self.inferred_type(&arg.0.v)?;
+            let inferred = ltry!(self.inferred_type(&arg.0.v));
             arg.0.v = inferred.clone();
             arg.1.v.typ = inferred;
         }
 
-        *ftyp.result = self.inferred_type(&ftyp.result)?;
+        *ftyp.result = ltry!(self.inferred_type(&ftyp.result));
         Ok((*ftyp.result).clone())
     }
 
@@ -1213,7 +1234,7 @@ impl<'p> TypeCheck<'p>
             Ast::Id(_id) => {
                 // does this _id need to be used? should be ok b/c the type
                 // incorporates the id from pre phase
-                let id_type = self.inferred_type(&node.typ)?;
+                let id_type = ltry!(self.inferred_type(&node.typ));
                 node.typ = id_type;
             }
             // set struct fields w/ name(x: y) syntax
@@ -1279,7 +1300,11 @@ impl<'p> TypeCheck<'p>
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
                     &mut *callx.node
                 {
-                    let typecall_t = self.apply_typecall(&mut fref.t, args)?;
+                    let typecall_t = ltry!(
+                        self.apply_typecall(&mut fref.t, args),
+                        "file": self.local_mod.key.best_path(),
+                        "line": ldisplay!(node.loc.lineno),
+                    );
                     if typecall_t.is_closed() {
                         *node.node = (*callx.node).clone();
                         node.typ = typecall_t;
