@@ -741,11 +741,6 @@ impl<'p> TypeCheck<'p>
         Ok(newt)
     }
 
-    pub fn match_types(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
-    {
-        self.match_type(t0, t1)
-    }
-
     /// match one type to another
     /// should be no open type vars
     pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
@@ -1645,7 +1640,7 @@ impl Semantics
             result.typ = Type::VOID;
         } else {
             result.typ =
-                ltry!(type_check.match_types(&ftyp.result, &result.typ));
+                ltry!(type_check.match_type(&ftyp.result, &result.typ));
         }
 
         let mut resolver = ResolveTypes::new(&type_check.infers);
