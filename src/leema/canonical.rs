@@ -115,6 +115,28 @@ impl Canonical
         }
     }
 
+    /// split the final module element off the end of Canonical
+    pub fn last_module(&self) -> Option<Lstr>
+    {
+        match self.0 {
+            Lstr::Sref(ss) => {
+                let mut ssplit = ss.rsplitn(2, "/");
+                let smod = ssplit.next()?;
+                ssplit.next()?;
+                Some(Lstr::Sref(smod))
+            }
+            Lstr::Arc(ref s) => {
+                let mut split = s.rsplitn(2, "/");
+                let module = split.next()?;
+                split.next()?;
+                Some(Lstr::from(module.to_string()))
+            }
+            ref other => {
+                panic!("not a normal Lstr: {:?}", other);
+            }
+        }
+    }
+
     /// get the Lstr out of the Canonical
     pub fn as_lstr(&self) -> &Lstr
     {
