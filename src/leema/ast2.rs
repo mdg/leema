@@ -85,7 +85,11 @@ impl fmt::Debug for Case
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "(Case {:?} ? {:?})", self.cond, self.body)
+        if f.alternate() {
+            write!(f, "(Case {:#?} ? {:#?})", self.cond, self.body)
+        } else {
+            write!(f, "(Case {:?} ? {:?})", self.cond, self.body)
+        }
     }
 }
 

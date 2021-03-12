@@ -5,6 +5,7 @@ use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
 use crate::leema::lstr::Lstr;
+use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
@@ -1465,15 +1466,17 @@ impl<'l> fmt::Debug for TypeCheck<'l>
 /// Resolve any unresolved type variables
 struct ResolveTypes<'l>
 {
+    key: ModKey,
     infers: &'l LocalTypeVars,
     pub calls: HashSet<Fref>,
 }
 
 impl<'l> ResolveTypes<'l>
 {
-    pub fn new(infers: &'l LocalTypeVars) -> ResolveTypes
+    pub fn new(key: ModKey, infers: &'l LocalTypeVars) -> ResolveTypes
     {
         ResolveTypes {
+            key,
             infers,
             calls: HashSet::new(),
         }
@@ -1510,7 +1513,11 @@ impl<'l> ast2::Op for ResolveTypes<'l>
                 Ok(AstStep::Ok)
             }
             _ if node.typ.contains_local() => {
-                ltry!(node.typ.replace_localvars(&self.infers));
+                ltry!(
+                    node.typ.replace_localvars(&self.infers),
+                    "file": self.key.best_path(),
+                    "line": ldisplay!(node.loc.lineno),
+                );
                 Ok(AstStep::Rewrite)
             }
             _ => Ok(AstStep::Ok),
@@ -1686,7 +1693,8 @@ impl Semantics
                 ltry!(type_check.match_type(&ftyp.result, &result.typ));
         }
 
-        let mut resolver = ResolveTypes::new(&type_check.infers);
+        let mut resolver =
+            ResolveTypes::new(proto.key.clone(), &type_check.infers);
         let resolved = ltry!(
             ast2::walk(result, &mut resolver),
             "module": modname.as_lstr().clone(),
