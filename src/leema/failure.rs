@@ -191,7 +191,7 @@ pub struct Failure
     pub trace: Option<Arc<FrameTrace>>,
     pub status: Mode,
     pub code: i8,
-    context: Vec<StrupleKV<Lstr, Lstr>>,
+    pub context: Vec<StrupleKV<Lstr, Lstr>>,
 }
 
 pub type Lresult<T> = Result<T, Failure>;

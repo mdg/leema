@@ -1800,7 +1800,7 @@ mod tests
     use crate::leema::module::ModKey;
     use crate::leema::program;
     use crate::leema::proto::{ProtoLib, ProtoModule};
-    use crate::leema::struple::StrupleItem;
+    use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
@@ -1993,8 +1993,11 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
         let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("types do not match: (/core/Str != /core/Int)", f.msg.str());
-        assert_eq!("semantic_failure", f.tag.str());
+        assert_eq!("type_failure", f.tag.str());
+        assert_eq!("types do not match", f.msg.str());
+        let ctx0 = f.context.first().unwrap();
+        assert_eq!("/core/Str", struple::find(ctx0, "t0").unwrap());
+        assert_eq!("/core/Int", struple::find(ctx0, "t1").unwrap());
     }
 
     #[test]
