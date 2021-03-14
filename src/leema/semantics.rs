@@ -1577,12 +1577,33 @@ impl<'l> ast2::Op for ResolveTypes<'l>
                 ltry!(t.replace_localvars(&self.infers));
                 Ok(AstStep::Rewrite)
             }
-            Ast::ConstVal(cv) if node.typ.is_func() => {
-                if let Val::Call(f, _args) = cv {
-                    if f.t.contains_local() {
-                        ltry!(f.t.replace_localvars(&self.infers));
-                        return Ok(AstStep::Rewrite);
+            Ast::ConstVal(cv) => {
+                match cv {
+                    Val::Call(f, _args) => {
+                        if f.t.contains_local() {
+                            ltry!(f.t.replace_localvars(&self.infers));
+                            return Ok(AstStep::Rewrite);
+                        }
                     }
+                    Val::Struct(t, _fields) => {
+                        if t.contains_local() {
+                            ltry!(t.replace_localvars(&self.infers));
+                            return Ok(AstStep::Rewrite);
+                        }
+                    }
+                    Val::EnumStruct(t, _var, _fields) => {
+                        if t.contains_local() {
+                            ltry!(t.replace_localvars(&self.infers));
+                            return Ok(AstStep::Rewrite);
+                        }
+                    }
+                    Val::EnumToken(t, _var) => {
+                        if t.contains_local() {
+                            ltry!(t.replace_localvars(&self.infers));
+                            return Ok(AstStep::Rewrite);
+                        }
+                    }
+                    _ => {} // nothing to do?
                 }
                 Ok(AstStep::Ok)
             }
