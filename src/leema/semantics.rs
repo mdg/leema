@@ -454,6 +454,9 @@ impl<'p> ScopeCheck<'p>
                     ));
                 }
                 node.dst = self.blocks.assign_var(id, local_type)?;
+                if node.typ == Type::UNKNOWN {
+                    node.typ = Type::local(Lstr::Sref(id));
+                }
             }
             Ast::Id(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);
@@ -656,41 +659,28 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             }
             Ast::Call(callx, args) if mode.is_pattern() => {
                 // what should this change to? struct val?
-                if let Ast::ConstVal(Val::Call(fref, _cargs)) = &*callx.node {
-                    if let Some(ftyp) = fref.t.func_ref() {
+                if let Ast::ConstVal(Val::Call(fref, _cargs)) = &mut *callx.node
+                {
+                    if let Some(ftyp) = fref.t.func_ref_mut() {
                         let ltyp = mode.get_pattern().unwrap();
-                        let pargs = args
-                            .drain(..)
-                            .map(|a| {
-                                if let Ast::Id(id) = &*a.v.node {
+                        for a in args.iter_mut() {
+                            match &mut *a.v.node {
+                                Ast::Id(id) => {
                                     let dst = self
                                         .blocks
                                         .assign_var(id, ltyp)
                                         .unwrap();
-                                    StrupleItem::new(
-                                        a.k.map(|k| Lstr::Sref(k)),
-                                        Val::PatternVar(dst),
-                                    )
-                                } else {
+                                    a.v.typ = Type::local(Lstr::Sref(id));
+                                    *a.v.node =
+                                        Ast::ConstVal(Val::PatternVar(dst));
+                                }
+                                Ast::ConstVal(_) => {} // constants are good
+                                other => {
                                     panic!("what");
                                 }
-                            })
-                            .collect();
-                        let pattern = if fref.m.name == ftyp.result.path {
-                            Val::Struct(ftyp.result.clone(), pargs)
-                        } else {
-                            let split_f = fref.m.name.last_module();
-                            if let Some(var) = split_f {
-                                Val::EnumStruct(
-                                    ftyp.result.clone(),
-                                    var.clone(),
-                                    pargs,
-                                )
-                            } else {
-                                panic!("this is no good");
                             }
-                        };
-                        *node.node = Ast::ConstVal(pattern);
+                        }
+                        return Ok(AstStep::Ok);
                     }
                 }
             }
@@ -1310,6 +1300,14 @@ impl<'p> TypeCheck<'p>
                 }
                 node.typ = self.match_case_types(cases)?;
             }
+            Ast::Matchx(None, _) => {
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "no input to match",
+                    "file": self.local_mod.key.best_path(),
+                    "line": ldisplay!(node.loc.lineno),
+                ));
+            }
             Ast::Matchx(Some(ref mut input), ref mut cases) => {
                 for case in cases.iter_mut() {
                     let it = self
@@ -1381,8 +1379,11 @@ impl<'p> TypeCheck<'p>
 
 impl<'p> ast2::Op for TypeCheck<'p>
 {
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
+        if node.typ.contains_open() {
+            panic!("open {}", &node.typ);
+        }
         match &mut *node.node {
             Ast::Id("_") if node.typ == Type::UNKNOWN => {
                 node.typ = self.next_local_typevar();
@@ -1411,6 +1412,79 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     "file": self.local_mod.key.best_path(),
                     "line": ldisplay!(node.loc.lineno),
                 ));
+            }
+            Ast::Call(callx, args) if mode.is_pattern() => {
+                // what should this change to? struct val?
+                if let Ast::ConstVal(Val::Call(fref, _cargs)) = &mut *callx.node
+                {
+                    if fref.f == "__construct" {
+                        if let Some(ftyp) = fref.t.func_ref_mut() {
+                            let mut pargs = Vec::with_capacity(args.len());
+                            let mut targs = Vec::with_capacity(args.len());
+                            for a in args.drain(..).zip(ftyp.args.into_iter()) {
+                                let at =
+                                    ltry!(self.match_type(&a.0.v.typ, &a.1.v));
+                                targs.push(StrupleItem::new(a.1.k.clone(), at));
+                                match *a.0.v.node {
+                                    Ast::ConstVal(v) => {
+                                        pargs.push(StrupleItem::new(
+                                            a.0.k.map(|k| Lstr::Sref(k)),
+                                            v,
+                                        ))
+                                    }
+                                    other => {
+                                        return Err(lfail!(
+                                            failure::Mode::TypeFailure,
+                                            "unexpected pattern value",
+                                            "value": ldebug!(other),
+                                        ));
+                                    }
+                                }
+                            }
+                            let result_t =
+                                ltry!(self.inferred_type(&ftyp.result));
+                            let pattern = if fref.m.name == ftyp.result.path {
+                                Val::Struct(ftyp.result.clone(), pargs)
+                            } else {
+                                let split_f = dbg!(fref.m.name.last_module());
+                                if let Some(var) = split_f {
+                                    Val::EnumStruct(
+                                        ftyp.result.clone(),
+                                        var.clone(),
+                                        pargs,
+                                    )
+                                } else {
+                                    dbg!(&ftyp.result);
+                                    panic!("this is no good");
+                                }
+                            };
+                            *node.node = Ast::ConstVal(pattern);
+                            node.typ = result_t;
+                            return Ok(AstStep::Rewrite);
+                        } else {
+                            return Err(lfail!(
+                                failure::Mode::TypeFailure,
+                                "expected function type",
+                                "module": fref.m.name.to_lstr(),
+                                "function": Lstr::Sref(fref.f),
+                                "type": ldisplay!(fref.t),
+                            ));
+                        }
+                    } else {
+                        return Err(lfail!(
+                            failure::Mode::TypeFailure,
+                            "unexpected pattern call function",
+                            "module": fref.m.name.to_lstr(),
+                            "function": Lstr::Sref(fref.f),
+                        ));
+                    }
+                } else {
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "cannot process non-const pattern call",
+                        "node": ldebug!(callx.node),
+                    ));
+                }
             }
             Ast::Wildcard => {
                 node.typ = Type::UNKNOWN;

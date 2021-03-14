@@ -15,5 +15,6 @@ func main ->
     let option_b := Some(4)
     print("option b? $option_b\n")
 
+    print_opt(option_a)
     print_opt(option_b)
 --
