@@ -455,7 +455,12 @@ impl<'p> ScopeCheck<'p>
                 }
                 node.dst = self.blocks.assign_var(id, local_type)?;
                 if node.typ == Type::UNKNOWN {
-                    node.typ = Type::local(Lstr::Sref(id));
+                    let type_var = if *id == "_" {
+                        lstrf!("_{}", self.localized_id(&node.loc))
+                    } else {
+                        Lstr::Sref(id)
+                    };
+                    node.typ = Type::local(type_var);
                 }
                 *node.node = Ast::ConstVal(Val::PatternVar(node.dst));
             }
@@ -490,13 +495,6 @@ impl<'p> ScopeCheck<'p>
                         "line": ldisplay!(loc.lineno),
                     ));
                 }
-            }
-            Ast::Call(ref mut callx, _) => {
-                // *** this shouldn't be necessary now that type checking
-                // is a separate walk
-                // go depth first on the call expression
-                steptry!(ast2::walk_ref_mut(callx, self));
-                return Ok(AstStep::Ok);
             }
             Ast::Canonical(c) => {
                 if let Ok(proto) = self.lib.path_proto(c) {
@@ -563,6 +561,7 @@ impl<'p> ScopeCheck<'p>
                                         (*node2.node).clone(),
                                         node2.typ.clone(),
                                     );
+                                    return Ok(AstStep::Rewrite);
                                 }
                                 _ => {
                                     return Err(rustfail!(
@@ -852,11 +851,11 @@ impl<'p> TypeCheck<'p>
                 if let Some(r) = self.match_type_alias(&t1.path, t0)? {
                     return Ok(r);
                 }
-                Err(rustfail!(
-                    SEMFAIL,
-                    "types do not match: ({} != {})",
-                    t0,
-                    t1,
+                Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "types do not match",
+                    "t0": ldisplay!(t0),
+                    "t1": ldisplay!(t1),
                 ))
             }
         }
