@@ -302,7 +302,8 @@ class TestScripts(unittest.TestCase):
         result = run_leema('test_option')
         self.assertEqual(0, result['code'])
         exp = b"option a? None\n" \
-            + b"option b? option::T[$V,].Some(4,)\n" \
+            + b"no option\n" \
+            + b"option b? </core/Option T:/core/Int>.Some(4,)\n" \
             + b"option is 4\n"
         self.assertEqual(exp, result['output'])
 

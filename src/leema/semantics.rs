@@ -457,6 +457,7 @@ impl<'p> ScopeCheck<'p>
                 if node.typ == Type::UNKNOWN {
                     node.typ = Type::local(Lstr::Sref(id));
                 }
+                *node.node = Ast::ConstVal(Val::PatternVar(node.dst));
             }
             Ast::Id(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);
@@ -651,38 +652,11 @@ impl<'p> ast2::Op for ScopeCheck<'p>
         }
     }
 
-    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Block(_) => {
                 self.blocks.pop_blockscope();
-            }
-            Ast::Call(callx, args) if mode.is_pattern() => {
-                // what should this change to? struct val?
-                if let Ast::ConstVal(Val::Call(fref, _cargs)) = &mut *callx.node
-                {
-                    if let Some(ftyp) = fref.t.func_ref_mut() {
-                        let ltyp = mode.get_pattern().unwrap();
-                        for a in args.iter_mut() {
-                            match &mut *a.v.node {
-                                Ast::Id(id) => {
-                                    let dst = self
-                                        .blocks
-                                        .assign_var(id, ltyp)
-                                        .unwrap();
-                                    a.v.typ = Type::local(Lstr::Sref(id));
-                                    *a.v.node =
-                                        Ast::ConstVal(Val::PatternVar(dst));
-                                }
-                                Ast::ConstVal(_) => {} // constants are good
-                                other => {
-                                    panic!("what");
-                                }
-                            }
-                        }
-                        return Ok(AstStep::Ok);
-                    }
-                }
             }
             _ => {
                 // do nothing, keep walking
@@ -1446,7 +1420,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             let pattern = if fref.m.name == ftyp.result.path {
                                 Val::Struct(ftyp.result.clone(), pargs)
                             } else {
-                                let split_f = dbg!(fref.m.name.last_module());
+                                let split_f = fref.m.name.last_module();
                                 if let Some(var) = split_f {
                                     Val::EnumStruct(
                                         ftyp.result.clone(),
