@@ -299,7 +299,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_option(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('test_option')
         self.assertEqual(0, result['code'])
         exp = b"option a? None\n" \

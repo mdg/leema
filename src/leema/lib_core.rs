@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::list;
@@ -291,10 +291,22 @@ pub fn void_func(mut f: RustFuncContext) -> Lresult<frame::Event>
             ftyp,
         ));
     }
-    let fref = ftyp.try_func_ref()?;
-    let void_type: Type = fref.result.clone();
     let flds = vec![StrupleItem::new_v(Val::VOID); num_args];
-    let result = Val::Struct(void_type, flds);
+    let fref = ftyp.try_func_ref()?;
+    let void_type: Type = fref.type_args[0].v.clone();
+    let construct: Type = fref.type_args[1].v.clone();
+    let result = if void_type == construct {
+        Val::Struct(void_type, flds)
+    } else if let Some(variant) = construct.path.last_module() {
+        Val::EnumStruct(void_type, variant, flds)
+    } else {
+        return Err(lfail!(
+            failure::Mode::TypeFailure,
+            "invalid construct type",
+            "construct": ldisplay!(construct),
+            "type": ldisplay!(void_type),
+        ));
+    };
     f.set_result(result);
     frame::Event::success()
 }

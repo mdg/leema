@@ -937,7 +937,7 @@ impl<'p> TypeCheck<'p>
         if args.len() != fref.type_args.len() {
             return Err(rustfail!(
                 TYPEFAIL,
-                "wrong number of args, expected {}, found {}",
+                "wrong number of type args, expected {}, found {}",
                 fref.type_args.len(),
                 args.len(),
             ));

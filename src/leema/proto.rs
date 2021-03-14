@@ -467,9 +467,10 @@ impl ProtoModule
                     loc,
                 ));
             }
+            let construct = self.trait_t.as_ref().unwrap().t.clone();
             // this is a struct for a trait, set its data_t now
             self.data_t = self.trait_t.clone();
-            self.add_typed_struct(fields, loc)
+            self.add_typed_struct(construct, fields, loc)
         } else {
             // a struct type defined directly within a file module
             if name.node.is_void() {
@@ -480,6 +481,7 @@ impl ProtoModule
                 ));
             }
             let data_t = self.make_proto_type(name)?;
+            let construct = data_t.t.clone();
             // create a module for holding the constructor
             let subp = ltry!(self.add_selfmod(
                 ModTyp::Data,
@@ -488,11 +490,16 @@ impl ProtoModule
                 vec![],
                 loc,
             ));
-            subp.add_typed_struct(fields, loc)
+            subp.add_typed_struct(construct, fields, loc)
         }
     }
 
-    fn add_typed_struct(&mut self, fields: Xlist, loc: Loc) -> Lresult<()>
+    fn add_typed_struct(
+        &mut self,
+        construct: Type,
+        fields: Xlist,
+        loc: Loc,
+    ) -> Lresult<()>
     {
         let typ = self.data_t.as_ref().unwrap().t.clone();
 
@@ -508,6 +515,10 @@ impl ProtoModule
         let macro_args = vec![
             StrupleItem::new_v(AstNode::new(
                 Ast::ConstVal(Val::Type(typ.clone())),
+                loc,
+            )),
+            StrupleItem::new_v(AstNode::new(
+                Ast::ConstVal(Val::Type(construct.clone())),
                 loc,
             )),
             StrupleItem::new_v(AstNode::new(
@@ -680,13 +691,15 @@ impl ProtoModule
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     m.modscope.insert(var_name, vast);
                 } else {
+                    let var_t =
+                        Type::new(var_key.name.clone(), union_typ.args.clone());
                     let mut var_sub = ltry!(ProtoModule::with_ast(
                         var_key,
                         Some(data_t.clone()),
                         None,
                         vec![]
                     ));
-                    var_sub.add_typed_struct(flds, loc)?;
+                    var_sub.add_typed_struct(var_t, flds, loc)?;
                     struple::push_unique(&mut m.submods, var_name, var_sub)?;
                 }
             } else {

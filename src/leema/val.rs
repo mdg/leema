@@ -1664,7 +1664,11 @@ impl fmt::Debug for Val
                 }
             }
             Val::EnumStruct(ref name, ref var_name, ref val) => {
-                write!(f, "enum({:?}.{}{:?})", name, var_name, val)
+                if f.alternate() {
+                    write!(f, "enum({:#?}.{}{:#?})", name, var_name, val)
+                } else {
+                    write!(f, "enum({:?}.{}{:?})", name, var_name, val)
+                }
             }
             Val::EnumToken(ref typ, ref var_name) => {
                 write!(f, "EnumToken({:?}.{:?})", typ, var_name)
@@ -1736,6 +1740,9 @@ impl reg::Iregistry for Val
             (_, &mut Val::Tuple(ref mut fields)) => fields.ireg_set(i, v),
             // set reg on structs
             (_, &mut Val::Struct(_, ref mut fields)) => fields.ireg_set(i, v),
+            (_, &mut Val::EnumStruct(_, _, ref mut fields)) => {
+                fields.ireg_set(i, v)
+            }
             // set reg on lists
             (Ireg::Reg(0), &mut Val::Cons(ref mut head, _)) => {
                 **head = v;
