@@ -2045,17 +2045,12 @@ mod tests
     #[test]
     fn test_inferred_type_func()
     {
-        let ftyp = Type::generic_f(
-            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
-            Type::open(Lstr::Sref("T")),
-            vec![StrupleItem::new(
-                Lstr::Sref("a"),
-                Type::open(Lstr::Sref("T")),
-            )],
+        let local_t = Type::local(Lstr::Sref("t"));
+        let ftyp = Type::f(
+            local_t.clone(),
+            vec![StrupleItem::new(Lstr::Sref("a"), local_t.clone())],
         );
-        let ftyp_args = ftyp.type_args();
-        let expected = Type::generic_f(
-            vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)],
+        let expected = Type::f(
             Type::STR,
             vec![StrupleItem::new(Lstr::Sref("a"), Type::STR)],
         );
@@ -2063,8 +2058,9 @@ mod tests
         let proto = ProtoModule::new(ModKey::from("foo"), "").unwrap();
         let mainf = Type::f(Type::VOID, vec![]);
         let mainfref = mainf.func_ref().unwrap();
-        let type_check = TypeCheck::new(&lib, &proto, &mainfref).unwrap();
-        let inferred = type_check.inferred_type(&ftyp, ftyp_args).unwrap();
+        let mut type_check = TypeCheck::new(&lib, &proto, &mainfref).unwrap();
+        type_check.match_type(&local_t, &Type::STR).unwrap();
+        let inferred = type_check.inferred_type(&ftyp).unwrap();
         assert_eq!(expected, inferred);
     }
 
