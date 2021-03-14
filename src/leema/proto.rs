@@ -548,8 +548,15 @@ impl ProtoModule
             ),
             loc,
         );
+        let field_const = AstNode::new(
+            Ast::DefConst(
+                MODNAME_FIELDS,
+                AstNode::new_constval(Val::Tuple(vec![]), loc),
+            ),
+            loc,
+        );
 
-        self.append_ast(vec![constructor_ast])?;
+        self.append_ast(vec![constructor_ast, field_const])?;
         self.modscope.insert(MODNAME_DATATYPE, type_node);
         ltry!(self.add_data_fields(fields));
         Ok(())

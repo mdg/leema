@@ -1581,9 +1581,11 @@ impl<'l> ast2::Op for ResolveTypes<'l>
                 }
                 Ok(AstStep::Ok)
             }
-            _ if node.typ.contains_local() => {
+            other if node.typ.contains_local() => {
                 ltry!(
                     node.typ.replace_localvars(&self.infers),
+                    "node": ldebug!(other),
+                    "type": ldisplay!(node.typ),
                     "file": self.key.best_path(),
                     "line": ldisplay!(node.loc.lineno),
                 );
@@ -2189,7 +2191,7 @@ mod tests
     }
 
     #[test]
-    fn struct_field_expansion()
+    fn struct_field_list()
     {
         let baz_input = r#"
         datatype Foo ::
@@ -2198,7 +2200,7 @@ mod tests
         --
 
         func main ->
-            let flds := *Foo
+            let flds := Foo.__fields
         --
         "#
         .to_string();
