@@ -496,6 +496,11 @@ impl<'p> ScopeCheck<'p>
                     ));
                 }
             }
+            Ast::Call(ref mut callx, _) => {
+                // go depth first on the call expression to find any macros
+                // alternatively, maybe apply macros in post?
+                return ast2::walk_ref_mut(callx, self);
+            }
             Ast::Canonical(c) => {
                 if let Ok(proto) = self.lib.path_proto(c) {
                     // check for type and find constructor
@@ -1863,7 +1868,7 @@ mod tests
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "main");
-        prog.read_semantics(&fref).unwrap();
+        dbg!(prog.read_semantics(&fref)).unwrap();
     }
 
     #[test]
