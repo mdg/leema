@@ -125,25 +125,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
         match &mut *node.node {
             Ast::Call(callid, args) => {
                 match &mut *callid.node {
-                    Ast::Id(macroname) => {
-                        // this should already be happening in
-                        // ScopeCheck shouldn't it?
-                        if let Some(mac) = self.find_macro_1(macroname)? {
-                            *node = Self::apply_macro(mac, callid.loc, args)?;
-                            return Ok(AstStep::Rewrite);
-                        } // else not a call, that's fine
-                    }
-                    Ast::Op2(".", base, call) => {
-                        // This is also handled in ScopeCheck, doesn't need
-                        // to be here
-                        if let Ast::ConstVal(callval) = &*call.node {
-                            if let Val::Call(_, _) = callval {
-                                let base2 = mem::take(base);
-                                *callid = mem::take(call);
-                                args.insert(0, StrupleItem::new_v(base2));
-                            }
-                        }
-                    }
                     mac @ Ast::DefMacro(_, _, _) => {
                         // should this happen in post?
                         *node = Self::apply_macro(mac, node.loc, args)?;
