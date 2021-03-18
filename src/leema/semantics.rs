@@ -35,6 +35,7 @@ use std::mem;
 const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
 
+/// Can this whole step just be blended into ScopeCheck?
 struct MacroApplication<'l>
 {
     lib: &'l ProtoLib,
@@ -125,12 +126,16 @@ impl<'l> ast2::Op for MacroApplication<'l>
             Ast::Call(callid, args) => {
                 match &mut *callid.node {
                     Ast::Id(macroname) => {
+                        // this should already be happening in
+                        // ScopeCheck shouldn't it?
                         if let Some(mac) = self.find_macro_1(macroname)? {
                             *node = Self::apply_macro(mac, callid.loc, args)?;
                             return Ok(AstStep::Rewrite);
                         } // else not a call, that's fine
                     }
                     Ast::Op2(".", base, call) => {
+                        // This is also handled in ScopeCheck, doesn't need
+                        // to be here
                         if let Ast::ConstVal(callval) = &*call.node {
                             if let Val::Call(_, _) = callval {
                                 let base2 = mem::take(base);
@@ -140,6 +145,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                         }
                     }
                     mac @ Ast::DefMacro(_, _, _) => {
+                        // should this happen in post?
                         *node = Self::apply_macro(mac, node.loc, args)?;
                         return Ok(AstStep::Rewrite);
                     }
@@ -162,6 +168,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     }
                 }
             }
+            // all these should be put into a map of operator -> Canonical
             Ast::Op2("+", a, b) => {
                 *node = Self::op_to_call1("int_add", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
