@@ -62,6 +62,12 @@ lazy_static! {
         prefix.insert("not", canonical!("/core.boolean_not"));
         prefix
     };
+    static ref ESCAPED_STR: HashMap<&'static str, &'static str> = {
+        let mut escaped = HashMap::new();
+        escaped.insert("\\n", "\n");
+        escaped.insert("\\\"", "\"");
+        escaped
+    };
 }
 
 /// Can this whole step just be blended into ScopeCheck?
@@ -176,24 +182,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                             callid.loc.lineno,
                         ));
                     }
-                }
-            }
-            Ast::ConstVal(Val::Str(s)) => {
-                // escaped strings
-                match s.str() {
-                    "\\n" => {
-                        *node = AstNode::new(
-                            Ast::ConstVal(Val::Str(Lstr::Sref("\n"))),
-                            node.loc,
-                        );
-                    }
-                    "\\\"" => {
-                        *node = AstNode::new(
-                            Ast::ConstVal(Val::Str(Lstr::Sref("\""))),
-                            node.loc,
-                        );
-                    }
-                    _ => {} // nothing
                 }
             }
             Ast::Matchx(None, cases) => {
@@ -595,6 +583,16 @@ impl<'p> ScopeCheck<'p>
                     let local_id = self.localized_id(&node.loc);
                     t.localize_generics(&self.type_args, local_id);
                 }
+            }
+            Ast::ConstVal(Val::Str(escaped)) => {
+                // escaped strings
+                if let Some(raw) = ESCAPED_STR.get(escaped.as_str()) {
+                    *node = AstNode::new(
+                        Ast::ConstVal(Val::Str(Lstr::Sref(raw))),
+                        node.loc,
+                    );
+                }
+                // else do nothing for unescaped strings
             }
             Ast::Generic(_base, _args) => {
                 // what's happening w/ generics here?
