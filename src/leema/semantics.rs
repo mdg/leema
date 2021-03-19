@@ -38,11 +38,29 @@ const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
 
 lazy_static! {
-    static ref OP2_CANONICALS: HashMap<&'static str, Canonical> = {
-        let mut op2 = HashMap::new();
-        op2.insert("+", canonical!("/core.int_add"));
-        op2.insert("-", canonical!("/core.int_sub"));
-        op2
+    static ref INFIX_CANONICALS: HashMap<&'static str, Canonical> = {
+        let mut infix = HashMap::new();
+        infix.insert("+", canonical!("/core.int_add"));
+        infix.insert("-", canonical!("/core.int_sub"));
+        infix.insert("*", canonical!("/core.int_mult"));
+        infix.insert("/", canonical!("/core.int_div"));
+        infix.insert("modulo", canonical!("/core.int_mod"));
+        infix.insert(";", canonical!("/core.cons"));
+        infix.insert("and", canonical!("/core.boolean_and"));
+        infix.insert("or", canonical!("/core.boolean_or"));
+        infix.insert("==", canonical!("/core.int_equal"));
+        infix.insert("!=", canonical!("/core.not_equal"));
+        infix.insert("<", canonical!("/core.int_less_than"));
+        infix.insert("<=", canonical!("/core.int_lteq"));
+        infix.insert(">", canonical!("/core.int_gt"));
+        infix.insert(">=", canonical!("/core.int_gteq"));
+        infix
+    };
+    static ref PREFIX_CANONICALS: HashMap<&'static str, Canonical> = {
+        let mut prefix = HashMap::new();
+        prefix.insert("-", canonical!("/core.int_negate"));
+        prefix.insert("not", canonical!("/core.boolean_not"));
+        prefix
     };
 }
 
@@ -131,7 +149,7 @@ impl<'l> MacroApplication<'l>
 
 impl<'l> ast2::Op for MacroApplication<'l>
 {
-    fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Call(callid, args) => {
@@ -160,84 +178,8 @@ impl<'l> ast2::Op for MacroApplication<'l>
                     }
                 }
             }
-            // all these should be put into a map of operator -> Canonical
-            Ast::Op2("*", a, b) => {
-                *node = Self::op_to_call1("int_mult", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("/", a, b) => {
-                *node = Self::op_to_call1("int_div", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("modulo", a, b) => {
-                *node = Self::op_to_call1("int_mod", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("mod", a, b) => {
-                *node = Self::op_to_call1("int_mod", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("and", a, b) => {
-                *node = Self::op_to_call1("boolean_and", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("or", a, b) => {
-                *node = Self::op_to_call1("boolean_or", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("==", a, b) => {
-                *node = Self::op_to_call1("int_equal", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("!=", a, b) => {
-                *node = Self::op_to_call1("not_equal", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("<", a, b) => {
-                *node = Self::op_to_call1("int_less_than", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2(">", a, b) => {
-                *node = Self::op_to_call1("int_gt", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("<=", a, b) => {
-                *node = Self::op_to_call1("int_lteq", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2(">=", a, b) => {
-                *node = Self::op_to_call1("int_gteq", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2(";", a, b) => {
-                if !mode.is_pattern() {
-                    // if not a pattern, convert to a call
-                    let callx = AstNode::new(Ast::Id("cons"), node.loc);
-                    let args = struple::new_tuple2(mem::take(a), mem::take(b));
-                    *node = AstNode::new(Ast::Call(callx, args), node.loc);
-                    return Ok(AstStep::Rewrite);
-                }
-            }
-            Ast::Op1("not", x) => {
-                let callx = AstNode::new(Ast::Id("boolean_not"), node.loc);
-                let arg = vec![StrupleItem::new_v(mem::take(x))];
-                *node = AstNode::new(Ast::Call(callx, arg), node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op1("-", x) => {
-                let callx = AstNode::new(Ast::Id("int_negate"), node.loc);
-                let arg = vec![StrupleItem::new_v(mem::take(x))];
-                *node = AstNode::new(Ast::Call(callx, arg), node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op1("\\n", x) => {
-                let newline =
-                    AstNode::new_constval(Val::Str(Lstr::Sref("\n")), node.loc);
-                let strx = Ast::StrExpr(vec![mem::take(x), newline]);
-                *node = AstNode::new(strx, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
             Ast::ConstVal(Val::Str(s)) => {
+                // escaped strings
                 match s.str() {
                     "\\n" => {
                         *node = AstNode::new(
@@ -425,18 +367,31 @@ impl<'p> ScopeCheck<'p>
         format!("{}@{}", local_id, loc.lineno)
     }
 
-    fn op2_to_call(
+    fn infix_to_call(
         op: &'static str,
         a: &mut AstNode,
         b: &mut AstNode,
         loc: Loc,
     ) -> Option<AstNode>
     {
-        let op2c = OP2_CANONICALS.get(op)?;
-        let callx = AstNode::new(Ast::Canonical(op2c.clone()), loc);
+        let infix = INFIX_CANONICALS.get(op)?;
+        let callx = AstNode::new(Ast::Canonical(infix.clone()), loc);
         let new_a = mem::take(a);
         let new_b = mem::take(b);
         let args: Xlist = struple::new_tuple2(new_a, new_b);
+        Some(AstNode::new(Ast::Call(callx, args), loc))
+    }
+
+    fn prefix_to_call(
+        op: &'static str,
+        x: &mut AstNode,
+        loc: Loc,
+    ) -> Option<AstNode>
+    {
+        let prefix = PREFIX_CANONICALS.get(op)?;
+        let callx = AstNode::new(Ast::Canonical(prefix.clone()), loc);
+        let new_x = mem::take(x);
+        let args: Xlist = vec![StrupleItem::new_v(new_x)];
         Some(AstNode::new(Ast::Call(callx, args), loc))
     }
 
@@ -598,8 +553,21 @@ impl<'p> ScopeCheck<'p>
                 }
                 // else it's probably (hopefully?) a method or something
             }
-            Ast::Op2(op, a, b) => {
-                if let Some(n2) = Self::op2_to_call(op, a, b, node.loc) {
+            Ast::Op2(op, a, b) if mode == AstMode::Value => {
+                if let Some(n2) = Self::infix_to_call(op, a, b, node.loc) {
+                    *node = n2;
+                    return Ok(AstStep::Rewrite);
+                }
+            }
+            Ast::Op1("\\n", x) => {
+                let newline =
+                    AstNode::new_constval(Val::Str(Lstr::Sref("\n")), node.loc);
+                let strx = Ast::StrExpr(vec![mem::take(x), newline]);
+                *node = AstNode::new(strx, node.loc);
+                return Ok(AstStep::Rewrite);
+            }
+            Ast::Op1(op, x) => {
+                if let Some(n2) = Self::prefix_to_call(op, x, node.loc) {
                     *node = n2;
                     return Ok(AstStep::Rewrite);
                 }
