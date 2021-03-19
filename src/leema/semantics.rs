@@ -132,25 +132,6 @@ impl<'l> MacroApplication<'l>
         let mut macro_replace = MacroReplacement { arg_map, loc };
         Ok(ast2::walk(body.clone(), &mut macro_replace)?)
     }
-
-    fn op_to_call1(
-        func: &'static str,
-        a: &mut AstNode,
-        b: &mut AstNode,
-        loc: Loc,
-    ) -> AstNode
-    {
-        let callx = AstNode::new(Ast::Id(func), loc);
-        let new_a = mem::take(a);
-        let new_b = mem::take(b);
-        let args: Xlist = struple::new_tuple2(new_a, new_b);
-        AstNode::new(Ast::Call(callx, args), loc)
-    }
-
-    fn find_macro_1(&self, macroname: &str) -> Lresult<Option<&Ast>>
-    {
-        Ok(self.local.find_macro(macroname))
-    }
 }
 
 impl<'l> ast2::Op for MacroApplication<'l>
@@ -208,15 +189,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 let matchx = Ast::Matchx(Some(match_input), mem::take(cases));
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
-            }
-            // for single element tuples, just take the single item
-            Ast::Tuple(items) => {
-                if items.len() == 1 {
-                    if items.first().unwrap().k.is_none() {
-                        *node = items.pop().unwrap().v;
-                        return Ok(AstStep::Rewrite);
-                    }
-                }
             }
             _ => {}
         }
@@ -593,6 +565,13 @@ impl<'p> ScopeCheck<'p>
                     );
                 }
                 // else do nothing for unescaped strings
+            }
+            // for single element tuples, just take the single item
+            Ast::Tuple(items) if items.len() == 1 => {
+                if items.first().unwrap().k.is_none() {
+                    *node = items.pop().unwrap().v;
+                    return Ok(AstStep::Rewrite);
+                }
             }
             Ast::Generic(_base, _args) => {
                 // what's happening w/ generics here?
