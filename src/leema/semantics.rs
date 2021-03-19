@@ -75,7 +75,6 @@ struct MacroApplication<'l>
 {
     lib: &'l ProtoLib,
     local: &'l ProtoModule,
-    ftype: &'l FuncTypeRef<'l>,
 }
 
 impl<'l> MacroApplication<'l>
@@ -83,10 +82,9 @@ impl<'l> MacroApplication<'l>
     pub fn new(
         lib: &'l ProtoLib,
         local: &'l ProtoModule,
-        ftype: &'l FuncTypeRef<'l>,
     ) -> MacroApplication<'l>
     {
-        MacroApplication { lib, local, ftype }
+        MacroApplication { lib, local }
     }
 
     fn apply_macro(mac: &Ast, loc: Loc, args: &Xlist) -> AstResult
@@ -164,31 +162,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                         ));
                     }
                 }
-            }
-            Ast::Matchx(None, cases) => {
-                let node_loc = node.loc;
-                let args: Lresult<Xlist> = self
-                    .ftype
-                    .args
-                    .iter()
-                    .map(|arg| {
-                        if let Lstr::Sref(argname) = arg.k {
-                            let argnode =
-                                AstNode::new(Ast::Id(argname), node_loc);
-                            Ok(StrupleItem::new_v(argnode))
-                        } else {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "arg name is not a static str: {:?}",
-                                arg.k,
-                            ));
-                        }
-                    })
-                    .collect();
-                let match_input = AstNode::new(Ast::Tuple(args?), node.loc);
-                let matchx = Ast::Matchx(Some(match_input), mem::take(cases));
-                *node = AstNode::new(matchx, node.loc);
-                return Ok(AstStep::Rewrite);
             }
             _ => {}
         }
@@ -288,6 +261,7 @@ struct ScopeCheck<'p>
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
     blocks: Blockstack,
+    ftyp: &'p FuncTypeRef<'p>,
     type_args: &'p TypeArgSlice,
     next_local_id: u32,
 }
@@ -315,6 +289,7 @@ impl<'p> ScopeCheck<'p>
             lib,
             local_mod,
             blocks: Blockstack::with_args(args),
+            ftyp,
             type_args: &ftyp.type_args,
             next_local_id: 0,
         })
@@ -572,6 +547,31 @@ impl<'p> ScopeCheck<'p>
                     *node = items.pop().unwrap().v;
                     return Ok(AstStep::Rewrite);
                 }
+            }
+            Ast::Matchx(None, cases) => {
+                let node_loc = node.loc;
+                let args: Lresult<Xlist> = self
+                    .ftyp
+                    .args
+                    .iter()
+                    .map(|arg| {
+                        if let Lstr::Sref(argname) = arg.k {
+                            let argnode =
+                                AstNode::new(Ast::Id(argname), node_loc);
+                            Ok(StrupleItem::new_v(argnode))
+                        } else {
+                            return Err(rustfail!(
+                                SEMFAIL,
+                                "arg name is not a static str: {:?}",
+                                arg.k,
+                            ));
+                        }
+                    })
+                    .collect();
+                let match_input = AstNode::new(Ast::Tuple(args?), node.loc);
+                let matchx = Ast::Matchx(Some(match_input), mem::take(cases));
+                *node = AstNode::new(matchx, node.loc);
+                return Ok(AstStep::Rewrite);
             }
             Ast::Generic(_base, _args) => {
                 // what's happening w/ generics here?
@@ -1695,7 +1695,7 @@ impl Semantics
 
         // check scope and apply macros
         let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
-        let mut macs = MacroApplication::new(lib, proto, &ftyp);
+        let mut macs = MacroApplication::new(lib, proto);
         let mut scope_pipe =
             ast2::Pipeline::new(vec![&mut scope_check, &mut macs]);
         let scoped = ltry!(
