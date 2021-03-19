@@ -151,14 +151,16 @@ impl<'l> ast2::Op for MacroApplication<'l>
                         // a type call shouldn't be a macro so proceed
                         // maybe there might be a macro call to inner args
                     }
+                    Ast::Id(_) => {} // scope check handles this
                     other => {
                         // is something else, like a method call maybe
                         // but what is it?
-                        return Err(Failure::static_leema(
+                        return Err(lfail!(
                             failure::Mode::StaticLeemaFailure,
-                            lstrf!("unexpected call expression: {:?}", other),
-                            self.local.key.name.to_lstr(),
-                            callid.loc.lineno,
+                            "unexpected call expression",
+                            "expression": ldebug!(other),
+                            "file": self.local.key.name.to_lstr(),
+                            "line": ldisplay!(callid.loc.lineno),
                         ));
                     }
                 }
@@ -1065,6 +1067,7 @@ impl<'p> TypeCheck<'p>
 
     fn post_field_access(
         &self,
+        expr_typ: &mut Type,
         base_typ: &Type,
         fld: &mut AstNode,
     ) -> Lresult<AstStep>
@@ -1083,11 +1086,9 @@ impl<'p> TypeCheck<'p>
                                 found.typ.clone(),
                             );
                         }
-                        Ast::DataMember(_, _) => {
-                            fld.replace(
-                                (*found.node).clone(),
-                                found.typ.clone(),
-                            );
+                        Ast::DataMember(fld_typ, _) => {
+                            fld.replace((*found.node).clone(), fld_typ.clone());
+                            *expr_typ = fld_typ.clone();
                         }
                         other => {
                             return Err(rustfail!(
@@ -1197,7 +1198,7 @@ impl<'p> TypeCheck<'p>
             }
             // field access, maybe a method
             Ast::Op2(".", a, b) => {
-                steptry!(self.post_field_access(&a.typ, b));
+                steptry!(self.post_field_access(&mut node.typ, &a.typ, b));
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
