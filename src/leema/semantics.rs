@@ -18,6 +18,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::mem;
 
+use lazy_static::lazy_static;
+
 
 /// Stages
 /// - prewrite
@@ -34,6 +36,15 @@ use std::mem;
 
 const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
+
+lazy_static! {
+    static ref OP2_CANONICALS: HashMap<&'static str, Canonical> = {
+        let mut op2 = HashMap::new();
+        op2.insert("+", canonical!("/core.int_add"));
+        op2.insert("-", canonical!("/core.int_sub"));
+        op2
+    };
+}
 
 /// Can this whole step just be blended into ScopeCheck?
 struct MacroApplication<'l>
@@ -150,14 +161,6 @@ impl<'l> ast2::Op for MacroApplication<'l>
                 }
             }
             // all these should be put into a map of operator -> Canonical
-            Ast::Op2("+", a, b) => {
-                *node = Self::op_to_call1("int_add", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
-            Ast::Op2("-", a, b) => {
-                *node = Self::op_to_call1("int_sub", a, b, node.loc);
-                return Ok(AstStep::Rewrite);
-            }
             Ast::Op2("*", a, b) => {
                 *node = Self::op_to_call1("int_mult", a, b, node.loc);
                 return Ok(AstStep::Rewrite);
@@ -422,6 +425,21 @@ impl<'p> ScopeCheck<'p>
         format!("{}@{}", local_id, loc.lineno)
     }
 
+    fn op2_to_call(
+        op: &'static str,
+        a: &mut AstNode,
+        b: &mut AstNode,
+        loc: Loc,
+    ) -> Option<AstNode>
+    {
+        let op2c = OP2_CANONICALS.get(op)?;
+        let callx = AstNode::new(Ast::Canonical(op2c.clone()), loc);
+        let new_a = mem::take(a);
+        let new_b = mem::take(b);
+        let args: Xlist = struple::new_tuple2(new_a, new_b);
+        Some(AstNode::new(Ast::Call(callx, args), loc))
+    }
+
     fn pre_scope(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         let loc = node.loc;
@@ -579,6 +597,12 @@ impl<'p> ScopeCheck<'p>
                     // else is a regular var in scope
                 }
                 // else it's probably (hopefully?) a method or something
+            }
+            Ast::Op2(op, a, b) => {
+                if let Some(n2) = Self::op2_to_call(op, a, b, node.loc) {
+                    *node = n2;
+                    return Ok(AstStep::Rewrite);
+                }
             }
             Ast::ConstVal(Val::Call(fref, _args)) => {
                 // for functions, if any types match function type args
