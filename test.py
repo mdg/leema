@@ -228,7 +228,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_destruct(self):
-        self.skipTest("not ready for testing")
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
         self.assertEqual(

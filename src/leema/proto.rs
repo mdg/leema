@@ -68,6 +68,8 @@ pub const MODNAME_MODTYP: &'static str = "__modtyp";
 pub const MODNAME_NAME: &'static str = "__name";
 /// Struple2<Type>
 pub const MODNAME_VARIANTS: &'static str = "__variants";
+/// Struple2<Type>
+pub const MODNAME_VOID: &'static str = "__void";
 
 const NUM_MODNAMES: usize = 7;
 
@@ -84,7 +86,9 @@ lazy_static! {
         ids.insert("#", Ast::canonical("/core/#"));
         // constants
         ids.insert("False", Ast::ConstVal(Val::FALSE));
-        ids.insert("None", Ast::ConstVal(Val::EnumToken(Type::option(None), Lstr::Sref("None"))));
+        ids.insert("None", Ast::ConstVal(
+            Val::EnumToken(Type::option(None), Lstr::Sref("None")),
+        ));
         ids.insert("Some", Ast::canonical("/core/Option/Some"));
         ids.insert("True", Ast::ConstVal(Val::TRUE));
         ids.insert("Void", Ast::ConstVal(Val::VOID));
@@ -108,7 +112,6 @@ lazy_static! {
         ids.insert("int_lteq", Ast::canonical("/core.int_lteq"));
         ids.insert("new_struct_val", Ast::canonical("/core.new_struct_val"));
         ids.insert("not_equal", Ast::canonical("/core.not_equal"));
-        ids.insert("void", Ast::canonical("/core.void"));
         ids
     };
 
@@ -514,15 +517,7 @@ impl ProtoModule
             .collect();
         let macro_args = vec![
             StrupleItem::new_v(AstNode::new(
-                Ast::ConstVal(Val::Type(typ.clone())),
-                loc,
-            )),
-            StrupleItem::new_v(AstNode::new(
                 Ast::ConstVal(Val::Type(construct.clone())),
-                loc,
-            )),
-            StrupleItem::new_v(AstNode::new(
-                Ast::ConstVal(Val::Int(fields_arg.len() as i64)),
                 loc,
             )),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
@@ -548,15 +543,25 @@ impl ProtoModule
             ),
             loc,
         );
-        let field_const = AstNode::new(
+
+        let void_fields = fields.iter().map(|f| {
+            StrupleItem::new(f.k.map(|k| Lstr::Sref(k)), Val::VOID)
+        }).collect();
+        let void_val = if typ == construct {
+            Val::Struct(typ, void_fields)
+        } else {
+            let variant = construct.path.last_module().unwrap();
+            Val::EnumStruct(typ, variant, void_fields)
+        };
+        let void_const = AstNode::new(
             Ast::DefConst(
-                MODNAME_FIELDS,
-                AstNode::new_constval(Val::Tuple(vec![]), loc),
+                MODNAME_VOID,
+                AstNode::new_constval(void_val, loc),
             ),
             loc,
         );
 
-        self.append_ast(vec![constructor_ast, field_const])?;
+        self.append_ast(vec![void_const, constructor_ast])?;
         self.modscope.insert(MODNAME_DATATYPE, type_node);
         ltry!(self.add_data_fields(fields));
         Ok(())
@@ -1236,6 +1241,31 @@ impl ProtoLib
     {
         ProtoLib {
             protos: HashMap::new(),
+        }
+    }
+
+    pub fn void_fields(&self, t: &Canonical) -> Lresult<Val>
+    {
+        let proto = ltry!(self.path_proto(t));
+        match proto.find_modelem(MODNAME_VOID) {
+            Some(f) => {
+                if let Ast::ConstVal(voids) = &*f.node {
+                    Ok(voids.clone())
+                } else {
+                    Err(lfail!(
+                        failure::Mode::StaticLeemaFailure,
+                        "void fields must be constant",
+                        "__voidfields": ldebug!(f.node),
+                    ))
+                }
+            }
+            None => {
+                Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "type has no fields",
+                    "type": t.to_lstr(),
+                ))
+            }
         }
     }
 

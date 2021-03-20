@@ -70,9 +70,6 @@ func int_gteq:Bool :: a:Int b:Int ->
     not a < b
 --
 
-func <void T C>:T :: num_void_args:Int -RUST-
-
-macro new_struct_val :: typ construct num_args field_names ->
-    let new_val_ := <void typ construct>(num_args)
-    new_val_(*field_names)
+macro new_struct_val :: construct field_names ->
+    construct.__void(*field_names)
 --

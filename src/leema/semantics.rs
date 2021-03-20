@@ -575,7 +575,23 @@ impl<'p> ScopeCheck<'p>
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
             }
-            Ast::Generic(_base, _args) => {
+            Ast::Generic(base, args) => {
+                if Ast::Id("VOID") == *base.node {
+                    if args.len() != 1 {
+                        return Err(lfail!(
+                            failure::Mode::TypeFailure,
+                            "VOID expects one type argument",
+                            "num_args": ldisplay!(args.len()),
+                        ));
+                    }
+                    let type_node = args.first_mut().unwrap();
+                    ltry!(ast2::walk_ref_mut(&mut type_node.v, self));
+                    if let Ast::ConstVal(Val::Type(typ)) = &*type_node.v.node {
+                        let fields = ltry!(self.lib.void_fields(&typ.path));
+                        node.typ = typ.clone();
+                        *node.node = Ast::ConstVal(fields);
+                    }
+                }
                 // what's happening w/ generics here?
                 /*
                 return Err(Failure::static_leema(
