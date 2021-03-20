@@ -9,7 +9,7 @@ def run_leema(f, cli_args=None):
         args += cli_args
     print(args)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-    result = proc.wait()
+    result = proc.wait(3)
     output = proc.stdout.read()
     err = proc.stderr.read()
     proc.stdout.close()
@@ -232,7 +232,7 @@ class TestScripts(unittest.TestCase):
         result = run_leema('destruct')
         self.assertEqual(0, result['code'])
         self.assertEqual(
-            b"date is: destruct::Date(year:2010,month:9,day:8,)\n" +
+            b"date is: /destruct/Date(year:2010,month:9,day:8,)\n" +
             b"year: 2010 / month: 9 / day: 8\n",
             result['output'])
 
@@ -263,10 +263,9 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(expected, result['output'])
 
     def test_rgb(self):
-        self.skipTest("structs not yet implemented")
         result = run_leema('rgb')
         self.assertEqual(0, result['code'])
-        expected = b"color: rgb::Rgb(red:10,green:20,blue:30,)\n" \
+        expected = b"color: /rgb/Rgb(red:10,green:20,blue:30,)\n" \
             + b"red: 10\nblue: 30\n" \
             + b"hex green is: #00ff00\n"
         self.assertEqual(expected, result['output'])
@@ -284,7 +283,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(expected, result['output'])
 
     def test_named_tuple(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('named_tuple')
         self.assertEqual(0, result['code'])
         expected = b"""greeting is: "named_tuple::Greeting(hello,world,)"\n"""

@@ -1,12 +1,12 @@
 import /io.print
 
-datatype Date
+datatype Date ::
     year: Int
     month: Int
     day: Int
 --
 
-func main >>
+func main ->
     let d := Date(2010, 9, 8)
     print("date is: $d\n")
     let Date(y, mon, day) := d
