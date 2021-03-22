@@ -144,25 +144,7 @@ impl<'l> ast2::Op for MacroApplication<'l>
                         *node = Self::apply_macro(mac, node.loc, args)?;
                         return Ok(AstStep::Rewrite);
                     }
-                    Ast::ConstVal(Val::Call(_, _)) => {
-                        // already what it needs to be. continue.
-                    }
-                    Ast::Generic(_, _) => {
-                        // a type call shouldn't be a macro so proceed
-                        // maybe there might be a macro call to inner args
-                    }
-                    Ast::Id(_) => {} // scope check handles this
-                    other => {
-                        // is something else, like a method call maybe
-                        // but what is it?
-                        return Err(lfail!(
-                            failure::Mode::StaticLeemaFailure,
-                            "unexpected call expression",
-                            "expression": ldebug!(other),
-                            "file": self.local.key.name.to_lstr(),
-                            "line": ldisplay!(callid.loc.lineno),
-                        ));
-                    }
+                    _other => {} // do nothing
                 }
             }
             _ => {}
@@ -400,20 +382,10 @@ impl<'p> ScopeCheck<'p>
                 return ast2::walk_ref_mut(callx, self);
             }
             Ast::Canonical(c) => {
-                if let Ok(proto) = self.lib.path_proto(c) {
-                    // check for type and find constructor
-                    let optcons = proto.find_modelem(proto::MODNAME_CONSTRUCT);
-                    if optcons.is_none() {
-                        return Err(rustfail!(
-                            "compile_error",
-                            "replace {} with constructor",
-                            c,
-                        ));
-                    }
-                    let cons = optcons.unwrap();
-                    node.replace((*cons.node).clone(), cons.typ.clone());
-                    return Ok(AstStep::Rewrite);
+                if self.lib.path_proto(c).is_ok() {
+                    // in scope, this is fine
                 } else if let Some((parent, id)) = c.split_function() {
+                    // what case is this?
                     match self.lib.exported_elem(&parent, id.as_str(), node.loc)
                     {
                         Ok(f) => {
@@ -448,47 +420,57 @@ impl<'p> ScopeCheck<'p>
                 }
             }
             Ast::Op2(".", base_node, sub_node) => {
-                if let (Ast::Id(id), Ast::Id(sub)) =
-                    (&*base_node.node, &*sub_node.node)
-                {
-                    if self.blocks.var_in_scope(id).is_none() {
-                        if let Some(me) = self.local_mod.find_modelem(id) {
-                            match &*me.node {
-                                Ast::Canonical(can) => {
-                                    let node2 = self.lib.exported_elem(
-                                        can,
-                                        sub,
-                                        base_node.loc,
-                                    )?;
-                                    node.replace(
-                                        (*node2.node).clone(),
-                                        node2.typ.clone(),
-                                    );
-                                    return Ok(AstStep::Rewrite);
+                match (&*base_node.node, &*sub_node.node) {
+                    (Ast::Id(id), Ast::Id(sub)) => {
+                        if self.blocks.var_in_scope(id).is_none() {
+                            if let Some(me) = self.local_mod.find_modelem(id) {
+                                match &*me.node {
+                                    Ast::Canonical(can) => {
+                                        let node2 = self.lib.exported_elem(
+                                            can,
+                                            sub,
+                                            base_node.loc,
+                                        )?;
+                                        node.replace(
+                                            (*node2.node).clone(),
+                                            node2.typ.clone(),
+                                        );
+                                        return Ok(AstStep::Rewrite);
+                                    }
+                                    _ => {
+                                        return Err(rustfail!(
+                                            SEMFAIL,
+                                            "sub {} from id {} as {:?}",
+                                            sub,
+                                            id,
+                                            me,
+                                        ));
+                                    }
                                 }
-                                _ => {
-                                    return Err(rustfail!(
-                                        SEMFAIL,
-                                        "sub {} from id {} as {:?}",
-                                        sub,
-                                        id,
-                                        me,
-                                    ));
-                                }
+                            } else {
+                                return Err(rustfail!(
+                                    SEMFAIL,
+                                    "what's it? {}.{} in {}",
+                                    id,
+                                    sub,
+                                    self.local_mod.key.name,
+                                ));
                             }
-                        } else {
-                            return Err(rustfail!(
-                                SEMFAIL,
-                                "what's it? {}.{} in {}",
-                                id,
-                                sub,
-                                self.local_mod.key.name,
-                            ));
                         }
+                        // else is a regular var in scope
                     }
-                    // else is a regular var in scope
+                    (Ast::Canonical(c), Ast::Id(sub)) => {
+                        let me =
+                            ltry!(self.lib.exported_elem(c, sub, node.loc));
+                        node.replace((*me.node).clone(), me.typ.clone());
+                    }
+                    (other_base, other_sub) => {
+                        // else it's probably (hopefully?) a method or something
+                        eprintln!("{:?}", other_base);
+                        eprintln!("{:?}", other_sub);
+                        unimplemented!();
+                    }
                 }
-                // else it's probably (hopefully?) a method or something
             }
             Ast::Op2(op, a, b) if mode == AstMode::Value => {
                 if let Some(n2) = Self::infix_to_call(op, a, b, node.loc) {
@@ -575,33 +557,6 @@ impl<'p> ScopeCheck<'p>
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
             }
-            Ast::Generic(base, args) => {
-                if Ast::Id("VOID") == *base.node {
-                    if args.len() != 1 {
-                        return Err(lfail!(
-                            failure::Mode::TypeFailure,
-                            "VOID expects one type argument",
-                            "num_args": ldisplay!(args.len()),
-                        ));
-                    }
-                    let type_node = args.first_mut().unwrap();
-                    ltry!(ast2::walk_ref_mut(&mut type_node.v, self));
-                    if let Ast::ConstVal(Val::Type(typ)) = &*type_node.v.node {
-                        let fields = ltry!(self.lib.void_fields(&typ.path));
-                        node.typ = typ.clone();
-                        *node.node = Ast::ConstVal(fields);
-                    }
-                }
-                // what's happening w/ generics here?
-                /*
-                return Err(Failure::static_leema(
-                    failure::Mode::LeemaTodoFailure,
-                    Lstr::Sref("generics are not yet implemented here"),
-                    self.local_mod.key.name.0.clone(),
-                    loc.lineno,
-                ));
-                */
-            }
             _ => {
                 // do nothing otherwise
             }
@@ -636,6 +591,25 @@ impl<'p> ast2::Op for ScopeCheck<'p>
         match &mut *node.node {
             Ast::Block(_) => {
                 self.blocks.pop_blockscope();
+            }
+            Ast::Call(callx, _) => {
+                if let Ast::Canonical(c) = &*callx.node {
+                    if let Ok(proto) = self.lib.path_proto(c) {
+                        // check for type and find constructor
+                        let optcons =
+                            proto.find_modelem(proto::MODNAME_CONSTRUCT);
+                        if optcons.is_none() {
+                            return Err(rustfail!(
+                                "compile_error",
+                                "replace {} with constructor",
+                                c,
+                            ));
+                        }
+                        let cons = optcons.unwrap();
+                        callx.replace((*cons.node).clone(), cons.typ.clone());
+                        return Ok(AstStep::Rewrite);
+                    }
+                }
             }
             _ => {
                 // do nothing, keep walking

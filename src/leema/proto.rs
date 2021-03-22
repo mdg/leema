@@ -517,7 +517,7 @@ impl ProtoModule
             .collect();
         let macro_args = vec![
             StrupleItem::new_v(AstNode::new(
-                Ast::ConstVal(Val::Type(construct.clone())),
+                Ast::Canonical(construct.path.clone()),
                 loc,
             )),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
@@ -544,9 +544,10 @@ impl ProtoModule
             loc,
         );
 
-        let void_fields = fields.iter().map(|f| {
-            StrupleItem::new(f.k.map(|k| Lstr::Sref(k)), Val::VOID)
-        }).collect();
+        let void_fields = fields
+            .iter()
+            .map(|f| StrupleItem::new(f.k.map(|k| Lstr::Sref(k)), Val::VOID))
+            .collect();
         let void_val = if typ == construct {
             Val::Struct(typ, void_fields)
         } else {
@@ -554,10 +555,7 @@ impl ProtoModule
             Val::EnumStruct(typ, variant, void_fields)
         };
         let void_const = AstNode::new(
-            Ast::DefConst(
-                MODNAME_VOID,
-                AstNode::new_constval(void_val, loc),
-            ),
+            Ast::DefConst(MODNAME_VOID, AstNode::new_constval(void_val, loc)),
             loc,
         );
 
@@ -1241,31 +1239,6 @@ impl ProtoLib
     {
         ProtoLib {
             protos: HashMap::new(),
-        }
-    }
-
-    pub fn void_fields(&self, t: &Canonical) -> Lresult<Val>
-    {
-        let proto = ltry!(self.path_proto(t));
-        match proto.find_modelem(MODNAME_VOID) {
-            Some(f) => {
-                if let Ast::ConstVal(voids) = &*f.node {
-                    Ok(voids.clone())
-                } else {
-                    Err(lfail!(
-                        failure::Mode::StaticLeemaFailure,
-                        "void fields must be constant",
-                        "__voidfields": ldebug!(f.node),
-                    ))
-                }
-            }
-            None => {
-                Err(lfail!(
-                    failure::Mode::TypeFailure,
-                    "type has no fields",
-                    "type": t.to_lstr(),
-                ))
-            }
         }
     }
 
