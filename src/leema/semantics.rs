@@ -1092,7 +1092,7 @@ impl<'p> TypeCheck<'p>
             (TypeRef(tname, targs), Ast::Id(f)) if targs.is_empty() => {
                 // find a field in a struct or interface or
                 // whatever else
-                let tproto = self.lib.path_proto(&base_typ.path)?;
+                let tproto = ltry!(self.lib.path_proto(&base_typ.path));
 
                 if let Some(found) = tproto.find_method(f) {
                     match &*found.node {
@@ -1127,11 +1127,13 @@ impl<'p> TypeCheck<'p>
                 Ok(AstStep::Ok)
             }
             (_, Ast::Id(id)) => {
-                return Err(Failure::static_leema(
-                    failure::Mode::CompileFailure,
-                    lstrf!("builtin type has no {} field: {}", id, base_typ,),
-                    self.local_mod.key.name.to_lstr(),
-                    fld.loc.lineno,
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "builtin type has no field",
+                    "field": Lstr::Sref(id),
+                    "type": ldisplay!(base_typ),
+                    "file": self.local_mod.key.name.to_lstr(),
+                    "line": ldisplay!(fld.loc.lineno),
                 ));
             }
             (_, f) => {
@@ -1208,13 +1210,17 @@ impl<'p> TypeCheck<'p>
                             args,
                             node.loc,
                         ));
-                        return Ok(AstStep::Ok);
                     }
                 }
             }
             // field access, maybe a method
             Ast::Op2(".", a, b) => {
-                steptry!(self.post_field_access(&mut node.typ, &a.typ, b));
+                stepok!(ltry!(
+                    self.post_field_access(&mut node.typ, &a.typ, b),
+                    "a": ldebug!(&a),
+                    "b": ldebug!(&b),
+                    "node": ldebug!(&node),
+                ));
             }
             Ast::Generic(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Call(ref mut fref, _)) =

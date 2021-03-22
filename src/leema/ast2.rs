@@ -526,6 +526,26 @@ macro_rules! steptry {
     };
 }
 
+#[macro_export]
+macro_rules! stepok {
+    ($r:expr) => {
+        match $r {
+            AstStep::Ok => {
+                // do nothing
+            }
+            AstStep::Replace(node, typ) => {
+                return Ok(AstStep::Replace(node, typ));
+            }
+            AstStep::Rewrite => {
+                return Ok(AstStep::Rewrite);
+            }
+            AstStep::Stop => {
+                return Ok(AstStep::Ok);
+            }
+        }
+    };
+}
+
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
