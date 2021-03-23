@@ -1,13 +1,12 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{self, Failure, Lresult};
+use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
 use crate::leema::program;
 use crate::leema::rsrc;
-use crate::leema::struple::StrupleItem;
-use crate::leema::val::{self, Type, Val};
+use crate::leema::val::{self, Val};
 use crate::leema::worker::RustFuncContext;
 
 
@@ -271,46 +270,6 @@ pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
     }
 }
 
-pub fn void_func(mut f: RustFuncContext) -> Lresult<frame::Event>
-{
-    let num_args: usize = match f.get_param(0)? {
-        Val::Int(i) => *i as usize,
-        other => {
-            return Err(rustfail!(
-                "type_error",
-                "expected an integer, not {:?}",
-                other,
-            ));
-        }
-    };
-    let ftyp = &f.current_fref().t;
-    if ftyp.is_open() {
-        return Err(rustfail!(
-            "leema_failure",
-            "void func type is an open generic: {:?}",
-            ftyp,
-        ));
-    }
-    let flds = vec![StrupleItem::new_v(Val::VOID); num_args];
-    let fref = ftyp.try_func_ref()?;
-    let void_type: Type = fref.type_args[0].v.clone();
-    let construct: Type = fref.type_args[1].v.clone();
-    let result = if void_type == construct {
-        Val::Struct(void_type, flds)
-    } else if let Some(variant) = construct.path.last_module() {
-        Val::EnumStruct(void_type, variant, flds)
-    } else {
-        return Err(lfail!(
-            failure::Mode::TypeFailure,
-            "invalid construct type",
-            "construct": ldisplay!(construct),
-            "type": ldisplay!(void_type),
-        ));
-    };
-    f.set_result(result);
-    frame::Event::success()
-}
-
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
@@ -326,7 +285,6 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         "int_negate" => Some(Code::Rust(int_negate)),
         "int_equal" => Some(Code::Rust2(int_equal)),
         "int_less_than" => Some(Code::Rust2(int_less_than)),
-        "void" => Some(Code::Rust2(void_func)),
         _ => None,
     }
 }
