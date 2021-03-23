@@ -286,6 +286,34 @@ impl<'p> ScopeCheck<'p>
         format!("{}@{}", local_id, loc.lineno)
     }
 
+    fn localize_node(&mut self, node: &mut AstNode)
+    {
+        if !node.typ.contains_open() {
+            return;
+        }
+        let local_id = self.localized_id(&node.loc);
+        node.typ
+            .localize_generics(&self.type_args, local_id.clone());
+        match &mut *node.node {
+            Ast::ConstVal(Val::Call(fref, _)) => {
+                fref.t.localize_generics(&self.type_args, local_id);
+            }
+            Ast::ConstVal(Val::Struct(t, _)) => {
+                t.localize_generics(&self.type_args, local_id);
+            }
+            Ast::ConstVal(Val::EnumStruct(t, _, _)) => {
+                t.localize_generics(&self.type_args, local_id);
+            }
+            Ast::ConstVal(Val::EnumToken(t, _)) => {
+                t.localize_generics(&self.type_args, local_id);
+            }
+            Ast::ConstVal(Val::Token(t)) => {
+                t.localize_generics(&self.type_args, local_id);
+            }
+            _ => {} // not a val that needs to be localized
+        }
+    }
+
     fn infix_to_call(
         op: &'static str,
         a: &mut AstNode,
@@ -572,6 +600,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
         steptry!(self.pre_scope(node, mode));
         // make sure that all open types have been converted
         // to concrete types or local type vars
+        self.localize_node(node);
         if node.typ.contains_open() {
             Err(lfail!(
                 failure::Mode::TypeFailure,
@@ -605,8 +634,9 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                                 c,
                             ));
                         }
-                        let cons = optcons.unwrap();
-                        callx.replace((*cons.node).clone(), cons.typ.clone());
+                        let mut cons = optcons.unwrap().clone();
+                        self.localize_node(&mut cons);
+                        callx.replace(*cons.node, cons.typ);
                         return Ok(AstStep::Rewrite);
                     }
                 }

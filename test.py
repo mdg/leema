@@ -236,6 +236,7 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_chess960(self):
+        self.skipTest("not ready for testing")
         result = run_leema('chess960')
         self.assertEqual(0, result['code'])
         output = result['output'].strip().decode("utf-8")
@@ -284,7 +285,7 @@ class TestScripts(unittest.TestCase):
     def test_named_tuple(self):
         result = run_leema('named_tuple')
         self.assertEqual(0, result['code'])
-        expected = b"""greeting is: "named_tuple::Greeting(hello,world,)"\n"""
+        expected = b"""greeting is: "/named_tuple/Greeting(hello,world,)"\n"""
         self.assertEqual(expected, result['output'])
 
     def test_color_enum(self):

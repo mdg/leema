@@ -21,7 +21,7 @@ unit:
 	cargo test --bin leema
 
 T: build test.py
-	${NOSETESTS} --with-xunit
+	${NOSETESTS} --with-xunit test.py
 
 travis: unit travisT format
 
