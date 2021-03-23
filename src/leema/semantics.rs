@@ -2161,7 +2161,7 @@ mod tests
         --
 
         func main ->
-            let flds := Foo.__fields
+            let flds := Foo.__void
         --
         "#
         .to_string();
