@@ -209,7 +209,7 @@ def_impl = !{
     "impl" ~ hs1 ~ def_id ~ as1 ~ "with" ~ as1 ~ def_id ~ as1 ~ impl_block
 }
 
-def_rust_type = !{ "datatype" ~ hs1 ~ id ~ as1 ~ rust_block }
+def_rust_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ rust_block }
 
 let_stmt = !{ let_mode ~ hs1 ~ expr ~ as1 ~ ":=" ~ as1 ~ compound_expr }
 

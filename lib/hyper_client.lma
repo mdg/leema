@@ -1,11 +1,10 @@
 ## Copyright 2021 Matthew Graham
 
-struct Response
-.status: Int
-.body: Str
-.mics: Int
+datatype Response ::
+    status:Int
+    body:Str
+    mics:Int
 --
 
-func get(url: Str): Response -RUST-
-func post(url: Str, body: Str): Response -RUST-
-
+func get:Response :: url:Str -RUST-
+func post:Response :: url:Str body:Str -RUST-

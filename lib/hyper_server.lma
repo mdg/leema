@@ -1,15 +1,13 @@
 ## Copyright 2021 Matthew Graham
 
-struct Request
-.method: Str
-.path: Str
+datatype Request ::
+    method:Str
+    path:Str
 --
 
-struct Server --
+datatype Server -RUST-
 
 
-func run(port: Int, handler: F(Request): Str): Server -RUST-
+func run:Server :: port:Int handler:(Str :: Request) -RUST-
 
-func shutdown(s: Server): Void -RUST-
-
-
+func shutdown :: s:Server -RUST-

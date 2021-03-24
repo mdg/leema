@@ -1,54 +1,40 @@
 ## Copyright 2021 Matthew Graham
 
-struct Key(Int)
+datatype Key :: Int --
 
-struct Future[T] --
+datatype <Future T> -RUST-
 
-struct Stream[T] --
+datatype <Stream T> -RUST-
 
 
-macro detach(x)
->>
-    task::start(fn() x)
+macro detach :: x ->
+    task.start(fn() x)
 --
 
-macro fork(x)
->>
-    task::start_fork(fn() x)
+macro fork :: x ->
+    task.start_fork(fn() x)
 --
 
-macro stream(x)
->>
-    task::start_stream(fn() x)
+macro stream :: x ->
+    task.start_stream(fn() x)
 --
 
 
-func start: Key
-.action: F(): Void
--RUST-
+func start:Key :: action:(::) -RUST-
 
-func start_fork[T]: T%
-.action: F(): T
--RUST-
+func <start_fork T>:T% :: action:(T ::) -RUST-
 
-func join_fork[T]: T
-.forked: T%
--RUST-
+func <join_fork T>:T :: forked:T% -RUST-
 
-func start_stream[T]: T*
-.action: F(): T*
--RUST-
+func <start_stream T>:T* :: action:(T* ::) -RUST-
 
-func recv_stream[T]: T
-.stream: T*
--RUST-
+func <recv_stream T>:T :: stream:T* -RUST-
 
-#>>
-func map[T, U]: [U]
-.items: [T]
-.f: F(T): U
->>
-    let ifunc := fn(i) >> start_fork(fn() f(i)) --
-    let futs := list::map(items, ifunc)
-    list::map(futs, fn(fut) join_fork(fut))
-#--
+## func map[T, U]: [U]
+## .items: [T]
+## .f: F(T): U
+## >>
+##     let ifunc := fn(i) >> start_fork(fn() f(i)) --
+##     let futs := list::map(items, ifunc)
+##     list::map(futs, fn(fut) join_fork(fut))
+## --
