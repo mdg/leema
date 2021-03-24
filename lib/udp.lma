@@ -3,12 +3,12 @@
 datatype Socket --
 
 ## create a udp socket on any address and port
-func socket /Socket >> __RUST__ --
+func socket:Socket -RUST-
 
 ## create a udp socket on the given address and port
-func bind addr:Str port:Int /Socket >> __RUST__ --
+func bind:Socket :: addr:Str port:Int -RUST-
 
-func recv s:Socket /Str >> __RUST__ --
+func recv:Str :: s:Socket -RUST-
 
-func send s:Socket addr:Str port:Int output:Str >> __RUST__ --
+func send :: s:Socket addr:Str port:Int output:Str -RUST-
 

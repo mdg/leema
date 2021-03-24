@@ -1,18 +1,17 @@
 ## Copyright 2021 Matthew Graham
 
-datatype Listener --
-datatype Socket --
+datatype Listener -RUST-
+datatype Socket -RUST-
 
 ## open a tcp connection to a remote port
-func connect addr:Str port:Int /Socket >> __RUST__ --
+func connect:Socket :: addr:Str port:Int -RUST-
 
 ## create a tcp listener on the given port
-func listen addr:Str port:Int /Listener >> __RUST__ --
+func listen:Listener :: addr:Str port:Int -RUST-
 
 ## accept new sockets on the given socket
-func accept l:Listener /Socket >> __RUST__ --
+func accept:Socket :: l:Listener -RUST-
 
-func recv s:Socket /Str >> __RUST__ --
+func recv:Str :: s:Socket -RUST-
 
-func send s:Socket output:Str /Int >> __RUST__ --
-
+func send:Int :: s:Socket output:Str -RUST-

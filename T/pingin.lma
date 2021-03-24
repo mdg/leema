@@ -1,12 +1,12 @@
 import /udp
 import /io.print
 
-func read_data /Str >>
-   let sock := udp::bind("0.0.0.0", 3999)
-   udp::recv(sock)
+func read_data:Str ->
+   let sock := udp.bind("0.0.0.0", 3999)
+   udp.recv(sock)
 --
 
-func main >>
+func main ->
    let input := read_data()
    print("received ping ($input)\n")
 --
