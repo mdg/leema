@@ -801,28 +801,6 @@ impl Walker
                 }
                 self.set_mode(prev);
             }
-            Ast::DefFunc(name, args, result, body) => {
-                self.set_mode(AstMode::Value);
-                steptry!(self.walk(name, op));
-                self.set_mode(AstMode::Type);
-                steptry!(self.walk(result, op));
-                for a in args.iter_mut() {
-                    // do some funny stuff here b/c it should only be
-                    // anonymous functions here
-                    // if a.k is_some, a.v is a param type
-                    // if a.k is_none, a.v is a param name
-                    if a.k.is_some() {
-                        self.set_mode(AstMode::Type);
-                        steptry!(self.walk(&mut a.v, op));
-                    } else {
-                        self.set_mode(AstMode::Pattern(LocalType::Param));
-                        steptry!(self.walk(&mut a.v, op));
-                    }
-                }
-                // the body is always a value
-                self.set_mode(AstMode::Value);
-                steptry!(self.walk(body, op));
-            }
             Ast::DefConst(_name, ref mut v) => {
                 steptry!(self.walk(v, op));
             }
@@ -851,6 +829,10 @@ impl Walker
                 for a in args.iter_mut() {
                     steptry!(self.walk(&mut a.v, op));
                 }
+            }
+            Ast::DefFunc(_name, _args, _result, _body) => {
+                // don't automatically walk into closures
+                // needs to be done manually w/ correct context
             }
             // these ASTs should already be processed in the proto phase
             Ast::DefMacro(_, _, _) => {
