@@ -366,8 +366,8 @@ impl Ast
             Ast::DefFunc(name, args, result, body) => {
                 write!(
                     f,
-                    "DefFunc {:?} {:?} / {:?} {:?}",
-                    name, args, result, body
+                    "DefFunc {:?} {:?} :: {:?} {:?}",
+                    name, result, args, body
                 )
             }
             Ast::DefImpl(typ, iface, funcs) => {
@@ -550,6 +550,7 @@ macro_rules! stepok {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
+#[derive(PartialOrd)]
 pub enum LocalType
 {
     Param,
@@ -566,27 +567,26 @@ pub enum AstMode
 {
     Value,
     Type,
-    LetPattern,
-    MatchPattern,
+    Pattern(LocalType),
 }
 
 impl AstMode
 {
     pub fn is_pattern(&self) -> bool
     {
-        match self {
-            AstMode::LetPattern => true,
-            AstMode::MatchPattern => true,
-            _ => false,
+        if let AstMode::Pattern(_) = self {
+            true
+        } else {
+            false
         }
     }
 
-    pub fn get_pattern(&self) -> Option<LocalType>
+    pub fn get_pattern(self) -> Option<LocalType>
     {
-        match self {
-            AstMode::LetPattern => Some(LocalType::Let),
-            AstMode::MatchPattern => Some(LocalType::Match),
-            _ => None,
+        if let AstMode::Pattern(p) = self {
+            Some(p)
+        } else {
+            None
         }
     }
 }
@@ -702,7 +702,10 @@ impl Walker
     fn step(&mut self, node: &mut AstNode, op: &mut dyn Op) -> StepResult
     {
         steptry!(op.pre(node, self.mode));
-        steptry!(self.step_in(node, op));
+        let prev_mode = self.mode;
+        let step_result = self.step_in(node, op);
+        self.mode = prev_mode;
+        steptry!(step_result);
         op.post(node, self.mode)
     }
 
@@ -762,7 +765,7 @@ impl Walker
                 }
             }
             Ast::Let(ref mut lhp, _lht, ref mut rhs) => {
-                self.set_mode(AstMode::LetPattern);
+                self.set_mode(AstMode::Pattern(LocalType::Let));
                 steptry!(self.walk(lhp, op));
                 self.set_mode(AstMode::Value);
                 steptry!(self.walk(rhs, op));
@@ -775,7 +778,7 @@ impl Walker
             }
             Ast::Matchx(None, cases) => {
                 for c in cases.iter_mut() {
-                    self.set_mode(AstMode::MatchPattern);
+                    self.set_mode(AstMode::Pattern(LocalType::Match));
                     steptry!(self.walk(&mut c.cond, op));
                     self.set_mode(AstMode::Value);
                     steptry!(self.walk(&mut c.body, op));
@@ -784,7 +787,7 @@ impl Walker
             Ast::Matchx(Some(cond), cases) => {
                 steptry!(self.walk(cond, op));
                 for c in cases.iter_mut() {
-                    self.set_mode(AstMode::MatchPattern);
+                    self.set_mode(AstMode::Pattern(LocalType::Match));
                     steptry!(self.walk(&mut c.cond, op));
                     self.set_mode(AstMode::Value);
                     steptry!(self.walk(&mut c.body, op));
@@ -799,11 +802,25 @@ impl Walker
                 self.set_mode(prev);
             }
             Ast::DefFunc(name, args, result, body) => {
+                self.set_mode(AstMode::Value);
                 steptry!(self.walk(name, op));
-                for a in args.iter_mut() {
-                    steptry!(self.walk(&mut a.v, op));
-                }
+                self.set_mode(AstMode::Type);
                 steptry!(self.walk(result, op));
+                for a in args.iter_mut() {
+                    // do some funny stuff here b/c it should only be
+                    // anonymous functions here
+                    // if a.k is_some, a.v is a param type
+                    // if a.k is_none, a.v is a param name
+                    if a.k.is_some() {
+                        self.set_mode(AstMode::Type);
+                        steptry!(self.walk(&mut a.v, op));
+                    } else {
+                        self.set_mode(AstMode::Pattern(LocalType::Param));
+                        steptry!(self.walk(&mut a.v, op));
+                    }
+                }
+                // the body is always a value
+                self.set_mode(AstMode::Value);
                 steptry!(self.walk(body, op));
             }
             Ast::DefConst(_name, ref mut v) => {

@@ -26,29 +26,56 @@ macro_rules! lfail {
     ($mode:expr, $msg:expr) => {
         crate::leema::failure::Failure::with_status($mode, $msg).with_context(
             vec![
-                StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
-                StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
-                StrupleItem::new(Lstr::Sref("msg"), Lstr::Sref($msg)),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref("rfile"),
+                    crate::leema::lstr::Lstr::Sref(file!()),
+                ),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Lstr::Sref("rline"),
+                    lstrf!("{}", line!()),
+                ),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Lstr::Sref("msg"),
+                    crate::leema::lstr::Lstr::Lstr::Sref($msg),
+                ),
             ],
         )
     };
     ($mode:expr, $msg:expr, $key:literal : $val:expr $(,)?) => {
         crate::leema::failure::Failure::with_status($mode, $msg).with_context(
             vec![
-                StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
-                StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
-                StrupleItem::new(Lstr::Sref("msg"), Lstr::Sref($msg)),
-                StrupleItem::new(Lstr::Sref($key), $val),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref("rfile"),
+                    crate::leema::lstr::Lstr::Sref(file!()),
+                ),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref("rline"),
+                    lstrf!("{}", line!()),
+                ),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref("msg"),
+                    crate::leema::lstr::Lstr::Sref($msg),
+                ),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref($key),
+                    $val,
+                ),
             ],
         )
     };
     ($mode:expr, $msg:expr, $($key:literal : $val:expr),+, $(,)?) => {
         crate::leema::failure::Failure::with_status($mode, $msg).with_context(
             vec![
-                StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
-                StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
-                StrupleItem::new(Lstr::Sref("msg"), Lstr::Sref($msg)),
-                $(StrupleItem::new(Lstr::Sref($key), $val)),+
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref("rfile"),
+                    crate::leema::lstr::Lstr::Sref(file!()),
+                ),
+                crate::leema::struple::StrupleItem::new(
+                    crate::leema::lstr::Lstr::Sref("rline"),
+                    lstrf!("{}", line!()),
+                ),
+                crate::leema::struple::StrupleItem::new(crate::leema::lstr::Lstr::Sref("msg"), crate::leema::lstr::Lstr::Sref($msg)),
+                $(crate::leema::struple::StrupleItem::new(crate::leema::lstr::Lstr::Sref($key), $val)),+
             ],
         )
     };

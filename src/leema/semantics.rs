@@ -361,7 +361,11 @@ impl<'p> ScopeCheck<'p>
                         node.loc.lineno,
                     ));
                 }
-                node.dst = self.blocks.assign_var(id, local_type)?;
+                node.dst = ltry!(
+                    self.blocks.assign_var(id, local_type),
+                    "file": self.local_mod.key.best_path(),
+                    "line": ldisplay!(node.loc.lineno),
+                );
                 if node.typ == Type::UNKNOWN {
                     let type_var = if *id == "_" {
                         lstrf!("_{}", self.localized_id(&node.loc))

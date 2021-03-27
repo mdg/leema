@@ -1,5 +1,6 @@
 use crate::leema::ast2::LocalType;
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Lresult};
+use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Reg, RegTab};
 
 use std::collections::HashMap;
@@ -112,7 +113,13 @@ impl Blockstack
                 ));
             }
             var_data.num_reassignments += 1;
-            return Ok(self.var_in_scope(id).unwrap());
+            return self.var_in_scope(id).ok_or_else(|| {
+                lfail!(
+                    failure::Mode::ScopeFailure,
+                    "var not in scope",
+                    "var": Lstr::Sref(id),
+                )
+            });
         }
 
         let new_var = LocalVar::new(id.clone(), vt);
