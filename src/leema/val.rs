@@ -202,6 +202,9 @@ impl Type
 {
     // core type names to match for special behavior
     pub const PATH_BOOL: &'static str = "/core/Bool";
+    /// Canonical path for the closure type
+    /// FnType ClosedArgTypes
+    pub const PATH_CLOSURE: &'static str = "/core/Closure";
     /// Canonical path for the func type
     pub const PATH_FN: &'static str = "/core/Fn";
     pub const PATH_FAILURE: &'static str = "/core/Failure";
@@ -260,6 +263,7 @@ impl Type
     pub const UNKNOWN: Type = Type::named(Type::PATH_UNKNOWN);
 
     // function struple key names
+    pub const FNKEY_FN: Lstr = Lstr::Sref("fn");
     pub const FNKEY_ARGS: Lstr = Lstr::Sref("args");
     pub const FNKEY_CLOSED: Lstr = Lstr::Sref("closed");
     pub const FNKEY_RESULT: Lstr = Lstr::Sref("result");
@@ -319,16 +323,13 @@ impl Type
         )
     }
 
-    pub fn closure_f(result: Type, args: TypeArgs, closed: TypeArgs) -> Type
+    pub fn closure(inner: Type, closed: TypeArgs) -> Type
     {
-        let argst = Type::t(Type::PATH_FN_ARGS, args);
         let closed_argst = Type::t(Type::PATH_FN_CLOSEDARGS, closed);
         Type::t(
-            Type::PATH_FN,
+            Type::PATH_CLOSURE,
             vec![
-                StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
-                StrupleItem::new(Type::FNKEY_RESULT, result),
-                StrupleItem::new(Type::FNKEY_ARGS, argst),
+                StrupleItem::new(Type::FNKEY_FN, inner),
                 StrupleItem::new(Type::FNKEY_CLOSED, closed_argst),
             ],
         )
@@ -1111,7 +1112,7 @@ pub enum Val
     Failure2(Box<Failure>),
     Type(Type),
     Lib(Arc<dyn LibVal>),
-    // Fref(Fref),
+    Fref(Fref),
     Call(Fref, Struple2<Val>),
     ResourceRef(i64),
     Future(Arc<Mutex<Receiver<Val>>>),
@@ -1146,6 +1147,18 @@ impl Val
             i = i - 1;
         }
         Val::Tuple(t)
+    }
+
+    pub fn void_closure(f: Fref, closed_args: TypeArgs) -> Val
+    {
+        let mut args = Vec::with_capacity(1 + closed_args.len());
+        args.push(StrupleItem::new(None, Val::VOID));
+        for a in closed_args.iter() {
+            args.push(StrupleItem::new(Some(a.k.clone()), Val::VOID))
+        }
+        let closure_t = Type::closure(f.t.clone(), closed_args);
+        args[0].v = Val::Fref(f);
+        Val::Struct(closure_t, args)
     }
 
     pub fn tuple_from_list(l: &Val) -> Val
@@ -1317,6 +1330,7 @@ impl Val
             &Val::Token(ref typ) => typ.clone(),
             &Val::Buffer(_) => Type::STR,
             &Val::Call(ref fref, _) => fref.t.clone(),
+            &Val::Fref(ref fref) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -1630,6 +1644,9 @@ impl fmt::Display for Val
             Val::Call(ref fref, ref args) => {
                 write!(f, "{}::{}({:?}): {}", fref.m, fref.f, args, fref.t)
             }
+            Val::Fref(ref fref) => {
+                write!(f, "{}::{}: {}", fref.m, fref.f, fref.t)
+            }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
             Val::Wildcard => write!(f, "_"),
@@ -1686,6 +1703,14 @@ impl fmt::Debug for Val
                     write!(f, "{:#?} :: {:#?})", fref.t, args)
                 } else {
                     write!(f, "{:?} :: {:?})", fref.t, args)
+                }
+            }
+            Val::Fref(ref fref) => {
+                write!(f, "(fn {}.{}:", fref.m, fref.f)?;
+                if f.alternate() {
+                    write!(f, "{:#?})", fref.t)
+                } else {
+                    write!(f, "{:?})", fref.t)
                 }
             }
             Val::Future(_) => write!(f, "Future"),
