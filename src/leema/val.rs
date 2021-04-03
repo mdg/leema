@@ -1112,7 +1112,6 @@ pub enum Val
     Failure2(Box<Failure>),
     Type(Type),
     Lib(Arc<dyn LibVal>),
-    Fref(Fref),
     Call(Fref, Struple2<Val>),
     ResourceRef(i64),
     Future(Arc<Mutex<Receiver<Val>>>),
@@ -1149,7 +1148,7 @@ impl Val
         Val::Tuple(t)
     }
 
-    pub fn void_closure(f: Fref, closed_args: TypeArgs) -> Val
+    pub fn void_closure(f: Fref, closed_args: TypeArgs) -> Lresult<Val>
     {
         let mut args = Vec::with_capacity(1 + closed_args.len());
         args.push(StrupleItem::new(None, Val::VOID));
@@ -1157,8 +1156,8 @@ impl Val
             args.push(StrupleItem::new(Some(a.k.clone()), Val::VOID))
         }
         let closure_t = Type::closure(f.t.clone(), closed_args);
-        args[0].v = Val::Fref(f);
-        Val::Struct(closure_t, args)
+        args[0].v = ltry!(Lresult::<Val>::from(&f));
+        Ok(Val::Struct(closure_t, args))
     }
 
     pub fn tuple_from_list(l: &Val) -> Val
@@ -1330,7 +1329,6 @@ impl Val
             &Val::Token(ref typ) => typ.clone(),
             &Val::Buffer(_) => Type::STR,
             &Val::Call(ref fref, _) => fref.t.clone(),
-            &Val::Fref(ref fref) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -1644,9 +1642,6 @@ impl fmt::Display for Val
             Val::Call(ref fref, ref args) => {
                 write!(f, "{}::{}({:?}): {}", fref.m, fref.f, args, fref.t)
             }
-            Val::Fref(ref fref) => {
-                write!(f, "{}::{}: {}", fref.m, fref.f, fref.t)
-            }
             Val::Future(_) => write!(f, "Future"),
             Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
             Val::Wildcard => write!(f, "_"),
@@ -1703,14 +1698,6 @@ impl fmt::Debug for Val
                     write!(f, "{:#?} :: {:#?})", fref.t, args)
                 } else {
                     write!(f, "{:?} :: {:?})", fref.t, args)
-                }
-            }
-            Val::Fref(ref fref) => {
-                write!(f, "(fn {}.{}:", fref.m, fref.f)?;
-                if f.alternate() {
-                    write!(f, "{:#?})", fref.t)
-                } else {
-                    write!(f, "{:?})", fref.t)
                 }
             }
             Val::Future(_) => write!(f, "Future"),
