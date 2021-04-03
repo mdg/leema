@@ -751,6 +751,7 @@ impl Type
                         failure::Mode::TypeFailure,
                         "unknown type variable",
                         "variable": var.clone(),
+                        "locals": ldebug!(locals),
                     ));
                 }
             };

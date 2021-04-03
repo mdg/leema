@@ -4,6 +4,7 @@ use crate::leema::ast2::{
 use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
+use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
@@ -69,6 +70,8 @@ lazy_static! {
         escaped
     };
 }
+
+const ANON_FUNC_TYPES: [&'static str; 5] = ["A.0", "A.1", "A.2", "A.3", "A.4"];
 
 /// Can this whole step just be blended into ScopeCheck?
 struct MacroApplication<'l>
@@ -344,28 +347,54 @@ impl<'p> ScopeCheck<'p>
 
     fn pre_closure(
         &mut self,
-        name: Lstr,
+        loc: Loc,
         result: &mut AstNode,
         args: &mut Xlist,
         body: &mut AstNode,
-    ) -> Lresult<()>
+    ) -> Lresult<AstNode>
     {
-        let mut type_vars = Xlist::new();
-        let mut next_type = 0;
-        let result_type: Type;
-        if *result.node == Ast::Id("Void") {
-            let tresult = lstrf!("T{}", next_type);
-            next_type += 1;
-            type_vars.push(StrupleItem::new(Some("T"), AstNode::void()));
-            // type_vars.push(StrupleItem::new(tresult, AstNode::void()));
-            *result.node = Ast::Id("T"); // tresult);
-
-            // can get by w/ just the type and ignore the node?
-            result_type = Type::open(tresult);
-        } else {
-            result_type = Type::UNKNOWN;
+        // totally hacky to make this a static str. need to figure this out.
+        let name = format!("anon_fn_{}", self.localized_id(&loc));
+        let name = Interloader::static_str(name);
+        // initialize type_args w/ wrapping type args
+        let mut type_args = Xlist::with_capacity(self.type_args.len());
+        for ta in self.type_args.iter() {
+            if let Lstr::Sref(a) = ta.k {
+                type_args.push(StrupleItem::new(
+                    Some(a),
+                    AstNode::new(Ast::Type(ta.v.clone()), body.loc),
+                ));
+            } else {
+                panic!("not a static Lstr: {}", ta.k);
+            }
         }
-        Ok(())
+        let mut next_type_it = ANON_FUNC_TYPES.iter();
+        if *result.node == Ast::Id("Void") {
+            let next_type = next_type_it.next().unwrap();
+            type_args.push(StrupleItem::new(Some(next_type), AstNode::void()));
+            *result.node = Ast::Id(next_type);
+        } else {
+        }
+        for a in args.iter_mut() {
+            if let Some(_k) = a.k {
+                // already typed, cool.
+            } else if let Ast::Id(var) = &*a.v.node {
+                // convert arg name to k and add open type var
+                let next_type_name = next_type_it.next().unwrap();
+                a.k = Some(var);
+                *a.v.node = Ast::Id(next_type_name);
+                type_args.push(StrupleItem::new(
+                    Some(next_type_name),
+                    AstNode::void(),
+                ));
+            }
+        }
+        let fname = AstNode::new(Ast::Id(name), loc);
+        if type_args.is_empty() {
+            Ok(fname)
+        } else {
+            Ok(AstNode::new(Ast::Generic(fname, type_args), loc))
+        }
     }
 
     fn pre_scope(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
@@ -615,13 +644,12 @@ impl<'p> ScopeCheck<'p>
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
             }
-            Ast::DefFunc(_, args, result, body) => {
+            Ast::DefFunc(name, args, result, body) => {
                 // collect all the undefined variables in body
                 // validate their scope in this func
                 // if there are closed vars, create a new func
                 // make fname a globally unique id later, mix in args
-                let fname = lstrf!("anon_fn_{}", self.localized_id(&node.loc));
-                ltry!(self.pre_closure(fname, result, args, body));
+                *name = ltry!(self.pre_closure(node.loc, result, args, body));
             }
             _ => {
                 // do nothing otherwise
