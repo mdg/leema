@@ -62,6 +62,7 @@ pub struct Blockstack
 {
     stack: Vec<Blockscope>,
     locals: HashMap<&'static str, LocalVar>,
+    not_in_scope: HashMap<&'static str, i16>,
     in_failed: bool,
 }
 
@@ -72,6 +73,7 @@ impl Blockstack
         Blockstack {
             stack: vec![Blockscope::with_args(args)],
             locals: HashMap::new(),
+            not_in_scope: HashMap::new(),
             in_failed: false,
         }
     }
@@ -92,12 +94,26 @@ impl Blockstack
         self.stack.last_mut().unwrap()
     }
 
+    /// all the variables used out of scope
+    pub fn out_of_scope(&self) -> &HashMap<&'static str, i16>
+    {
+        &self.not_in_scope
+    }
+
     pub fn assign_var(
         &mut self,
         id: &'static str,
         vt: LocalType,
     ) -> Lresult<Reg>
     {
+        if self.not_in_scope.contains_key(id) {
+            return Err(lfail!(
+                failure::Mode::ScopeFailure,
+                "cannot re-assign variable",
+                "variable": ldisplay!(id),
+            ));
+        }
+
         if let Some(r) = self.stack.last().unwrap().vars.with_name(id) {
             // since this var is already in the current stack
             // reassign to the current register
@@ -131,7 +147,8 @@ impl Blockstack
     {
         let opt_local = self.locals.get_mut(id);
         if opt_local.is_none() {
-            panic!("cannot access undefined var: {}", id);
+            self.not_in_scope.entry(id).or_insert(lineno);
+            return;
         }
         let vi = opt_local.unwrap();
         if vi.first_access.is_none() {
@@ -148,5 +165,34 @@ impl Blockstack
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::Blockstack;
+    use crate::leema::ast2::LocalType;
+
+    #[test]
+    fn collect_access_out_of_scope()
+    {
+        let mut b = Blockstack::with_args(vec![]);
+        b.access_var("a", 5);
+        b.access_var("b", 6);
+        b.access_var("a", 7);
+        let out = b.out_of_scope();
+        assert_eq!(5, *out.get("a").unwrap());
+        assert_eq!(6, *out.get("b").unwrap());
+        assert_eq!(2, out.len());
+    }
+
+    #[test]
+    fn assign_not_in_scope()
+    {
+        let mut b = Blockstack::with_args(vec![]);
+        b.access_var("a", 5);
+        let result = b.assign_var("a", LocalType::Let);
+        assert!(result.is_err());
     }
 }

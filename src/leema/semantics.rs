@@ -342,6 +342,32 @@ impl<'p> ScopeCheck<'p>
         Some(AstNode::new(Ast::Call(callx, args), loc))
     }
 
+    fn pre_closure(
+        &mut self,
+        name: Lstr,
+        result: &mut AstNode,
+        args: &mut Xlist,
+        body: &mut AstNode,
+    ) -> Lresult<()>
+    {
+        let mut type_vars = Xlist::new();
+        let mut next_type = 0;
+        let result_type: Type;
+        if *result.node == Ast::Id("Void") {
+            let tresult = lstrf!("T{}", next_type);
+            next_type += 1;
+            type_vars.push(StrupleItem::new(Some("T"), AstNode::void()));
+            // type_vars.push(StrupleItem::new(tresult, AstNode::void()));
+            *result.node = Ast::Id("T"); // tresult);
+
+            // can get by w/ just the type and ignore the node?
+            result_type = Type::open(tresult);
+        } else {
+            result_type = Type::UNKNOWN;
+        }
+        Ok(())
+    }
+
     fn pre_scope(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         let loc = node.loc;
@@ -588,6 +614,14 @@ impl<'p> ScopeCheck<'p>
                 let matchx = Ast::Matchx(Some(match_input), mem::take(cases));
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
+            }
+            Ast::DefFunc(_, args, result, body) => {
+                // collect all the undefined variables in body
+                // validate their scope in this func
+                // if there are closed vars, create a new func
+                // make fname a globally unique id later, mix in args
+                let fname = lstrf!("anon_fn_{}", self.localized_id(&node.loc));
+                ltry!(self.pre_closure(fname, result, args, body));
             }
             _ => {
                 // do nothing otherwise
