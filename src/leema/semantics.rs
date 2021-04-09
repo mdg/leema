@@ -351,7 +351,7 @@ impl<'p> ScopeCheck<'p>
         result: &mut AstNode,
         args: &mut Xlist,
         body: &mut AstNode,
-    ) -> Lresult<AstNode>
+    ) -> Lresult<(AstNode, Ast)>
     {
         // totally hacky to make this a static str. need to figure this out.
         let name = format!("anon_fn_{}", self.localized_id(&loc));
@@ -389,11 +389,12 @@ impl<'p> ScopeCheck<'p>
                 ));
             }
         }
-        let fname = AstNode::new(Ast::Id(name), loc);
+        let fname_id = Ast::Id(name);
+        let fname = AstNode::new(fname_id.clone(), loc);
         if type_args.is_empty() {
-            Ok(fname)
+            Ok((fname, fname_id))
         } else {
-            Ok(AstNode::new(Ast::Generic(fname, type_args), loc))
+            Ok((AstNode::new(Ast::Generic(fname, type_args), loc), fname_id))
         }
     }
 
@@ -649,7 +650,13 @@ impl<'p> ScopeCheck<'p>
                 // validate their scope in this func
                 // if there are closed vars, create a new func
                 // make fname a globally unique id later, mix in args
-                *name = ltry!(self.pre_closure(node.loc, result, args, body));
+                let (new_name, func) =
+                    ltry!(self.pre_closure(node.loc, result, args, body));
+                *name = new_name;
+
+                // take the node as a new function, leave a call in its place
+                let _def_func = mem::take(&mut *node.node);
+                *node.node = func;
             }
             _ => {
                 // do nothing otherwise
@@ -1787,16 +1794,26 @@ impl Semantics
             .collect();
 
         // check scope and apply macros
-        let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
-        let mut macs = MacroApplication::new(lib, proto);
-        let mut scope_pipe =
-            ast2::Pipeline::new(vec![&mut scope_check, &mut macs]);
-        let scoped = ltry!(
-            ast2::walk(body, &mut scope_pipe),
-            "module": modname.as_lstr().clone(),
-            "function": Lstr::Sref(f.f),
-            "type": ldebug!(ftyp),
-        );
+        let scoped = {
+            let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
+            let mut macs = MacroApplication::new(lib, proto);
+            let mut scope_pipe =
+                ast2::Pipeline::new(vec![&mut scope_check, &mut macs]);
+            let result = ltry!(
+                ast2::walk(body, &mut scope_pipe),
+                "module": modname.as_lstr().clone(),
+                "function": Lstr::Sref(f.f),
+                "type": ldebug!(ftyp),
+            );
+            if !scope_check.blocks.out_of_scope().is_empty() {
+                return Err(lfail!(
+                    failure::Mode::ScopeFailure,
+                    "variables out of scope",
+                    "variables": ldebug!(scope_check.blocks.out_of_scope()),
+                ));
+            }
+            result
+        };
 
         // type check and remove unnecessary code
         let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
@@ -1889,6 +1906,24 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let body = prog.read_semantics(&fref).unwrap();
         assert_matches!(*body.src.node, Ast::Block(_));
+    }
+
+    #[test]
+    fn scope_check_var_out_of_scope()
+    {
+        // 4;[6]
+        let input = r#"
+        func main ->
+            let y := x
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::with_modules(From::from("/foo"), "main");
+        let result = prog.read_semantics(&fref);
+        let fail = result.unwrap_err();
+        assert_eq!("var not in scope", fail.msg.str());
     }
 
     #[test]
