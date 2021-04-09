@@ -1909,6 +1909,26 @@ mod tests
     }
 
     #[test]
+    fn scope_check_anon_func()
+    {
+        let input = r#"
+        func main ->
+            let x2 := fn::i -> i * 2 --
+            x2(3)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::with_modules(From::from("/foo"), "main");
+        let result = prog.read_semantics(&fref);
+        let fail = result.unwrap_err();
+        eprintln!("failure: {:#?}", fail);
+        // TODO this test shouldn't actually be failing
+        assert_eq!("type is not a function", fail.msg.str());
+    }
+
+    #[test]
     fn scope_check_var_out_of_scope()
     {
         // 4;[6]

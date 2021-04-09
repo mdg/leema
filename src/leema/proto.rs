@@ -426,7 +426,7 @@ impl ProtoModule
         &mut self,
         name: AstNode,
         mut args: Xlist,
-        result: AstNode,
+        mut result: AstNode,
         body: AstNode,
     ) -> Lresult<()>
     {
@@ -437,6 +437,10 @@ impl ProtoModule
                 first.k = Some("self");
                 *first.v.node = Ast::Id("Self");
             }
+        }
+        // if there's no result type, default it to void
+        if *result.node == Ast::NOTOKEN {
+            *result.node = Ast::VOID;
         }
 
         let opens = self.type_args();

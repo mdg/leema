@@ -213,6 +213,7 @@ impl Type
     /// Canonical path for the list type
     pub const PATH_LIST: &'static str = "/core/List";
     pub const PATH_NORETURN: &'static str = "/core/NoReturn";
+    pub const PATH_NOTOKEN: &'static str = "/leema/NoToken";
     pub const PATH_INT: &'static str = "/core/Int";
     pub const PATH_OPTION: &'static str = "/core/Option";
     pub const PATH_STR: &'static str = "/core/Str";
@@ -227,6 +228,7 @@ impl Type
     pub const HASHTAG: Type = Type::named(Type::PATH_HASHTAG);
     pub const INT: Type = Type::named(Type::PATH_INT);
     pub const KIND: Type = Type::named(Type::PATH_KIND);
+    pub const NOTOKEN: Type = Type::named(Type::PATH_NOTOKEN);
     pub const STR: Type = Type::named(Type::PATH_STR);
     pub const TYPE: Type = Type::named(Type::PATH_TYPE);
     pub const VOID: Type = Type::named(Type::PATH_VOID);
@@ -1133,6 +1135,8 @@ impl Val
     pub const BLOCK_ABSTRACT: Val =
         Val::Token(Type::named(Type::PATH_BLOCK_ABSTRACT));
     pub const BLOCK_RUST: Val = Val::Token(Type::named(Type::PATH_BLOCK_RUST));
+
+    pub const NOTOKEN: Val = Val::Token(Type::NOTOKEN);
 
     pub fn empty_tuple() -> Val
     {

@@ -8,6 +8,9 @@ datatype ModTyp
 |Trait
 --
 
+## no token parsed
+datatype NoToken -RUST-
+
 ## The type assigned to -RUST- function code blocks
 ## automatically matches whatever is in the declared func type
 datatype RustBlock -RUST-

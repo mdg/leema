@@ -264,6 +264,7 @@ impl Ast
 {
     pub const BLOCK_ABSTRACT: Ast = Ast::ConstVal(Val::BLOCK_ABSTRACT);
     pub const BLOCK_RUST: Ast = Ast::ConstVal(Val::BLOCK_RUST);
+    pub const NOTOKEN: Ast = Ast::ConstVal(Val::NOTOKEN);
     pub const VOID: Ast = Ast::ConstVal(Val::VOID);
     pub const NEWLINE: Ast = Ast::ConstVal(Val::Str(Lstr::Sref("\n")));
 
@@ -462,6 +463,19 @@ impl AstNode
                 column: 0,
             },
             typ: Type::VOID,
+            dst: Reg::Undecided,
+        }
+    }
+
+    pub fn no_token() -> AstNode
+    {
+        AstNode {
+            node: Box::new(Ast::NOTOKEN),
+            loc: Loc {
+                lineno: 0,
+                column: 0,
+            },
+            typ: Type::UNKNOWN,
             dst: Reg::Undecided,
         }
     }

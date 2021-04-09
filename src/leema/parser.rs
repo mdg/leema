@@ -533,7 +533,7 @@ impl LeemaPrec
             Rule::def_func_result => {
                 match n.into_inner().next() {
                     Some(result) => self.primary(Mode::Type, result),
-                    None => Ok(AstNode::new(Ast::Id("Void"), loc)),
+                    None => Ok(AstNode::no_token()),
                 }
             }
             Rule::list_type => {
@@ -561,7 +561,12 @@ impl LeemaPrec
                     self.parse_xlist(Mode::Type, func_arg_it)?;
                 let body = self.primary(Mode::Value, inner.next().unwrap())?;
                 Ok(AstNode::new(
-                    Ast::DefFunc(AstNode::void(), func_args, func_result, body),
+                    Ast::DefFunc(
+                        AstNode::no_token(),
+                        func_args,
+                        func_result,
+                        body,
+                    ),
                     loc,
                 ))
             }
@@ -903,6 +908,26 @@ mod tests
                 ])
             ]
         )
+    }
+
+    #[test]
+    fn anon_func_expr_no_result_arg_types()
+    {
+        let input = "fn::i -> i * 2 --";
+        let actual = parse(Rule::compound_expr, input).unwrap();
+        println!("{:#?}", actual);
+
+        if let Ast::DefFunc(name, args, result, body) = &*actual[0].node {
+            assert_eq!(Ast::NOTOKEN, *name.node);
+            assert_eq!(Ast::NOTOKEN, *result.node);
+            assert_eq!(None, args[0].k);
+            assert_eq!(Ast::Id("i"), *args[0].v.node);
+            assert_eq!(1, args.len());
+            assert_matches!(*body.node, Ast::Op2("*", _, _));
+        } else {
+            panic!("expected DefFunc, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
     }
 
     /// test a parsing issue where the oneline anon_func was
