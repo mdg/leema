@@ -905,6 +905,29 @@ mod tests
         )
     }
 
+    /// test a parsing issue where the oneline anon_func was
+    /// confusing the multiline stmt_block
+    /// mainly confirming that this parses w/o error
+    #[test]
+    fn anon_func_multilines()
+    {
+        let input = r#"
+        let x2 := fn :: i -> i --
+        x2(3)
+        "#;
+        let actual = parse(Rule::stmt_block, input).unwrap();
+        eprintln!("{:#?}", actual);
+
+        if let Ast::Block(lines) = &*actual[0].node {
+            assert_matches!(*lines[0].node, Ast::Let(_, _, _));
+            assert_matches!(*lines[1].node, Ast::Call(_, _));
+            assert_eq!(2, lines.len());
+        } else {
+            panic!("expected Block, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
     #[test]
     fn bool_true()
     {
@@ -948,7 +971,7 @@ mod tests
             assert_eq!(Ast::Id("y"), *args[1].v.node);
             assert_eq!(2, args.len());
         } else {
-            panic!("expected DefUnion, found {:?}", actual[0]);
+            panic!("expected Call, found {:?}", actual[0]);
         }
         assert_eq!(1, actual.len());
     }

@@ -127,7 +127,7 @@ matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ double_dash }
 
 anon_func = { "fn" ~ def_func_type_body }
 
-prefix1 = _{ prefix_op ~ as0 ~ term }
+prefix1 = _{ prefix_op ~ hs0 ~ term }
 postfix1 = _{ term ~ postfix_op }
 x1 = _{
     prefix1
@@ -142,7 +142,6 @@ x2 = _{
 
 expr = !{
     blockx
-    | anon_func
     | x1 ~ x2+
     | x1
 }
@@ -151,6 +150,7 @@ compound_expr = _{
     ifx
     | matchx
     | matchargs
+    | anon_func
     | expr
 }
 
