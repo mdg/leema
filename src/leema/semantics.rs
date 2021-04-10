@@ -248,6 +248,7 @@ struct ScopeCheck<'p>
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
     blocks: Blockstack,
+    anons: StrupleKV<Lstr, Ast>,
     ftyp: &'p FuncTypeRef<'p>,
     type_args: &'p TypeArgSlice,
     next_local_id: u32,
@@ -276,6 +277,7 @@ impl<'p> ScopeCheck<'p>
             lib,
             local_mod,
             blocks: Blockstack::with_args(args),
+            anons: vec![],
             ftyp,
             type_args: &ftyp.type_args,
             next_local_id: 0,
@@ -351,18 +353,23 @@ impl<'p> ScopeCheck<'p>
         result: &mut AstNode,
         args: &mut Xlist,
         body: &mut AstNode,
-    ) -> Lresult<(AstNode, Ast)>
+    ) -> Lresult<(AstNode, Fref)>
     {
         // totally hacky to make this a static str. need to figure this out.
         let name = format!("anon_fn_{}", self.localized_id(&loc));
         let name = Interloader::static_str(name);
         // initialize type_args w/ wrapping type args
         let mut type_args = Xlist::with_capacity(self.type_args.len());
+        let mut type_type_args = TypeArgs::with_capacity(self.type_args.len());
         for ta in self.type_args.iter() {
             if let Lstr::Sref(a) = ta.k {
                 type_args.push(StrupleItem::new(
                     Some(a),
                     AstNode::new(Ast::Type(ta.v.clone()), body.loc),
+                ));
+                type_type_args.push(StrupleItem::new(
+                    ta.k.clone(),
+                    Type::open(ta.k.clone()),
                 ));
             } else {
                 panic!("not a static Lstr: {}", ta.k);
@@ -389,12 +396,14 @@ impl<'p> ScopeCheck<'p>
                 ));
             }
         }
-        let fname_id = Ast::Id(name);
-        let fname = AstNode::new(fname_id.clone(), loc);
+        let ftyp =
+            ltry!(self.local_mod.ast_to_ftype(result, args, &type_type_args));
+        let fref = Fref::new(self.local_mod.key.clone(), name, ftyp);
+        let fname = AstNode::new(Ast::Id(name), loc);
         if type_args.is_empty() {
-            Ok((fname, fname_id))
+            Ok((fname, fref))
         } else {
-            Ok((AstNode::new(Ast::Generic(fname, type_args), loc), fname_id))
+            Ok((AstNode::new(Ast::Generic(fname, type_args), loc), fref))
         }
     }
 
@@ -655,8 +664,12 @@ impl<'p> ScopeCheck<'p>
                 *name = new_name;
 
                 // take the node as a new function, leave a call in its place
-                let _def_func = mem::take(&mut *node.node);
-                *node.node = func;
+                let def_func = mem::take(&mut *node.node);
+                let call: Lresult<Val> = From::from(&func);
+                *node.node = Ast::ConstVal(ltry!(call));
+                node.typ = func.t;
+                self.anons
+                    .push(StrupleItem::new(Lstr::Sref(func.f), def_func));
             }
             _ => {
                 // do nothing otherwise
@@ -1925,7 +1938,7 @@ mod tests
         let fail = result.unwrap_err();
         eprintln!("failure: {:#?}", fail);
         // TODO this test shouldn't actually be failing
-        assert_eq!("type is not a function", fail.msg.str());
+        assert_eq!("should this have been found? A.0", fail.msg.str());
     }
 
     #[test]

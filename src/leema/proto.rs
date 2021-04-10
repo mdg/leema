@@ -823,7 +823,7 @@ impl ProtoModule
     }
 
     fn make_func_type(
-        &mut self,
+        &self,
         name: AstNode,
         args: &Xlist,
         result: AstNode,
@@ -1166,7 +1166,7 @@ impl ProtoModule
         })
     }
 
-    fn ast_to_ftype(
+    pub fn ast_to_ftype(
         &self,
         result: &AstNode,
         args: &Xlist,
