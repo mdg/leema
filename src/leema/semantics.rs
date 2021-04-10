@@ -379,8 +379,11 @@ impl<'p> ScopeCheck<'p>
         if *result.node == Ast::Id("Void") {
             let next_type = next_type_it.next().unwrap();
             type_args.push(StrupleItem::new(Some(next_type), AstNode::void()));
+            type_type_args.push(StrupleItem::new(
+                Lstr::Sref(next_type),
+                Type::open(Lstr::Sref(next_type)),
+            ));
             *result.node = Ast::Id(next_type);
-        } else {
         }
         for a in args.iter_mut() {
             if let Some(_k) = a.k {
@@ -393,6 +396,10 @@ impl<'p> ScopeCheck<'p>
                 type_args.push(StrupleItem::new(
                     Some(next_type_name),
                     AstNode::void(),
+                ));
+                type_type_args.push(StrupleItem::new(
+                    Lstr::Sref(next_type_name),
+                    Type::open(Lstr::Sref(next_type_name)),
                 ));
             }
         }
@@ -1934,11 +1941,8 @@ mod tests
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "main");
-        let result = prog.read_semantics(&fref);
-        let fail = result.unwrap_err();
-        eprintln!("failure: {:#?}", fail);
-        // TODO this test shouldn't actually be failing
-        assert_eq!("should this have been found? A.0", fail.msg.str());
+        let sem = prog.read_semantics(&fref).unwrap();
+        assert_eq!(2, sem.infers.len());
     }
 
     #[test]
