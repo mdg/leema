@@ -211,7 +211,8 @@ def_impl = !{
 
 def_rust_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ rust_block }
 
-let_stmt = !{ let_mode ~ hs1 ~ expr ~ as1 ~ ":=" ~ as1 ~ compound_expr }
+let_lhs = _{ expr ~ (as0 ~ ":" ~ as0 ~ typex)? }
+let_stmt = !{ let_mode ~ hs1 ~ let_lhs ~ as1 ~ ":=" ~ as1 ~ compound_expr }
 
 if_stmt = !{ "if" ~ hs1 ~ expr ~ as1 ~ arrow_block ~ double_dash }
 

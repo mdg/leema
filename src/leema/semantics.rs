@@ -1910,6 +1910,22 @@ mod tests
     }
 
     #[test]
+    fn compile_let_with_type()
+    {
+        let input = r#"
+        func bar ->
+            let x: Int := 5
+            x + 4
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "bar"));
+        prog.read_semantics(&fref).unwrap();
+    }
+
+    #[test]
     fn test_typecheck_open_local_vars()
     {
         let input = r#"

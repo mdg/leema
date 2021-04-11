@@ -409,9 +409,17 @@ impl LeemaPrec
                     "let" => {
                         let id =
                             self.primary(Mode::Value, inner.next().unwrap())?;
-                        let x =
-                            self.primary(Mode::Value, inner.next().unwrap())?;
-                        Ast::Let(id, AstNode::void(), x)
+                        let typ_or_rhs = inner.next().unwrap();
+                        let (typ, rhs) = match inner.next() {
+                            Some(real_rhs) => {
+                                let typ_node =
+                                    ltry!(self.primary(Mode::Type, typ_or_rhs));
+                                (typ_node, real_rhs)
+                            }
+                            None => (AstNode::no_token(), typ_or_rhs),
+                        };
+                        let rhs_node = ltry!(self.primary(Mode::Value, rhs));
+                        Ast::Let(id, typ, rhs_node)
                     }
                     "const" => {
                         let id = inner.next().unwrap();
@@ -1335,6 +1343,38 @@ mod tests
                 ])
             ]
         )
+    }
+
+    #[test]
+    fn let_no_type()
+    {
+        let input = "let x := 5";
+        let actual = parse(Rule::let_stmt, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::Let(patt, typ, rhs) = &*actual[0].node {
+            assert_eq!(Ast::Id("x"), *patt.node);
+            assert_eq!(Ast::NOTOKEN, *typ.node);
+            assert_eq!(Ast::ConstVal(Val::Int(5)), *rhs.node);
+        } else {
+            panic!("expected Let, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
+    fn let_with_type()
+    {
+        let input = "let x: Int := 8";
+        let actual = parse(Rule::let_stmt, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::Let(patt, typ, rhs) = &*actual[0].node {
+            assert_eq!(Ast::Id("x"), *patt.node);
+            assert_eq!(Ast::Id("Int"), *typ.node);
+            assert_eq!(Ast::ConstVal(Val::Int(8)), *rhs.node);
+        } else {
+            panic!("expected Let, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
     }
 
     #[test]
