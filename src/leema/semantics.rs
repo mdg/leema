@@ -831,6 +831,12 @@ impl<'p> TypeCheck<'p>
     /// should be no open type vars
     pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
     {
+        if t0.contains_open() {
+            panic!("unexpected open type variable: {:?}", t0);
+        }
+        if t1.contains_open() {
+            panic!("unexpected open type variable: {:?}", t1);
+        }
         match (t0.path_str(), t1.path_str()) {
             // open var cases should not happen
             (Type::PATH_OPENVAR, _) => {
@@ -883,12 +889,6 @@ impl<'p> TypeCheck<'p>
             (Type::PATH_FN, Type::PATH_FN) => {
                 let f0 = t0.func_ref().unwrap();
                 let f1 = t1.func_ref().unwrap();
-                if !f0.type_args.is_empty() {
-                    panic!("unexpected type args: {:?}", f0);
-                }
-                if !f1.type_args.is_empty() {
-                    panic!("unexpected type args: {:?}", f1);
-                }
                 let result = self.match_type(f0.result, f1.result)?;
                 if f0.args.len() != f1.args.len() {
                     return Err(rustfail!(
@@ -1729,6 +1729,7 @@ pub struct Semantics
 {
     pub src: AstNode,
     pub args: Vec<&'static str>,
+    pub vartypes: HashMap<&'static str, Type>,
     pub infers: HashMap<Lstr, Type>,
     pub calls: HashSet<Fref>,
 }
@@ -1740,6 +1741,7 @@ impl Semantics
         Semantics {
             src: AstNode::void(),
             args: Vec::new(),
+            vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: HashSet::new(),
         }
@@ -1879,6 +1881,7 @@ impl Semantics
 
         sem.calls = type_check.calls.into_iter().collect();
         sem.infers = type_check.infers;
+        sem.vartypes = type_check.vartypes;
         sem.src = resolved;
         Ok(sem)
     }
