@@ -930,6 +930,26 @@ mod tests
         assert_eq!(1, actual.len());
     }
 
+    /// test a parsing issue where oneline anon_func is a func param
+    /// confirming that this parses w/o error
+    #[test]
+    fn anon_func_as_parameter()
+    {
+        let input = r#"list.map(items, fn::i -> i * 2 --)"#;
+        let actual = parse_file(input).unwrap();
+        eprintln!("{:#?}", actual);
+
+        if let Ast::Call(callx, args) = &*actual[0].node {
+            assert_matches!(*callx.node, Ast::Op2(".", _, _));
+            assert_eq!(Ast::Id("items"), *args[0].v.node);
+            assert_matches!(*args[1].v.node, Ast::DefFunc(_, _, _, _));
+            assert_eq!(2, args.len());
+        } else {
+            panic!("expected Call, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
     /// test a parsing issue where the oneline anon_func was
     /// confusing the multiline stmt_block
     /// mainly confirming that this parses w/o error
