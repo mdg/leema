@@ -687,7 +687,6 @@ impl Type
                 a.v.localize_generics(inner_args, local_id.clone());
             }
             ft.result.localize_generics(inner_args, local_id);
-            self.args[0].v = Type::VOID;
         } else {
             for a in self.args.iter_mut() {
                 a.v.localize_generics(type_args, local_id.clone());
