@@ -376,7 +376,7 @@ impl<'p> ScopeCheck<'p>
             }
         }
         let mut next_type_it = ANON_FUNC_TYPES.iter();
-        if *result.node == Ast::Id("Void") {
+        if *result.node == Ast::NOTOKEN {
             let next_type = next_type_it.next().unwrap();
             type_args.push(StrupleItem::new(Some(next_type), AstNode::void()));
             type_type_args.push(StrupleItem::new(
@@ -677,6 +677,8 @@ impl<'p> ScopeCheck<'p>
                 node.typ = func.t;
                 self.anons
                     .push(StrupleItem::new(Lstr::Sref(func.f), def_func));
+                self.localize_node(node);
+                return Ok(AstStep::Rewrite);
             }
             _ => {
                 // do nothing otherwise
@@ -1929,10 +1931,10 @@ mod tests
     }
 
     #[test]
-    fn scope_check_anon_func()
+    fn scopecheck_anon_func()
     {
         let input = r#"
-        func main ->
+        func main:Int ->
             let x2 := fn::i -> i * 2 --
             x2(3)
         --
@@ -1942,11 +1944,11 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let sem = prog.read_semantics(&fref).unwrap();
-        assert_eq!(2, sem.infers.len());
+        assert_eq!(3, sem.infers.len());
     }
 
     #[test]
-    fn scope_check_var_out_of_scope()
+    fn scopecheck_var_out_of_scope()
     {
         // 4;[6]
         let input = r#"
@@ -2524,18 +2526,6 @@ mod tests
     /*
     // semantics tests copied over from inter.rs
     // these are cases that don't pass yet, but should be made to pass later
-
-    #[test]
-    fn test_compile_anon_func()
-    {
-        let input = "
-            func foo() ->
-                let double := fn(x) x * 2
-                let ten := double(5)
-                \"5 * 2 == $ten\"
-            --
-            "
-    }
 
     #[test]
     fn test_compile_closure()

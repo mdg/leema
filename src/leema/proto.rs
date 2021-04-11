@@ -1173,7 +1173,7 @@ impl ProtoModule
         opens: &TypeArgSlice,
     ) -> Lresult<Type>
     {
-        let arg_types = self.xlist_to_types(args, &opens)?;
+        let arg_types = ltry!(self.xlist_to_types(args, &opens));
         let result_type = ltry!(self.ast_to_type(&result, opens));
         if opens.is_empty() {
             Ok(Type::f(result_type, arg_types))
