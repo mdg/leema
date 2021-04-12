@@ -248,7 +248,7 @@ struct ScopeCheck<'p>
     lib: &'p ProtoLib,
     local_mod: &'p ProtoModule,
     blocks: Blockstack,
-    anons: StrupleKV<Lstr, Ast>,
+    anons: StrupleKV<Lstr, AstNode>,
     ftyp: &'p FuncTypeRef<'p>,
     type_args: &'p TypeArgSlice,
     next_local_id: u32,
@@ -671,10 +671,11 @@ impl<'p> ScopeCheck<'p>
                 *name = new_name;
 
                 // take the node as a new function, leave a call in its place
-                let def_func = mem::take(&mut *node.node);
+                let func_node = mem::take(&mut *node.node);
                 let call: Lresult<Val> = From::from(&func);
                 *node.node = Ast::ConstVal(ltry!(call));
                 node.typ = func.t;
+                let def_func = AstNode::new(func_node, node.loc);
                 self.anons
                     .push(StrupleItem::new(Lstr::Sref(func.f), def_func));
                 self.localize_node(node);
@@ -710,7 +711,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
         }
     }
 
-    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Block(_) => {
@@ -735,6 +736,30 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         return Ok(AstStep::Rewrite);
                     }
                 }
+            }
+            Ast::List(items) if mode == AstMode::Type => {
+                if items.len() != 1 {
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "list types must have one element",
+                        "num_items": ldisplay!(items.len()),
+                        "items": ldebug!(items),
+                    ));
+                }
+                let inner = match &*items[0].v.node {
+                    Ast::ConstVal(Val::Type(t)) => t.clone(),
+                    Ast::Type(t) => t.clone(),
+                    other => {
+                        return Err(lfail!(
+                            failure::Mode::TypeFailure,
+                            "unexpected inner list type",
+                            "type": ldebug!(other),
+                        ));
+                    }
+                };
+                let list_t = Type::list(inner);
+                *node.node = Ast::ConstVal(Val::Type(list_t));
+                return Ok(AstStep::Rewrite);
             }
             _ => {
                 // do nothing, keep walking
@@ -1385,8 +1410,20 @@ impl<'p> TypeCheck<'p>
                 }
                 node.typ = self.match_case_types(cases)?;
             }
-            Ast::Let(ref mut patt, _, ref mut x) => {
-                let typ = ltry!(self.match_type(&patt.typ, &x.typ));
+            Ast::Let(ref mut patt, ref mut let_typ, ref mut x) => {
+                let mut typ = ltry!(self.match_type(&patt.typ, &x.typ));
+                if *let_typ.node == Ast::NOTOKEN {
+                    // no type was given, stick w/ patt <=> x
+                } else if let Ast::ConstVal(Val::Type(t)) = &*let_typ.node {
+                    typ = ltry!(self.match_type(&t, &typ));
+                    let_typ.typ = Type::KIND;
+                } else {
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "unexpected let type node",
+                        "type": ldebug!(let_typ),
+                    ));
+                }
                 patt.typ = typ.clone();
                 x.typ = typ;
             }
@@ -1547,6 +1584,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 node.typ = Type::UNKNOWN;
             }
             Ast::Let(_, _, _) => {
+                // a let statment has no return type
                 node.typ = Type::VOID;
             }
             Ast::Op2(_, _, _) => {
@@ -1627,7 +1665,12 @@ impl<'l> ast2::Op for ResolveTypes<'l>
     fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         if node.typ == Type::UNKNOWN {
-            panic!("unknown type: {:#?}", node);
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "unknown node type",
+                "type": ldisplay!(node.typ),
+                "node": ldebug!(node.node),
+            ));
         }
         match &mut *node.node {
             Ast::Type(t) if t.contains_local() => {
@@ -1732,6 +1775,7 @@ pub struct Semantics
     pub vartypes: HashMap<&'static str, Type>,
     pub infers: HashMap<Lstr, Type>,
     pub calls: HashSet<Fref>,
+    pub anons: Vec<Ast>,
 }
 
 impl Semantics
@@ -1744,6 +1788,7 @@ impl Semantics
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: HashSet::new(),
+            anons: vec![],
         }
     }
 
@@ -1755,6 +1800,7 @@ impl Semantics
     pub fn compile_call(lib: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
+        let anons: Vec<_>;
 
         let (modname, body) = lib.take_func(&f)?;
         if *body.node == Ast::BLOCK_ABSTRACT {
@@ -1836,6 +1882,7 @@ impl Semantics
                     "variables": ldebug!(scope_check.blocks.out_of_scope()),
                 ));
             }
+            anons = scope_check.anons;
             result
         };
 
@@ -1883,6 +1930,16 @@ impl Semantics
         sem.infers = type_check.infers;
         sem.vartypes = type_check.vartypes;
         sem.src = resolved;
+
+        if !anons.is_empty() {
+            let proto_mut = lib.path_proto_mut(&f.m.name).unwrap();
+            for a in anons {
+                ltry!(
+                    proto_mut.add_definition(a.v),
+                    "func": a.k,
+                );
+            }
+        }
         Ok(sem)
     }
 }

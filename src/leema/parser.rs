@@ -416,7 +416,7 @@ impl LeemaPrec
                                     ltry!(self.primary(Mode::Type, typ_or_rhs));
                                 (typ_node, real_rhs)
                             }
-                            None => (AstNode::no_token(), typ_or_rhs),
+                            None => (AstNode::notoken(), typ_or_rhs),
                         };
                         let rhs_node = ltry!(self.primary(Mode::Value, rhs));
                         Ast::Let(id, typ, rhs_node)
@@ -541,7 +541,7 @@ impl LeemaPrec
             Rule::def_func_result => {
                 match n.into_inner().next() {
                     Some(result) => self.primary(Mode::Type, result),
-                    None => Ok(AstNode::no_token()),
+                    None => Ok(AstNode::notoken()),
                 }
             }
             Rule::list_type => {
@@ -570,7 +570,7 @@ impl LeemaPrec
                 let body = self.primary(Mode::Value, inner.next().unwrap())?;
                 Ok(AstNode::new(
                     Ast::DefFunc(
-                        AstNode::no_token(),
+                        AstNode::notoken(),
                         func_args,
                         func_result,
                         body,

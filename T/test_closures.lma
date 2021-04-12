@@ -14,7 +14,7 @@ func main ->
     print("double i = $i2\n")
 
     ## an anonymous function
-    let i3 := list.map(items, fn::i -> i * 3 --)
+    let i3: [Int] := list.map(items, fn::i -> i * 3 --)
     print("triple i = $i3\n")
 
     ## a closure, pulling in outer scope

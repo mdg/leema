@@ -467,7 +467,7 @@ impl AstNode
         }
     }
 
-    pub fn no_token() -> AstNode
+    pub fn notoken() -> AstNode
     {
         AstNode {
             node: Box::new(Ast::NOTOKEN),
@@ -475,7 +475,7 @@ impl AstNode
                 lineno: 0,
                 column: 0,
             },
-            typ: Type::UNKNOWN,
+            typ: Type::NOTOKEN,
             dst: Reg::Undecided,
         }
     }
@@ -778,9 +778,11 @@ impl Walker
                     steptry!(self.walk(ch, op));
                 }
             }
-            Ast::Let(ref mut lhp, _lht, ref mut rhs) => {
+            Ast::Let(ref mut lhp, ref mut lht, ref mut rhs) => {
                 self.set_mode(AstMode::Pattern(LocalType::Let));
                 steptry!(self.walk(lhp, op));
+                self.set_mode(AstMode::Type);
+                steptry!(self.walk(lht, op));
                 self.set_mode(AstMode::Value);
                 steptry!(self.walk(rhs, op));
             }
