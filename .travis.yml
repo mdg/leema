@@ -3,6 +3,9 @@ rust:
   - 1.48.0
 python:
   - 3.9
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install python3
 install:
   - sudo pip3 install nose
   - rustup install nightly
