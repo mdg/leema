@@ -18,7 +18,7 @@ func main ->
     print("triple i = $i3\n")
 
     ## a closure, pulling in outer scope
-    let multiplier := 4
-    let im := list.map(items, fn::i -> i * multiplier --)
-    print("multiplied i = $im\n")
+    ## let multiplier := 4
+    ## let im := list.map(items, fn::i -> i * multiplier --)
+    ## print("multiplied i = $im\n")
 --

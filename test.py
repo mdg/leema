@@ -219,7 +219,6 @@ class TestScripts(unittest.TestCase):
             result['stderr'])
 
     def test_closures(self):
-        self.skipTest("not ready for testing")
         result = run_leema('test_closures')
         self.assertEqual(0, result['code'])
         exp = b"double i = [2,4,6,8,]\n" \
