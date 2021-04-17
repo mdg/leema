@@ -1881,14 +1881,10 @@ impl Semantics
             (result, scope_check.anons)
         };
 
-
         // type check and remove unnecessary code
         let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
-        let mut remove_extra = RemoveExtraCode;
-        let mut type_pipe =
-            ast2::Pipeline::new(vec![&mut remove_extra, &mut type_check]);
         let mut result = ltry!(
-            ast2::walk(scoped, &mut type_pipe),
+            ast2::walk(scoped, &mut type_check),
             "module": modname.as_lstr().clone(),
             "function": Lstr::Sref(f.f),
             "type": ldebug!(ftyp),
@@ -1904,8 +1900,11 @@ impl Semantics
 
         let mut resolver =
             ResolveTypes::new(proto.key.clone(), &type_check.infers);
+        let mut remove_extra = RemoveExtraCode;
+        let mut resolve_pipe =
+            ast2::Pipeline::new(vec![&mut remove_extra, &mut resolver]);
         let resolved = ltry!(
-            ast2::walk(result, &mut resolver),
+            ast2::walk(result, &mut resolve_pipe),
             "module": modname.as_lstr().clone(),
             "function": Lstr::Sref(f.f),
             "type": ldebug!(ftyp),
