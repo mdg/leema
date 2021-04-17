@@ -73,97 +73,6 @@ lazy_static! {
 
 const ANON_FUNC_TYPES: [&'static str; 5] = ["A.0", "A.1", "A.2", "A.3", "A.4"];
 
-/// Can this whole step just be blended into ScopeCheck?
-struct MacroApplication<'l>
-{
-    lib: &'l ProtoLib,
-    local: &'l ProtoModule,
-}
-
-impl<'l> MacroApplication<'l>
-{
-    pub fn new(
-        lib: &'l ProtoLib,
-        local: &'l ProtoModule,
-    ) -> MacroApplication<'l>
-    {
-        MacroApplication { lib, local }
-    }
-
-    fn apply_macro(mac: &Ast, loc: Loc, args: &Xlist) -> AstResult
-    {
-        let (macro_name, arg_names, body) =
-            if let Ast::DefMacro(iname, idefargs, ibody) = mac {
-                (iname, idefargs, ibody)
-            } else {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "invalid macro definition: {:?}",
-                    mac,
-                ));
-            };
-        match (arg_names.len(), args.len()) {
-            (a, b) if a < b => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "too many arguments passed to macro {}, expected {}, found {:?}",
-                    macro_name,
-                    a,
-                    args,
-                ));
-            }
-            (a, b) if a > b => {
-                return Err(rustfail!(
-                    SEMFAIL,
-                    "too few arguments passed to macro {}, expected {}",
-                    macro_name,
-                    a
-                ));
-            }
-            _ => {
-                // a == b. cool, proceed
-            }
-        }
-
-        let mut arg_map: HashMap<&'static str, &AstNode> = HashMap::new();
-        for (n, arg_val) in arg_names.iter().zip(args.iter()) {
-            arg_map.insert(n, &arg_val.v);
-        }
-        vout!("replace_ids({:?})\n", arg_map);
-        let mut macro_replace = MacroReplacement { arg_map, loc };
-        Ok(ast2::walk(body.clone(), &mut macro_replace)?)
-    }
-}
-
-impl<'l> ast2::Op for MacroApplication<'l>
-{
-    fn pre(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
-    {
-        match &mut *node.node {
-            Ast::Call(callid, args) => {
-                match &mut *callid.node {
-                    mac @ Ast::DefMacro(_, _, _) => {
-                        // should this happen in post?
-                        *node = Self::apply_macro(mac, node.loc, args)?;
-                        return Ok(AstStep::Rewrite);
-                    }
-                    _other => {} // do nothing
-                }
-            }
-            _ => {}
-        }
-        Ok(AstStep::Ok)
-    }
-}
-
-impl<'l> fmt::Debug for MacroApplication<'l>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        write!(f, "MacroApplication")
-    }
-}
-
 #[derive(Debug)]
 struct MacroReplacement<'a>
 {
@@ -371,6 +280,50 @@ impl<'p> ScopeCheck<'p>
         Some(AstNode::new(Ast::Call(callx, args), loc))
     }
 
+    fn apply_macro(mac: &Ast, loc: Loc, args: &Xlist) -> AstResult
+    {
+        let (macro_name, arg_names, body) =
+            if let Ast::DefMacro(iname, idefargs, ibody) = mac {
+                (iname, idefargs, ibody)
+            } else {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "invalid macro definition: {:?}",
+                    mac,
+                ));
+            };
+        match (arg_names.len(), args.len()) {
+            (a, b) if a < b => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "too many arguments passed to macro {}, expected {}, found {:?}",
+                    macro_name,
+                    a,
+                    args,
+                ));
+            }
+            (a, b) if a > b => {
+                return Err(rustfail!(
+                    SEMFAIL,
+                    "too few arguments passed to macro {}, expected {}",
+                    macro_name,
+                    a
+                ));
+            }
+            _ => {
+                // a == b. cool, proceed
+            }
+        }
+
+        let mut arg_map: HashMap<&'static str, &AstNode> = HashMap::new();
+        for (n, arg_val) in arg_names.iter().zip(args.iter()) {
+            arg_map.insert(n, &arg_val.v);
+        }
+        vout!("replace_ids({:?})\n", arg_map);
+        let mut macro_replace = MacroReplacement { arg_map, loc };
+        Ok(ast2::walk(body.clone(), &mut macro_replace)?)
+    }
+
     fn pre_closure(
         &mut self,
         loc: Loc,
@@ -510,10 +463,18 @@ impl<'p> ScopeCheck<'p>
                     self.blocks.access_var(id, node.loc.lineno as i16);
                 }
             }
-            Ast::Call(ref mut callx, _) => {
+            Ast::Call(callx, args) => {
                 // go depth first on the call expression to find any macros
                 // alternatively, maybe apply macros in post?
-                return ast2::walk_ref_mut(callx, self);
+                ltry!(ast2::walk_ref_mut(callx, self));
+                match &mut *callx.node {
+                    mac @ Ast::DefMacro(_, _, _) => {
+                        // should this happen in post?
+                        *node = Self::apply_macro(mac, node.loc, args)?;
+                        return Ok(AstStep::Rewrite);
+                    }
+                    _other => {} // do nothing
+                }
             }
             Ast::Canonical(c) => {
                 if self.lib.path_proto(c).is_ok() {
@@ -1904,11 +1865,8 @@ impl Semantics
         // check scope and apply macros
         let (scoped, anons) = {
             let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
-            let mut macs = MacroApplication::new(lib, proto);
-            let mut scope_pipe =
-                ast2::Pipeline::new(vec![&mut scope_check, &mut macs]);
             let result = ltry!(
-                ast2::walk(body, &mut scope_pipe),
+                ast2::walk(body, &mut scope_check),
                 "module": modname.as_lstr().clone(),
                 "function": Lstr::Sref(f.f),
                 "type": ldebug!(ftyp),
