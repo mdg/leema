@@ -1,0 +1,11 @@
+
+import /io.print
+import /list
+
+func main ->
+    let items := [1, 2, 3, 4]
+
+    ## an anonymous function
+    let i3: [Int] := list.map(items, fn::i -> i * 3 --)
+    print("triple i = $i3\n")
+--

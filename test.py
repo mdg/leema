@@ -151,6 +151,11 @@ class TestScripts(unittest.TestCase):
             b"l2: [4,6,3,2,8,]\n",
             result['output'])
 
+    def test_list_map(self):
+        result = run_leema('test_list_map')
+        self.assertEqual(0, result['code'])
+        self.assertEqual(b"output: [6,8,10,]\n", result['output'])
+
     def test_list_match_all(self):
         result = run_leema('list_match_all')
         self.assertEqual(0, result['code'])
@@ -218,7 +223,14 @@ class TestScripts(unittest.TestCase):
             b"Failure(#xis4 'tacos are delicious')\n",
             result['stderr'])
 
+    def test_anon_func(self):
+        result = run_leema('test_anon_func')
+        self.assertEqual(0, result['code'])
+        exp = b"triple i = [3,6,9,12,]\n"
+        self.assertEqual(exp, result['output'])
+
     def test_closures(self):
+        self.skipTest("not reimplemented yet")
         result = run_leema('test_closures')
         self.assertEqual(0, result['code'])
         exp = b"double i = [2,4,6,8,]\n" \
