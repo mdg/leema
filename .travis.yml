@@ -5,7 +5,7 @@ python:
   - 3.9
 before_install:
   - sudo apt-get update
-  - sudo apt-get install python3
+  - sudo apt-get install python3 python3-pip
 install:
   - sudo pip3 install nose
   - rustup install nightly
