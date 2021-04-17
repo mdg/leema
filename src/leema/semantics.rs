@@ -284,6 +284,30 @@ impl<'p> ScopeCheck<'p>
         })
     }
 
+    fn closure(&self, ftyp: &'p FuncTypeRef) -> ScopeCheck<'p>
+    {
+        let mut args: Vec<&'static str> = Vec::new();
+        for a in ftyp.args.iter() {
+            match a.k {
+                Lstr::Sref(arg) => {
+                    args.push(arg);
+                }
+                _ => {
+                    panic!("function argument missing name: {:?}", ftyp);
+                }
+            }
+        }
+        ScopeCheck {
+            lib: self.lib,
+            local_mod: self.local_mod,
+            blocks: Blockstack::with_args(args),
+            anons: vec![],
+            ftyp,
+            type_args: &ftyp.type_args,
+            next_local_id: self.next_local_id + 1,
+        }
+    }
+
     fn localized_id(&mut self, loc: &Loc) -> String
     {
         let local_id = self.next_local_id;
@@ -405,6 +429,16 @@ impl<'p> ScopeCheck<'p>
         }
         let ftyp =
             ltry!(self.local_mod.ast_to_ftype(result, args, &type_type_args));
+
+        // scope check the closure/anonymous function
+        let ftyp_ref = ftyp.func_ref().unwrap();
+        let mut closure_scope = self.closure(&ftyp_ref);
+        ltry!(ast2::walk_ref_mut(body, &mut closure_scope));
+        self.anons.append(&mut closure_scope.anons);
+        for var in closure_scope.blocks.out_of_scope() {
+            self.blocks.access_var(var.0, *var.1);
+        }
+
         let fref = Fref::new(self.local_mod.key.clone(), name, ftyp);
         let fname = AstNode::new(Ast::Id(name), loc);
         if type_args.is_empty() {
@@ -471,13 +505,9 @@ impl<'p> ScopeCheck<'p>
                     node.replace_node(b.clone());
                     return Ok(AstStep::Rewrite);
                 } else {
-                    return Err(lfail!(
-                        failure::Mode::CompileFailure,
-                        "var not in scope",
-                        "id": Lstr::Sref(id),
-                        "file": self.local_mod.key.best_path(),
-                        "line": ldisplay!(loc.lineno),
-                    ));
+                    // write the var as accessed, will check if it's
+                    // out of scope or enclosed later
+                    self.blocks.access_var(id, node.loc.lineno as i16);
                 }
             }
             Ast::Call(ref mut callx, _) => {
@@ -893,6 +923,15 @@ impl<'p> TypeCheck<'p>
             (Type::PATH_LOCAL, Type::PATH_LOCAL) => {
                 let v0 = &t0.first_arg()?.k;
                 let v1 = &t1.first_arg()?.k;
+                // unpuncated type vars are types for variables,
+                // keep those in favor of generated type names
+                let v0p = Type::is_punctuated(v0);
+                let v1p = Type::is_punctuated(v1);
+                match (v0p, v1p) {
+                    (false, true) => return Ok(ltry!(self.infer_type(v0, t1))),
+                    (true, false) => return Ok(ltry!(self.infer_type(v1, t0))),
+                    _ => {} // fall through to alpha comparison
+                }
                 match Ord::cmp(v0, v1) {
                     Ordering::Equal => Ok(self.inferred_local(v0)),
                     Ordering::Less => {
@@ -1800,7 +1839,6 @@ impl Semantics
     pub fn compile_call(lib: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
-        let anons: Vec<_>;
 
         let (modname, body) = lib.take_func(&f)?;
         if *body.node == Ast::BLOCK_ABSTRACT {
@@ -1864,7 +1902,7 @@ impl Semantics
             .collect();
 
         // check scope and apply macros
-        let scoped = {
+        let (scoped, anons) = {
             let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
             let mut macs = MacroApplication::new(lib, proto);
             let mut scope_pipe =
@@ -1878,13 +1916,13 @@ impl Semantics
             if !scope_check.blocks.out_of_scope().is_empty() {
                 return Err(lfail!(
                     failure::Mode::ScopeFailure,
-                    "variables out of scope",
+                    "undefined variables",
                     "variables": ldebug!(scope_check.blocks.out_of_scope()),
                 ));
             }
-            anons = scope_check.anons;
-            result
+            (result, scope_check.anons)
         };
+
 
         // type check and remove unnecessary code
         let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
@@ -2024,7 +2062,7 @@ mod tests
     }
 
     #[test]
-    fn scopecheck_var_out_of_scope()
+    fn scopecheck_undefined_variable()
     {
         // 4;[6]
         let input = r#"
@@ -2038,7 +2076,8 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let result = prog.read_semantics(&fref);
         let fail = result.unwrap_err();
-        assert_eq!("var not in scope", fail.msg.str());
+        assert_eq!("scope_failure", fail.tag.str());
+        assert_eq!("undefined variables", fail.msg.str());
     }
 
     #[test]
@@ -2471,23 +2510,6 @@ mod tests
             ("/d", input_d),
         ]);
         prog.read_semantics(&Fref::from(("/a", "main"))).unwrap();
-    }
-
-    #[test]
-    fn test_semantics_undefined_variable()
-    {
-        let baz_input = r#"
-        func main >>
-            let a := blah
-            "a is $a\n"
-        --
-        "#
-        .to_string();
-
-        let mut prog = core_program(&[("/baz", baz_input)]);
-        let fref = Fref::from(("/baz", "main"));
-        let f = prog.read_semantics(&fref).unwrap_err();
-        assert_eq!("compile_failure", f.tag.str());
     }
 
     #[test]

@@ -694,6 +694,11 @@ impl Type
         }
     }
 
+    pub fn is_punctuated(name: &str) -> bool
+    {
+        name.chars().any(|c| c.is_ascii_punctuation() && c != '_')
+    }
+
     // replace an open variable in this type with the new type
     pub fn replace_openvar(&mut self, id: &str, new_type: &Type)
     {
