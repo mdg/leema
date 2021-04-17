@@ -4,7 +4,7 @@ rust:
 python:
   - 3.9
 install:
-  - sudo pip install nose
+  - sudo pip3 install nose
   - rustup install nightly
   - rustup component add rustfmt-preview --toolchain nightly
 script: make travis
