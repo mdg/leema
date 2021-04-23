@@ -666,10 +666,11 @@ impl<'p> ScopeCheck<'p>
                 let call: Lresult<Val> = From::from(&func);
                 *node.node = Ast::ConstVal(ltry!(call));
                 node.typ = func.t;
-                let def_func = AstNode::new(func_node, node.loc);
+                self.localize_node(node);
+                let mut def_func = AstNode::new(func_node, node.loc);
+                def_func.typ = node.typ.clone();
                 self.anons
                     .push(StrupleItem::new(Lstr::Sref(func.f), def_func));
-                self.localize_node(node);
                 return Ok(AstStep::Rewrite);
             }
             _ => {
@@ -785,7 +786,6 @@ struct TypeCheck<'p>
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
-    anons: StrupleKV<Lstr, AstNode>,
     next_local_index: u32,
 }
 
@@ -804,7 +804,6 @@ impl<'p> TypeCheck<'p>
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
-            anons: vec![],
             next_local_index: 0,
         };
 
@@ -817,26 +816,20 @@ impl<'p> TypeCheck<'p>
         Ok(check)
     }
 
-    pub fn closure(&self, ftyp: &'p FuncTypeRef<'p>) -> Lresult<TypeCheck<'p>>
+    pub fn add_anon_func_args(&mut self, ftyp: &FuncTypeRef<'p>)
+        -> Lresult<()>
     {
-        let mut check = TypeCheck {
-            lib: self.lib,
-            local_mod: self.local_mod,
-            result: Type::VOID,
-            vartypes: HashMap::new(),
-            infers: HashMap::new(),
-            calls: vec![],
-            anons: vec![],
-            next_local_index: 0,
-        };
-
         for arg in ftyp.args.iter() {
             let argname = arg.k.sref()?;
-            let argt = ltry!(check.inferred_type(&arg.v));
-            check.vartypes.insert(argname, argt);
+            if self.vartypes.contains_key(argname) {
+                let old_arg = self.vartypes.get(argname).unwrap().clone();
+                dbg!(ltry!(self.match_type(&arg.v, &old_arg)));
+            } else {
+                let argt = ltry!(self.inferred_type(&arg.v));
+                self.vartypes.insert(argname, argt);
+            }
         }
-        check.result = ltry!(check.inferred_type(&ftyp.result));
-        Ok(check)
+        Ok(())
     }
 
     pub fn inferred_local(&self, local_tvar: &Lstr) -> Type
@@ -1069,23 +1062,6 @@ impl<'p> TypeCheck<'p>
         let t = ltry!(self.inferred_type(&calltype));
         *calltype = t;
         Ok(calltype.clone())
-    }
-
-    fn first_open_var(
-        typeargs: &StrupleKV<&'static str, Type>,
-    ) -> Lresult<(usize, &'static str)>
-    {
-        for (idx, i) in typeargs.iter().enumerate() {
-            if i.v.is_open() || i.v == Type::UNKNOWN {
-                return Ok((idx, i.k));
-            }
-        }
-        Err(Failure::static_leema(
-            failure::Mode::CompileFailure,
-            lstrf!("open type has no open subtypes: {:?}", typeargs),
-            Lstr::Sref(""),
-            0,
-        ))
     }
 
     pub fn applied_call_type(
@@ -1474,21 +1450,6 @@ impl<'p> TypeCheck<'p>
                     })
                     .collect();
                 node.typ = Type::tuple(itypes?);
-            }
-            Ast::DefFunc(name, args, result, body) => {
-                // typecheck into the closure body
-                let ftyp_ref = node.typ.func_ref().unwrap();
-                let closure_check = ltry!(self.closure(&ftyp_ref));
-                self.anons.append(&mut closure_check.anons);
-
-                // take the node as a new function, leave a call in its place
-                let func_node = mem::take(&mut *node.node);
-                let call: Lresult<Val> = From::from(&ftyp_ref);
-                *node.node = Ast::ConstVal(ltry!(call));
-                node.typ = func.t;
-                let def_func = AstNode::new(func_node, node.loc);
-                self.anons
-                    .push(StrupleItem::new(Lstr::Sref(func.f), def_func));
             }
             Ast::ConstVal(_) => {
                 // leave as is
@@ -1902,7 +1863,7 @@ impl Semantics
             .collect();
 
         // check scope and apply macros
-        let (scoped, anons) = {
+        let (scoped, mut anons) = {
             let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
             let result = ltry!(
                 ast2::walk(body, &mut scope_check),
@@ -1914,6 +1875,8 @@ impl Semantics
                 return Err(lfail!(
                     failure::Mode::ScopeFailure,
                     "undefined variables",
+                    "module": modname.as_lstr().clone(),
+                    "function": Lstr::Sref(f.f),
                     "variables": ldebug!(scope_check.blocks.out_of_scope()),
                 ));
             }
@@ -1935,6 +1898,17 @@ impl Semantics
         } else {
             result.typ =
                 ltry!(type_check.match_type(&ftyp.result, &result.typ));
+        }
+
+        for an in anons.iter_mut() {
+            if let Ast::DefFunc(_name, _args, _result, body) = &mut *an.v.node {
+                let anon_ftyp = an.v.typ.func_ref().unwrap();
+                ltry!(type_check.add_anon_func_args(&anon_ftyp));
+                ltry!(ast2::walk_ref_mut(body, &mut type_check));
+                ltry!(type_check.match_type(&anon_ftyp.result, &body.typ));
+            } else {
+                panic!("not a func: {:?}", an);
+            }
         }
 
         let mut resolver =
