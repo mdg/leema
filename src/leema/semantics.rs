@@ -785,6 +785,7 @@ struct TypeCheck<'p>
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
+    anons: StrupleKV<Lstr, AstNode>,
     next_local_index: u32,
 }
 
@@ -799,10 +800,33 @@ impl<'p> TypeCheck<'p>
         let mut check = TypeCheck {
             lib,
             local_mod,
+            result: Type::UNKNOWN,
+            vartypes: HashMap::new(),
+            infers: HashMap::new(),
+            calls: vec![],
+            anons: vec![],
+            next_local_index: 0,
+        };
+
+        for arg in ftyp.args.iter() {
+            let argname = arg.k.sref()?;
+            let argt = ltry!(check.inferred_type(&arg.v));
+            check.vartypes.insert(argname, argt);
+        }
+        check.result = ltry!(check.inferred_type(&ftyp.result));
+        Ok(check)
+    }
+
+    pub fn closure(&self, ftyp: &'p FuncTypeRef<'p>) -> Lresult<TypeCheck<'p>>
+    {
+        let mut check = TypeCheck {
+            lib: self.lib,
+            local_mod: self.local_mod,
             result: Type::VOID,
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
+            anons: vec![],
             next_local_index: 0,
         };
 
@@ -1450,6 +1474,21 @@ impl<'p> TypeCheck<'p>
                     })
                     .collect();
                 node.typ = Type::tuple(itypes?);
+            }
+            Ast::DefFunc(name, args, result, body) => {
+                // typecheck into the closure body
+                let ftyp_ref = node.typ.func_ref().unwrap();
+                let closure_check = ltry!(self.closure(&ftyp_ref));
+                self.anons.append(&mut closure_check.anons);
+
+                // take the node as a new function, leave a call in its place
+                let func_node = mem::take(&mut *node.node);
+                let call: Lresult<Val> = From::from(&ftyp_ref);
+                *node.node = Ast::ConstVal(ltry!(call));
+                node.typ = func.t;
+                let def_func = AstNode::new(func_node, node.loc);
+                self.anons
+                    .push(StrupleItem::new(Lstr::Sref(func.f), def_func));
             }
             Ast::ConstVal(_) => {
                 // leave as is
