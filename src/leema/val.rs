@@ -180,6 +180,7 @@ pub struct FuncTypeRefMut<'a>
     pub closed_args: Option<&'a mut TypeArgSlice>,
 }
 
+#[derive(Debug)]
 pub struct TypeRef<'a>(pub &'a str, pub &'a TypeArgSlice);
 pub struct TypeRefMut<'a>(pub &'a str, pub &'a mut TypeArgSlice);
 
@@ -205,6 +206,7 @@ impl Type
     /// Canonical path for the closure type
     /// FnType ClosedArgTypes
     pub const PATH_CLOSURE: &'static str = "/core/Closure";
+    pub const PATH_CLOSURE_IMPL: &'static str = "/core/ClosureImpl";
     /// Canonical path for the func type
     pub const PATH_FN: &'static str = "/core/Fn";
     pub const PATH_FAILURE: &'static str = "/core/Failure";
@@ -325,6 +327,7 @@ impl Type
         )
     }
 
+    /// Construct a closure type. This may not be necessary
     pub fn closure(inner: Type, closed: TypeArgs) -> Type
     {
         let closed_argst = Type::t(Type::PATH_FN_CLOSEDARGS, closed);
@@ -333,6 +336,30 @@ impl Type
             vec![
                 StrupleItem::new(Type::FNKEY_FN, inner),
                 StrupleItem::new(Type::FNKEY_CLOSED, closed_argst),
+            ],
+        )
+    }
+
+    /// Construct the type of a closure implementation function
+    pub fn closure_impl(inner: Type, closed: TypeArgs) -> Type
+    {
+        Type::t(
+            Type::PATH_CLOSURE_IMPL,
+            vec![
+                StrupleItem::new(Lstr::Sref("F"), inner),
+                StrupleItem::new(Lstr::Sref("T"), Type::tuple(closed)),
+            ],
+        )
+    }
+
+    /// Construct the type of a closure implementation function
+    pub fn open_closure_impl() -> Type
+    {
+        Type::t(
+            Type::PATH_CLOSURE_IMPL,
+            vec![
+                StrupleItem::new(Lstr::Sref("F"), Type::UNKNOWN),
+                StrupleItem::new(Lstr::Sref("T"), Type::UNKNOWN),
             ],
         )
     }
@@ -426,7 +453,7 @@ impl Type
         if let Some(f) = self.func_ref() {
             !f.type_args.is_empty()
         } else {
-            false
+            true
         }
     }
 
@@ -564,6 +591,21 @@ impl Type
             &f.type_args
         } else {
             self.args.as_slice()
+        }
+    }
+
+    pub fn generic_ref<'a>(&'a self) -> Option<TypeRef<'a>>
+    {
+        if let Some(f) = self.func_ref() {
+            if f.type_args.is_empty() {
+                None
+            } else {
+                Some(TypeRef(self.path.as_str(), &f.type_args))
+            }
+        } else if self.args.is_empty() {
+            None
+        } else {
+            Some(self.type_ref())
         }
     }
 
@@ -1120,7 +1162,6 @@ pub enum Val
     Type(Type),
     Lib(Arc<dyn LibVal>),
     Call(Fref, Struple2<Val>),
-    /// Call, Call Args, TrueCall, ClosedArgs
     Closure(Fref, Struple2<Val>, Fref, Struple2<Val>),
     ResourceRef(i64),
     Future(Arc<Mutex<Receiver<Val>>>),

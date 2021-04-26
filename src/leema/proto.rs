@@ -80,6 +80,7 @@ lazy_static! {
         let mut ids = HashMap::new();
         // types
         ids.insert("Bool", Ast::canonical("/core/Bool"));
+        ids.insert("ClosureImpl", Ast::canonical("/core/ClosureImpl"));
         ids.insert("Int", Ast::canonical("/core/Int"));
         ids.insert("Str", Ast::canonical("/core/Str"));
         ids.insert("Option", Ast::canonical("/core/Option"));
@@ -118,6 +119,7 @@ lazy_static! {
     static ref BUILTIN_TYPES: HashMap<&'static str, Type> = {
         let mut ids = HashMap::new();
         ids.insert("Bool", Type::BOOL);
+        ids.insert("ClosureImpl", Type::open_closure_impl());
         ids.insert("Int", Type::INT);
         ids.insert("Option", Type::option(None));
         ids.insert("Str", Type::STR);
@@ -1086,10 +1088,10 @@ impl ProtoModule
                 } else if let Some(dt) = BUILTIN_TYPES.get(id) {
                     dt.clone()
                 } else {
-                    return Err(rustfail!(
-                        "internal_failure",
-                        "should this have been found? {}",
-                        id,
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "undefined type",
+                        "type": Lstr::Sref(id),
                     ));
                 }
             }
@@ -1116,18 +1118,44 @@ impl ProtoModule
             }
             Ast::Generic(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
-                let genargsr: Lresult<TypeArgs> = typeargs
-                    .iter()
-                    .enumerate()
-                    .map(|(i, t)| {
-                        let k = t.k.map(|s| Lstr::Sref(s));
-                        Ok(StrupleItem::new(
-                            Type::unwrap_name(&k, i),
-                            ltry!(self.ast_to_type(&t.v, opens)),
-                        ))
-                    })
-                    .collect();
-                let genargs = genargsr?;
+                let genargs: TypeArgs;
+                genargs = if let Some(gen_ref) = genbase.generic_ref() {
+                    if gen_ref.1.len() != typeargs.len() {
+                        return Err(lfail!(
+                            failure::Mode::TypeFailure,
+                            "generic inner generic",
+                            "line": ldisplay!(node.loc.lineno),
+                            "generic_base": ldisplay!(genbase),
+                            "args": ldebug!(typeargs),
+                        ));
+                    }
+                    let genargsr: Lresult<TypeArgs>;
+                    genargsr = gen_ref
+                        .1
+                        .iter()
+                        .zip(typeargs.iter())
+                        .map(|(k, v)| {
+                            Ok(StrupleItem::new(
+                                k.k.clone(),
+                                ltry!(self.ast_to_type(&v.v, opens)),
+                            ))
+                        })
+                        .collect();
+                    ltry!(genargsr)
+                } else {
+                    let genargsr: Lresult<TypeArgs> = typeargs
+                        .iter()
+                        .enumerate()
+                        .map(|(i, t)| {
+                            let k = t.k.map(|s| Lstr::Sref(s));
+                            Ok(StrupleItem::new(
+                                Type::unwrap_name(&k, i),
+                                ltry!(self.ast_to_type(&t.v, opens)),
+                            ))
+                        })
+                        .collect();
+                    ltry!(genargsr)
+                };
                 Type::new(genbase.path.clone(), genargs)
             }
             Ast::ConstVal(cv) => cv.get_type(),
