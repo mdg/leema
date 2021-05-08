@@ -38,6 +38,8 @@ use lazy_static::lazy_static;
 const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
 
+const CLOSED_VAR: &'static str = "closed-var";
+
 lazy_static! {
     static ref INFIX_CANONICALS: HashMap<&'static str, Canonical> = {
         let mut infix = HashMap::new();
@@ -148,6 +150,43 @@ impl<'a> ast2::Op for MacroReplacement<'a>
         // if not replacing the id, replace the location of the call
         // so everything in the macro body traces back to the macro name
         node.loc = self.loc;
+        Ok(AstStep::Ok)
+    }
+}
+
+struct CloseVars
+{
+    closed: TypeArgs,
+}
+
+impl CloseVars
+{
+    pub fn new(closed: TypeArgs) -> CloseVars
+    {
+        CloseVars {closed}
+    }
+}
+
+impl ast2::Op for CloseVars
+{
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
+    {
+        match &mut *node.node {
+            Ast::Id(ref idname) if mode == AstMode::Value => {
+                let found = struple::find_idx(&self.closed, idname);
+                if let Some(typ) = found {
+                    let mut closed = AstNode::new(Ast::Id(CLOSED_VAR), node.loc);
+                    closed.typ = Type::tuple(self.closed.clone());
+                    let mut field = AstNode::new(Ast::Id(idname), node.loc);
+                    field.typ = typ.1.clone();
+                    *node.node = Ast::Op2(".", closed, field);
+                    node.typ = typ.1.clone();
+                }
+            }
+            Ast::Id(_idname) if mode.is_pattern() => {
+            }
+            _ => {} // do nothing
+        }
         Ok(AstStep::Ok)
     }
 }
@@ -380,6 +419,7 @@ impl<'p> ScopeCheck<'p>
                 ));
             }
         }
+        let mut impl_type_args = type_type_args.clone();
         let ftyp =
             ltry!(self.local_mod.ast_to_ftype(result, args, &type_type_args));
 
@@ -388,8 +428,37 @@ impl<'p> ScopeCheck<'p>
         let mut closure_scope = self.closure(&ftyp_ref);
         ltry!(ast2::walk_ref_mut(body, &mut closure_scope));
         self.anons.append(&mut closure_scope.anons);
-        for var in closure_scope.blocks.out_of_scope() {
-            self.blocks.access_var(var.0, *var.1);
+
+        if !closure_scope.blocks.out_of_scope().is_empty() {
+            let out_of_scope = closure_scope.blocks.out_of_scope();
+            let mut closed_type: Xlist = Vec::with_capacity(out_of_scope.len());
+            let mut vars_to_close = Vec::with_capacity(out_of_scope.len());
+            for var in closure_scope.blocks.out_of_scope() {
+                self.blocks.access_var(var.0, *var.1);
+                let next_type_name = next_type_it.next().unwrap();
+                closed_type.push(StrupleItem::new(
+                    Some(var.0),
+                    AstNode::new(Ast::Id(next_type_name), loc),
+                ));
+                let open_typ = Type::open(Lstr::Sref(next_type_name));
+                impl_type_args.push(StrupleItem::new(
+                    Lstr::Sref(next_type_name),
+                    open_typ.clone(),
+                ));
+                vars_to_close.push(StrupleItem::new(Lstr::Sref(*var.0), open_typ));
+            }
+
+            // iterate body again and replace closed vars w/ "closed-arg.<var>"
+            let mut closed_step = CloseVars::new(vars_to_close);
+            ltry!(ast2::walk_ref_mut(body, &mut closed_step));
+
+            // first param of impl func is tuple of vars w/ name "closed var"
+            let mut impl_args = Vec::with_capacity(args.len() + 1);
+            impl_args.push(StrupleItem::new(
+                Some(CLOSED_VAR),
+                AstNode::new(Ast::Tuple(closed_type), loc),
+            ));
+            impl_args.append(args);
         }
 
         let fref = Fref::new(self.local_mod.key.clone(), name, ftyp);
