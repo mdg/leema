@@ -440,6 +440,7 @@ impl<'p> ScopeCheck<'p>
             // this is a closure
             let out_of_scope = closure_scope.blocks.out_of_scope();
             let mut closed_type: Xlist = Vec::with_capacity(out_of_scope.len());
+            let mut closed_vars: Xlist = Vec::with_capacity(out_of_scope.len());
             let mut vars_to_close = Vec::with_capacity(out_of_scope.len());
             for var in closure_scope.blocks.out_of_scope() {
                 self.blocks.access_var(var.0, *var.1);
@@ -455,6 +456,11 @@ impl<'p> ScopeCheck<'p>
                 ));
                 vars_to_close
                     .push(StrupleItem::new(Lstr::Sref(*var.0), open_typ));
+
+                closed_vars.push(StrupleItem::new_v(AstNode::new(
+                    Ast::Id(var.0),
+                    loc,
+                )));
             }
 
             // iterate body again and replace closed vars w/ "closed-arg.<var>"
@@ -468,9 +474,29 @@ impl<'p> ScopeCheck<'p>
             ));
             // create the impl function by name
             // create closure struct w/ the impl fref and the closed tuple
+            let cl_type_args = impl_type_args
+                .iter()
+                .map(|a| {
+                    StrupleItem::new_v(AstNode::new(
+                        Ast::Type(a.v.clone()),
+                        loc,
+                    ))
+                })
+                .collect();
 
             def_name_node = AstNode::void();
-            result_node = AstNode::void();
+            let cl_type_call = AstNode::new(
+                Ast::Generic(
+                    AstNode::new(
+                        Ast::Canonical(canonical!(Type::PATH_CLOSURE)),
+                        loc,
+                    ),
+                    cl_type_args,
+                ),
+                loc,
+            );
+            result_node =
+                AstNode::new(Ast::Call(cl_type_call, closed_vars), loc);
         } else {
             // this is an anoymous function w/ no closed vars
 
@@ -1403,11 +1429,11 @@ impl<'p> TypeCheck<'p>
                         return Ok(AstStep::Rewrite);
                     }
                     Ast::Generic(ref mut base, ref mut type_args) => {
-                        return Err(rustfail!(
-                            "leema_failure",
-                            "generic not previously handled: <{:?} {:?}>",
-                            base,
-                            type_args,
+                        return Err(lfail!(
+                            failure::Mode::TypeFailure,
+                            "generic not previously handled",
+                            "name": ldebug!(base),
+                            "type_args": ldebug!(type_args),
                         ));
                     }
                     // handle closure call
@@ -2126,6 +2152,46 @@ mod tests
     }
 
     #[test]
+    #[ignore]
+    fn test_compile_closure()
+    {
+        let input = r#"
+        func bar:Int ->
+            let mult := 4
+            let x_mult := fn::i -> i * mult --
+            x_mult(3)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::with_modules(From::from("/foo"), "bar");
+        let sem = prog.read_semantics(&fref).unwrap();
+        println!("infers: {:#?}\n", sem.infers);
+        assert_eq!(5, sem.infers.len());
+    }
+
+    #[test]
+    #[ignore]
+    fn test_compile_generic_constructor()
+    {
+        let input = r#"
+        datatype <Taco T> :: Int T --
+
+        func main ->
+            let t := <Taco Str>(3, "hello")
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::with_modules(From::from("/foo"), "main");
+        let sem = prog.read_semantics(&fref).unwrap();
+        println!("infers: {:#?}\n", sem.infers);
+        assert_eq!(5, sem.infers.len());
+    }
+
+    #[test]
     fn scopecheck_undefined_variable()
     {
         // 4;[6]
@@ -2688,29 +2754,6 @@ mod tests
     /*
     // semantics tests copied over from inter.rs
     // these are cases that don't pass yet, but should be made to pass later
-
-    #[test]
-    fn test_compile_closure()
-    {
-        let input = "
-            func foo(i) ->
-                let times_i := fn(x) -> x * i --
-                let result := times_i(5)
-                \"result := $result\"
-            --
-            "
-    }
-
-    #[test]
-    fn test_compile_function_closure_def()
-    {
-        let input = "
-            func foo(i) ->
-                fn(x) \"($x:$i)\"
-            --
-            "
-        .to_string();
-    }
 
     #[test]
     #[should_panic]
