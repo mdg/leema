@@ -791,6 +791,31 @@ impl<'p> ScopeCheck<'p>
         }
         Ok(AstStep::Ok)
     }
+
+    /// Handle a node that might be a type that needs to
+    /// be replaced by a constructor
+    fn post_constructor(&mut self, x: &mut AstNode) -> StepResult
+    {
+        if let Ast::Canonical(c) = &*x.node {
+            if let Ok(proto) = self.lib.path_proto(c) {
+                // check for type and find constructor
+                let optcons =
+                    proto.find_modelem(proto::MODNAME_CONSTRUCT);
+                if optcons.is_none() {
+                    return Err(rustfail!(
+                        "compile_error",
+                        "replace {} with constructor",
+                        c,
+                    ));
+                }
+                let mut cons = optcons.unwrap().clone();
+                self.localize_node(&mut cons);
+                x.replace(*cons.node, cons.typ);
+                return Ok(AstStep::Rewrite);
+            }
+        }
+        Ok(AstStep::Ok)
+    }
 }
 
 impl<'p> ast2::Op for ScopeCheck<'p>
@@ -821,7 +846,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             Ast::Block(_) => {
                 self.blocks.pop_blockscope();
             }
-            Ast::Call(callx, _) => {
+            Ast::Call(callx, _) if mode == AstMode::Value => {
                 if let Ast::Canonical(c) = &*callx.node {
                     if let Ok(proto) = self.lib.path_proto(c) {
                         // check for type and find constructor
@@ -840,6 +865,9 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                         return Ok(AstStep::Rewrite);
                     }
                 }
+            }
+            Ast::Generic(inner, _) if mode == AstMode::Value  => {
+                steptry!(self.post_constructor(inner));
             }
             Ast::List(items) if mode == AstMode::Type => {
                 if items.len() != 1 {
@@ -2172,7 +2200,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_compile_generic_constructor()
     {
         let input = r#"
@@ -2188,7 +2215,8 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let sem = prog.read_semantics(&fref).unwrap();
         println!("infers: {:#?}\n", sem.infers);
-        assert_eq!(5, sem.infers.len());
+        assert_eq!(2, sem.infers.len());
+        // mainly making sure this doesn't fail
     }
 
     #[test]
