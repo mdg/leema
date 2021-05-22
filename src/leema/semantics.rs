@@ -11,7 +11,7 @@ use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArgSlice,
-    TypeArgs, TypeRef, Val,
+    TypeArg, TypeArgs, TypeRef, Val,
 };
 
 use std::cmp::Ordering;
@@ -269,6 +269,11 @@ impl<'p> ScopeCheck<'p>
             return;
         }
         let local_id = self.localized_id(&node.loc);
+        self.localize_node_with_id(node, local_id)
+    }
+
+    fn localize_node_with_id(&mut self, node: &mut AstNode, local_id: String)
+    {
         node.typ
             .localize_generics(&self.type_args, local_id.clone());
         match &mut *node.node {
@@ -286,6 +291,29 @@ impl<'p> ScopeCheck<'p>
             }
             Ast::ConstVal(Val::Token(t)) => {
                 t.localize_generics(&self.type_args, local_id);
+            }
+            Ast::Generic(base, type_args) => {
+                for ta in type_args.iter_mut() {
+                    self.localize_node_with_id(&mut ta.v, local_id.clone());
+                }
+                self.localize_node_with_id(base, local_id);
+            }
+            Ast::Call(callx, args) => {
+                for ta in args.iter_mut() {
+                    self.localize_node_with_id(&mut ta.v, local_id.clone());
+                }
+                self.localize_node_with_id(callx, local_id);
+            }
+            Ast::Tuple(items) => {
+                for i in items.iter_mut() {
+                    self.localize_node_with_id(&mut i.v, local_id.clone());
+                }
+            }
+            Ast::Type(t) => {
+                t.localize_generics(&self.type_args, local_id);
+            }
+            Ast::Id(_id) => {
+                // shouldn't have to localize ids
             }
             _ => {} // not a val that needs to be localized
         }
@@ -474,7 +502,7 @@ impl<'p> ScopeCheck<'p>
             ));
             // create the impl function by name
             // create closure struct w/ the impl fref and the closed tuple
-            let cl_type_args = impl_type_args
+            let cl_type_args: Xlist = impl_type_args
                 .iter()
                 .map(|a| {
                     StrupleItem::new_v(AstNode::new(
@@ -483,6 +511,7 @@ impl<'p> ScopeCheck<'p>
                     ))
                 })
                 .collect();
+            let closure_impl_t = Type::closure_impl(ftyp.clone(), impl_type_args);
 
             def_name_node = AstNode::void();
             let cl_type_call = AstNode::new(
@@ -491,7 +520,10 @@ impl<'p> ScopeCheck<'p>
                         Ast::Canonical(canonical!(Type::PATH_CLOSURE)),
                         loc,
                     ),
-                    cl_type_args,
+                    vec![
+                        StrupleItem::new_v(AstNode::new(Ast::Type(closure_impl_t), loc)),
+                        StrupleItem::new_v(AstNode::new(Ast::Tuple(cl_type_args), loc)),
+                    ],
                 ),
                 loc,
             );
@@ -749,6 +781,16 @@ impl<'p> ScopeCheck<'p>
                     return Ok(AstStep::Rewrite);
                 }
             }
+            Ast::Tuple(items) if mode == AstMode::Type => {
+                let items2: Lresult<TypeArgs> = items.drain(..).enumerate().map(|i| {
+                    let k_lstr = i.1.k.map(|ik| Lstr::Sref(ik));
+                    let k = Type::unwrap_name(&k_lstr, i.0);
+                    let t = ltry!(self.local_mod.ast_to_type(&i.1.v, &self.type_args));
+                    Ok(TypeArg::new(k, t))
+                }).collect();
+                *node.node = Ast::Type(Type::tuple(ltry!(items2)));
+                return Ok(AstStep::Rewrite);
+            }
             Ast::Matchx(None, cases) => {
                 let node_loc = node.loc;
                 let args: Lresult<Xlist> = self
@@ -847,24 +889,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
                 self.blocks.pop_blockscope();
             }
             Ast::Call(callx, _) if mode == AstMode::Value => {
-                if let Ast::Canonical(c) = &*callx.node {
-                    if let Ok(proto) = self.lib.path_proto(c) {
-                        // check for type and find constructor
-                        let optcons =
-                            proto.find_modelem(proto::MODNAME_CONSTRUCT);
-                        if optcons.is_none() {
-                            return Err(rustfail!(
-                                "compile_error",
-                                "replace {} with constructor",
-                                c,
-                            ));
-                        }
-                        let mut cons = optcons.unwrap().clone();
-                        self.localize_node(&mut cons);
-                        callx.replace(*cons.node, cons.typ);
-                        return Ok(AstStep::Rewrite);
-                    }
-                }
+                steptry!(self.post_constructor(callx));
             }
             Ast::Generic(inner, _) if mode == AstMode::Value  => {
                 steptry!(self.post_constructor(inner));
@@ -1169,11 +1194,13 @@ impl<'p> TypeCheck<'p>
         let fref = calltype.try_func_ref_mut()?;
 
         if args.len() != fref.type_args.len() {
-            return Err(rustfail!(
-                TYPEFAIL,
-                "wrong number of type args, expected {}, found {}",
-                fref.type_args.len(),
-                args.len(),
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "wrong number of type args",
+                "expected_num": ldisplay!(fref.type_args.len()),
+                "found_num": ldisplay!(args.len()),
+                "expected": ldebug!(fref.type_args),
+                "found": ldebug!(args),
             ));
         }
         for a in fref.type_args.iter_mut().zip(args.iter_mut()) {
@@ -1492,6 +1519,8 @@ impl<'p> TypeCheck<'p>
                 {
                     let typecall_t = ltry!(
                         self.apply_typecall(&mut fref.t, args),
+                        "module": fref.m.name.to_lstr(),
+                        "function": Lstr::Sref(fref.f),
                         "file": self.local_mod.key.best_path(),
                         "line": ldisplay!(node.loc.lineno),
                     );
