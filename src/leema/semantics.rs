@@ -523,7 +523,7 @@ impl<'p> ScopeCheck<'p>
                     ),
                     vec![
                         StrupleItem::new_v(AstNode::new(
-                            Ast::Type(closure_impl_t),
+                            Ast::Type(closure_impl_t.clone()),
                             loc,
                         )),
                         StrupleItem::new_v(AstNode::new(
@@ -534,8 +534,15 @@ impl<'p> ScopeCheck<'p>
                 ),
                 loc,
             );
+            let cl_impl_ref = Fref::new(fref.m.clone(), fref.f, closure_impl_t);
+            let impl_ref_val: Lresult<Val> = From::from(&cl_impl_ref);
+            let impl_ref_ast = Ast::ConstVal(ltry!(impl_ref_val));
+            let closure_args = vec![
+                StrupleItem::new_v(AstNode::new(impl_ref_ast, loc)),
+                StrupleItem::new_v(AstNode::new(Ast::Tuple(closed_vars), loc)),
+            ];
             result_node =
-                AstNode::new(Ast::Call(cl_type_call, closed_vars), loc);
+                AstNode::new(Ast::Call(cl_type_call, closure_args), loc);
         } else {
             // this is an anoymous function w/ no closed vars
 
@@ -1265,11 +1272,12 @@ impl<'p> TypeCheck<'p>
         if args.len() < ftyp.args.len() {
             vout!("expected function type: {:#?}\n", ftyp);
             vout!("given args: {:#?}\n", args);
-            return Err(rustfail!(
-                SEMFAIL,
-                "too few arguments, expected {}, found {}",
-                ftyp.args.len(),
-                args.len(),
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "too few arguments in call",
+                "expected": ldisplay!(ftyp.args.len()),
+                "found": ldisplay!(args.len()),
+                "file": self.local_mod.key.best_path(),
             ));
         }
         if args.len() > ftyp.args.len() {
