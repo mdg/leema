@@ -903,6 +903,9 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             Ast::Call(callx, _) if mode == AstMode::Value => {
                 steptry!(self.post_constructor(callx));
             }
+            Ast::Call(callx, _) if mode.is_pattern() => {
+                steptry!(self.post_constructor(callx));
+            }
             Ast::Generic(inner, _) if mode == AstMode::Value => {
                 steptry!(self.post_constructor(inner));
             }
@@ -1765,6 +1768,8 @@ impl<'p> ast2::Op for TypeCheck<'p>
                         failure::Mode::TypeFailure,
                         "cannot process non-const pattern call",
                         "node": ldebug!(callx.node),
+                        "file": self.local_mod.key.best_path(),
+                        "line": ldisplay!(node.loc.lineno),
                     ));
                 }
             }
