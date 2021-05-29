@@ -10,8 +10,8 @@ use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
-    Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArgSlice,
-    TypeArg, TypeArgs, TypeRef, Val,
+    Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArg,
+    TypeArgSlice, TypeArgs, TypeRef, Val,
 };
 
 use std::cmp::Ordering;
@@ -511,7 +511,8 @@ impl<'p> ScopeCheck<'p>
                     ))
                 })
                 .collect();
-            let closure_impl_t = Type::closure_impl(ftyp.clone(), impl_type_args);
+            let closure_impl_t =
+                Type::closure_impl(ftyp.clone(), impl_type_args);
 
             def_name_node = AstNode::void();
             let cl_type_call = AstNode::new(
@@ -521,8 +522,14 @@ impl<'p> ScopeCheck<'p>
                         loc,
                     ),
                     vec![
-                        StrupleItem::new_v(AstNode::new(Ast::Type(closure_impl_t), loc)),
-                        StrupleItem::new_v(AstNode::new(Ast::Tuple(cl_type_args), loc)),
+                        StrupleItem::new_v(AstNode::new(
+                            Ast::Type(closure_impl_t),
+                            loc,
+                        )),
+                        StrupleItem::new_v(AstNode::new(
+                            Ast::Tuple(cl_type_args),
+                            loc,
+                        )),
                     ],
                 ),
                 loc,
@@ -782,12 +789,18 @@ impl<'p> ScopeCheck<'p>
                 }
             }
             Ast::Tuple(items) if mode == AstMode::Type => {
-                let items2: Lresult<TypeArgs> = items.drain(..).enumerate().map(|i| {
-                    let k_lstr = i.1.k.map(|ik| Lstr::Sref(ik));
-                    let k = Type::unwrap_name(&k_lstr, i.0);
-                    let t = ltry!(self.local_mod.ast_to_type(&i.1.v, &self.type_args));
-                    Ok(TypeArg::new(k, t))
-                }).collect();
+                let items2: Lresult<TypeArgs> = items
+                    .drain(..)
+                    .enumerate()
+                    .map(|i| {
+                        let k_lstr = i.1.k.map(|ik| Lstr::Sref(ik));
+                        let k = Type::unwrap_name(&k_lstr, i.0);
+                        let t = ltry!(self
+                            .local_mod
+                            .ast_to_type(&i.1.v, &self.type_args));
+                        Ok(TypeArg::new(k, t))
+                    })
+                    .collect();
                 *node.node = Ast::Type(Type::tuple(ltry!(items2)));
                 return Ok(AstStep::Rewrite);
             }
@@ -841,8 +854,7 @@ impl<'p> ScopeCheck<'p>
         if let Ast::Canonical(c) = &*x.node {
             if let Ok(proto) = self.lib.path_proto(c) {
                 // check for type and find constructor
-                let optcons =
-                    proto.find_modelem(proto::MODNAME_CONSTRUCT);
+                let optcons = proto.find_modelem(proto::MODNAME_CONSTRUCT);
                 if optcons.is_none() {
                     return Err(rustfail!(
                         "compile_error",
@@ -891,7 +903,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             Ast::Call(callx, _) if mode == AstMode::Value => {
                 steptry!(self.post_constructor(callx));
             }
-            Ast::Generic(inner, _) if mode == AstMode::Value  => {
+            Ast::Generic(inner, _) if mode == AstMode::Value => {
                 steptry!(self.post_constructor(inner));
             }
             Ast::List(items) if mode == AstMode::Type => {
