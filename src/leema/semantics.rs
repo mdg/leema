@@ -470,6 +470,7 @@ impl<'p> ScopeCheck<'p>
             let mut closed_type: Xlist = Vec::with_capacity(out_of_scope.len());
             let mut closed_vars: Xlist = Vec::with_capacity(out_of_scope.len());
             let mut vars_to_close = Vec::with_capacity(out_of_scope.len());
+            let mut cl_type_args: TypeArgs = Vec::with_capacity(args.len());
             for var in closure_scope.blocks.out_of_scope() {
                 self.blocks.access_var(var.0, *var.1);
                 let next_type_name = next_type_it.next().unwrap();
@@ -479,6 +480,10 @@ impl<'p> ScopeCheck<'p>
                 ));
                 let open_typ = Type::open(Lstr::Sref(next_type_name));
                 impl_type_args.push(StrupleItem::new(
+                    Lstr::Sref(next_type_name),
+                    open_typ.clone(),
+                ));
+                cl_type_args.push(StrupleItem::new(
                     Lstr::Sref(next_type_name),
                     open_typ.clone(),
                 ));
@@ -502,17 +507,7 @@ impl<'p> ScopeCheck<'p>
             ));
             // create the impl function by name
             // create closure struct w/ the impl fref and the closed tuple
-            let cl_type_args: Xlist = impl_type_args
-                .iter()
-                .map(|a| {
-                    StrupleItem::new_v(AstNode::new(
-                        Ast::Type(a.v.clone()),
-                        loc,
-                    ))
-                })
-                .collect();
-            let closure_impl_t =
-                Type::closure_impl(ftyp.clone(), impl_type_args);
+            let closure_impl_t = Type::closure(ftyp.clone(), impl_type_args);
 
             def_name_node = AstNode::void();
             let cl_type_call = AstNode::new(
@@ -527,13 +522,14 @@ impl<'p> ScopeCheck<'p>
                             loc,
                         )),
                         StrupleItem::new_v(AstNode::new(
-                            Ast::Tuple(cl_type_args),
+                            Ast::Type(Type::tuple(cl_type_args)),
                             loc,
                         )),
                     ],
                 ),
                 loc,
-            );
+            )
+            .with_type(closure_impl_t.clone());
             let cl_impl_ref = Fref::new(fref.m.clone(), fref.f, closure_impl_t);
             let impl_ref_val: Lresult<Val> = From::from(&cl_impl_ref);
             let impl_ref_ast = Ast::ConstVal(ltry!(impl_ref_val));

@@ -443,6 +443,12 @@ impl AstNode
         }
     }
 
+    pub fn with_type(mut self, t: Type) -> AstNode
+    {
+        self.typ = t;
+        self
+    }
+
     pub fn new_constval(v: Val, loc: Loc) -> AstNode
     {
         let const_type = v.get_type();

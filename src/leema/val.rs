@@ -150,6 +150,9 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
             } else {
                 write!(f, " {:?}", a.v)?;
             }
+            if f.alternate() {
+                writeln!(f, "")?;
+            }
         }
         if !self.type_args.is_empty() {
             write!(f, ")")?;
@@ -533,6 +536,16 @@ impl Type
                     type_args: gen.v.type_ref().1,
                     result: &result.v,
                     args: args.v.type_ref().1,
+                    closed_args: &[],
+                })
+            }
+            TypeRef(Type::PATH_CLOSURE, [f, _closed]) => {
+                let f_func_ref = f.v.func_ref()?;
+                Some(FuncTypeRef {
+                    path: Type::PATH_CLOSURE,
+                    type_args: &f_func_ref.type_args,
+                    result: &f_func_ref.result,
+                    args: &f_func_ref.args,
                     closed_args: &[],
                 })
             }
@@ -960,13 +973,20 @@ impl fmt::Debug for Type
             let first = self.first_arg().unwrap();
             write!(f, "open:{}", first.k)
         } else if let Some(ft) = self.func_ref() {
-            write!(f, "{:?}", ft)
+            if f.alternate() {
+                write!(f, "{:#?}", ft)
+            } else {
+                write!(f, "{:?}", ft)
+            }
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
                     write!(f, "(")?;
                     for a in self.args.iter() {
                         write!(f, "{:?},", a)?;
+                        if f.alternate() {
+                            writeln!(f, "")?;
+                        }
                     }
                     write!(f, ")")
                 }
