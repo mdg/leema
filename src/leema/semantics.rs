@@ -508,6 +508,11 @@ impl<'p> ScopeCheck<'p>
             // create the impl function by name
             // create closure struct w/ the impl fref and the closed tuple
             let closure_impl_t = Type::closure(ftyp.clone(), impl_type_args);
+            let closed_type = if cl_type_args.len() == 1 {
+                cl_type_args.pop().unwrap().v
+            } else {
+                Type::tuple(cl_type_args)
+            };
 
             def_name_node = AstNode::void();
             let cl_type_call = AstNode::new(
@@ -522,7 +527,7 @@ impl<'p> ScopeCheck<'p>
                             loc,
                         )),
                         StrupleItem::new_v(AstNode::new(
-                            Ast::Type(Type::tuple(cl_type_args)),
+                            Ast::Type(closed_type),
                             loc,
                         )),
                     ],
@@ -1111,25 +1116,11 @@ impl<'p> TypeCheck<'p>
                 let v1 = &t1.first_arg()?.k;
                 lfailoc!(self.infer_type(v1, t0))
             }
-            (Type::PATH_FN, Type::PATH_FN) => {
-                let f0 = t0.func_ref().unwrap();
-                let f1 = t1.func_ref().unwrap();
-                let result = self.match_type(f0.result, f1.result)?;
-                if f0.args.len() != f1.args.len() {
-                    return Err(rustfail!(
-                        "compile_error",
-                        "function arg count mismatch: {:?} != {:?}",
-                        f0,
-                        f1,
-                    ));
-                }
-                let mut args: TypeArgs = Vec::with_capacity(f0.args.len());
-                for a in f0.args.iter().zip(f1.args.iter()) {
-                    let a2 = self.match_type(&a.0.v, &a.1.v)?;
-                    let k = a.0.k.clone();
-                    args.push(StrupleItem::new(k, a2));
-                }
-                Ok(Type::f(result, args))
+            (Type::PATH_FN, Type::PATH_FN) => self.match_func_type(t0, t1),
+            (Type::PATH_FN, Type::PATH_CLOSURE) => self.match_func_type(t0, t1),
+            (Type::PATH_CLOSURE, Type::PATH_FN) => self.match_func_type(t0, t1),
+            (Type::PATH_CLOSURE, Type::PATH_CLOSURE) => {
+                self.match_func_type(t0, t1)
             }
             // type names match
             (p0, p1) if p0 == p1 && t0.argc() == t1.argc() => {
@@ -1163,6 +1154,28 @@ impl<'p> TypeCheck<'p>
                 ))
             }
         }
+    }
+
+    fn match_func_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
+    {
+        let f0 = t0.func_ref().unwrap();
+        let f1 = t1.func_ref().unwrap();
+        let result = self.match_type(f0.result, f1.result)?;
+        if f0.args.len() != f1.args.len() {
+            return Err(rustfail!(
+                "compile_error",
+                "function arg count mismatch: {:?} != {:?}",
+                f0,
+                f1,
+            ));
+        }
+        let mut args: TypeArgs = Vec::with_capacity(f0.args.len());
+        for a in f0.args.iter().zip(f1.args.iter()) {
+            let a2 = self.match_type(&a.0.v, &a.1.v)?;
+            let k = a.0.k.clone();
+            args.push(StrupleItem::new(k, a2));
+        }
+        Ok(Type::f(result, args))
     }
 
     // check if one of these type 0 is an alias for type 1
@@ -1256,7 +1269,11 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<Type>
     {
         let mut funcref = ltry!(calltype.try_func_ref_mut());
-        Ok(ltry!(self.match_argtypes(&mut funcref, args)))
+        Ok(ltry!(
+            self.match_argtypes(&mut funcref, args),
+            "calltype": ldisplay!(calltype),
+            "args": ldebug!(args),
+        ))
     }
 
     fn match_argtypes<'a>(
