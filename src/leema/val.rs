@@ -154,6 +154,9 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
                 writeln!(f, "")?;
             }
         }
+        if !self.closed_args.is_empty() {
+            write!(f, " {:?}", self.closed_args)?;
+        }
         if !self.type_args.is_empty() {
             write!(f, ")")?;
             for ta in self.type_args.iter() {
@@ -981,7 +984,7 @@ impl fmt::Debug for Type
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
-                    write!(f, "(")?;
+                    write!(f, "(T ")?;
                     for a in self.args.iter() {
                         write!(f, "{:?},", a)?;
                         if f.alternate() {

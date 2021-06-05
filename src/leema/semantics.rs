@@ -309,6 +309,10 @@ impl<'p> ScopeCheck<'p>
                     self.localize_node_with_id(&mut i.v, local_id.clone());
                 }
             }
+            Ast::Op2(_, ref mut a, ref mut b) => {
+                self.localize_node_with_id(a, local_id.clone());
+                self.localize_node_with_id(b, local_id.clone());
+            }
             Ast::Type(t) => {
                 t.localize_generics(&self.type_args, local_id);
             }
@@ -490,10 +494,10 @@ impl<'p> ScopeCheck<'p>
                 vars_to_close
                     .push(StrupleItem::new(Lstr::Sref(*var.0), open_typ));
 
-                closed_vars.push(StrupleItem::new_v(AstNode::new(
-                    Ast::Id(var.0),
-                    loc,
-                )));
+                closed_vars.push(StrupleItem::new(
+                    Some(var.0),
+                    AstNode::new(Ast::Id(var.0), loc),
+                ));
             }
 
             // iterate body again and replace closed vars w/ "closed-arg.<var>"
@@ -508,11 +512,7 @@ impl<'p> ScopeCheck<'p>
             // create the impl function by name
             // create closure struct w/ the impl fref and the closed tuple
             let closure_impl_t = Type::closure(ftyp.clone(), impl_type_args);
-            let closed_type = if cl_type_args.len() == 1 {
-                cl_type_args.pop().unwrap().v
-            } else {
-                Type::tuple(cl_type_args)
-            };
+            let closed_type = Type::tuple(cl_type_args);
 
             def_name_node = AstNode::void();
             let cl_type_call = AstNode::new(
