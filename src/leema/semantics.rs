@@ -535,7 +535,8 @@ impl<'p> ScopeCheck<'p>
                 loc,
             )
             .with_type(closure_impl_t.clone());
-            let cl_impl_ref = Fref::new(fref.m.clone(), fref.f, closure_impl_t);
+            let cl_impl_ref =
+                Fref::new(fref.m.clone(), fref.f, closure_impl_t.clone());
             let impl_ref_val: Lresult<Val> = From::from(&cl_impl_ref);
             let impl_ref_ast = Ast::ConstVal(ltry!(impl_ref_val));
             let closure_args = vec![
@@ -544,6 +545,7 @@ impl<'p> ScopeCheck<'p>
             ];
             result_node =
                 AstNode::new(Ast::Call(cl_type_call, closure_args), loc);
+            result.typ = closure_impl_t;
         } else {
             // this is an anoymous function w/ no closed vars
 
@@ -1011,7 +1013,10 @@ impl<'p> TypeCheck<'p>
             let argname = arg.k.sref()?;
             if self.vartypes.contains_key(argname) {
                 let old_arg = self.vartypes.get(argname).unwrap().clone();
-                dbg!(ltry!(self.match_type(&arg.v, &old_arg)));
+                dbg!(ltry!(
+                    self.match_type(&arg.v, &old_arg),
+                    "ftyp": ldebug!(ftyp),
+                ));
             } else {
                 let argt = ltry!(self.inferred_type(&arg.v));
                 self.vartypes.insert(argname, argt);
@@ -1139,7 +1144,7 @@ impl<'p> TypeCheck<'p>
             }
             // case for alias types where the types may need to be
             // dereferenced before they will match
-            _ => {
+            other => {
                 if let Some(r) = self.match_type_alias(&t0.path, t1)? {
                     return Ok(r);
                 }
@@ -1149,6 +1154,7 @@ impl<'p> TypeCheck<'p>
                 Err(lfail!(
                     failure::Mode::TypeFailure,
                     "types do not match",
+                    "other": ldebug!(&other),
                     "t0": ldisplay!(t0),
                     "t1": ldisplay!(t1),
                 ))
@@ -2110,16 +2116,28 @@ impl Semantics
         } else if *ftyp.result == Type::VOID {
             result.typ = Type::VOID;
         } else {
-            result.typ =
-                ltry!(type_check.match_type(&ftyp.result, &result.typ));
+            result.typ = ltry!(
+                type_check.match_type(&ftyp.result, &result.typ),
+                "ftyp_result": ldisplay!(&ftyp.result),
+                "result_type": ldisplay!(&result.typ),
+            );
         }
 
         for an in anons.iter_mut() {
             if let Ast::DefFunc(_name, _args, _result, body) = &mut *an.v.node {
                 let anon_ftyp = an.v.typ.func_ref().unwrap();
                 ltry!(type_check.add_anon_func_args(&anon_ftyp));
-                ltry!(ast2::walk_ref_mut(body, &mut type_check));
-                ltry!(type_check.match_type(&anon_ftyp.result, &body.typ));
+                ltry!(
+                    ast2::walk_ref_mut(body, &mut type_check),
+                    "module": f.m.name.to_lstr(),
+                    "function": Lstr::Sref(f.f),
+                    "closure": Lstr::Sref(an.k),
+                );
+                ltry!(
+                    type_check.match_type(&anon_ftyp.result, &body.typ),
+                    "anon_result": ldebug!(&anon_ftyp.result),
+                    "anon_body_type": ldebug!(&body.typ),
+                );
             } else {
                 panic!("not a func: {:?}", an);
             }
