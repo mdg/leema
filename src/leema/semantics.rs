@@ -395,44 +395,56 @@ impl<'p> ScopeCheck<'p>
         Ok(ast2::walk(body.clone(), &mut macro_replace)?)
     }
 
-    fn pre_closure(
+    /// set all the type vars, preset the name to include type vars
+    fn pre_anon_func_typevars(
         &mut self,
+        name: &mut AstNode,
+        result: &mut AstNode,
+        args: &mut Xlist,
+        body: &mut AstNode,
         loc: Loc,
-        mut result: AstNode,
-        mut args: Xlist,
-        mut body: AstNode,
-    ) -> Lresult<AstNode>
+    ) -> Lresult<()>
     {
         // totally hacky to make this a static str. need to figure this out.
-        let name = format!("anon_fn_{}", self.localized_id(&loc));
-        let name = Interloader::static_str(name);
-        // initialize type_args w/ wrapping type args
-        let mut type_args = Xlist::with_capacity(self.type_args.len());
-        let mut type_type_args = TypeArgs::with_capacity(self.type_args.len());
+        let name_str = format!("anon_fn_{}", self.localized_id(&loc));
+        let name_str = Interloader::static_str(name_str);
+
+        let type_arg_count = self.type_args.len() + 1 + args.len();
+        let mut type_args = Xlist::with_capacity(type_arg_count);
+        let mut type_arg_t = Vec::with_capacity(type_arg_count);
+        // inherit type args from the outer function
         for ta in self.type_args.iter() {
             if let Lstr::Sref(a) = ta.k {
                 type_args.push(StrupleItem::new(
                     Some(a),
-                    AstNode::new(Ast::Type(ta.v.clone()), body.loc),
+                    AstNode::new(Ast::Type(ta.v.clone()), loc),
                 ));
-                type_type_args.push(StrupleItem::new(
-                    ta.k.clone(),
-                    Type::open(ta.k.clone()),
+                type_arg_t.push(StrupleItem::new(
+                    Lstr::Sref(a),
+                    ta.v.clone(),
                 ));
             } else {
                 panic!("not a static Lstr: {}", ta.k);
             }
         }
+
+        // iterator for generating undeclared typbs
         let mut next_type_it = ANON_FUNC_TYPES.iter();
+
+        // result type is optional for anon funcs,
+        // so create a type var to infer later if it's undeclared
         if *result.node == Ast::NOTOKEN {
             let next_type = next_type_it.next().unwrap();
             type_args.push(StrupleItem::new(Some(next_type), AstNode::void()));
-            type_type_args.push(StrupleItem::new(
-                Lstr::Sref(next_type),
-                Type::open(Lstr::Sref(next_type)),
-            ));
             *result.node = Ast::Id(next_type);
+            type_arg_t.push(StrupleItem::new(
+                Lstr::Sref(*next_type),
+                Type::open(Lstr::Sref(*next_type)),
+            ));
         }
+
+        // arg types also optional for anon funcs. iterate thru
+        // them and create type vars if necessary to infer later
         for a in args.iter_mut() {
             if let Some(_k) = a.k {
                 // already typed, cool.
@@ -445,15 +457,55 @@ impl<'p> ScopeCheck<'p>
                     Some(next_type_name),
                     AstNode::void(),
                 ));
-                type_type_args.push(StrupleItem::new(
-                    Lstr::Sref(next_type_name),
-                    Type::open(Lstr::Sref(next_type_name)),
+                type_arg_t.push(StrupleItem::new(
+                    Lstr::Sref(*next_type_name),
+                    Type::open(Lstr::Sref(*next_type_name)),
                 ));
-                // let next_type = Type::open(Lstr::Sref(next_type_name));
-                // arg_types.push(StrupleItem::new(Some(var), next_type));
             }
         }
-        let mut impl_type_args = type_type_args.clone();
+
+        let closure_t = ltry!(self.local_mod.ast_to_ftype(result, &args, type_arg_t.as_slice()));
+        let closure_tref = ltry!(closure_t.try_func_ref());
+
+        let mut closure_scope = self.closure(&closure_tref);
+        ltry!(ast2::walk_ref_mut(body, &mut closure_scope));
+        self.anons.append(&mut closure_scope.anons);
+
+        if !closure_scope.blocks.out_of_scope().is_empty() {
+            // this is a closure, generate its type
+            /*
+            let closed_types = closure_scope.blocks.out_of_scope().iter().map(|var| {
+                self.blocks.access_var(var.0, *var.1);
+                StrupleItem::new(*var.0, *next_type_it.next().unwrap())
+            }).collect();
+            */
+        }
+
+        let fname = AstNode::new(Ast::Id(name_str), loc);
+        *name = if type_args.is_empty() {
+            fname
+        } else {
+            AstNode::new(Ast::Generic(fname, type_args), loc)
+        };
+
+        Ok(())
+    }
+
+    /// define the anonymous function
+    /// define the anonymous function type
+    /// define and return the call or create the closure object
+    /// Closure<
+    fn pre_anon_func(
+        &mut self,
+        _name: AstNode,
+        _result: AstNode,
+        _args: Xlist,
+        mut _body: AstNode,
+        _loc: Loc,
+    ) -> Lresult<AstNode>
+    {
+        /*
+let name_str = "test";
         let ftyp =
             ltry!(self.local_mod.ast_to_ftype(&result, &args, &type_type_args));
 
@@ -463,42 +515,17 @@ impl<'p> ScopeCheck<'p>
         ltry!(ast2::walk_ref_mut(&mut body, &mut closure_scope));
         self.anons.append(&mut closure_scope.anons);
 
-        let fref = Fref::new(self.local_mod.key.clone(), name, ftyp.clone());
-        let fname = AstNode::new(Ast::Id(name), loc);
-        let def_name_node: AstNode;
-        let mut result_node: AstNode;
+        let fref = Fref::new(self.local_mod.key.clone(), name_str, ftyp.clone());
+        let result_node: AstNode;
 
         if !closure_scope.blocks.out_of_scope().is_empty() {
-            // this is a closure
-            let out_of_scope = closure_scope.blocks.out_of_scope();
-            let mut closed_type: Xlist = Vec::with_capacity(out_of_scope.len());
-            let mut closed_vars: Xlist = Vec::with_capacity(out_of_scope.len());
-            let mut vars_to_close = Vec::with_capacity(out_of_scope.len());
-            let mut cl_type_args: TypeArgs = Vec::with_capacity(args.len());
-            for var in closure_scope.blocks.out_of_scope() {
+            // this is a closure, generate its type
+            let closed_types = closure_scope.blocks.out_of_scope().iter().map(|var| {
                 self.blocks.access_var(var.0, *var.1);
-                let next_type_name = next_type_it.next().unwrap();
-                closed_type.push(StrupleItem::new(
-                    Some(var.0),
-                    AstNode::new(Ast::Id(next_type_name), loc),
-                ));
-                let open_typ = Type::open(Lstr::Sref(next_type_name));
-                impl_type_args.push(StrupleItem::new(
-                    Lstr::Sref(next_type_name),
-                    open_typ.clone(),
-                ));
-                cl_type_args.push(StrupleItem::new(
-                    Lstr::Sref(next_type_name),
-                    open_typ.clone(),
-                ));
-                vars_to_close
-                    .push(StrupleItem::new(Lstr::Sref(*var.0), open_typ));
+                StrupleItem::new(*var.0, *next_type_it.next().unwrap())
+            }).collect();
 
-                closed_vars.push(StrupleItem::new(
-                    Some(var.0),
-                    AstNode::new(Ast::Id(var.0), loc),
-                ));
-            }
+            self.pre_closure(&args, closed_types, loc)?;
 
             // iterate body again and replace closed vars w/ "closed-arg.<var>"
             let mut closed_step = CloseVars::new(vars_to_close);
@@ -546,30 +573,71 @@ impl<'p> ScopeCheck<'p>
             result_node =
                 AstNode::new(Ast::Call(cl_type_call, closure_args), loc);
             result.typ = closure_impl_t;
+            result_node = AstNode::void();
         } else {
             // this is an anoymous function w/ no closed vars
 
             // create the static function by name
             // return Ast::Const(Val::Call)
 
-            def_name_node = if type_args.is_empty() {
-                fname.clone()
-            } else {
-                AstNode::new(Ast::Generic(fname, type_args), loc)
-            };
-
             // take the node as a new function, leave a call in its place
             let call: Lresult<Val> = From::from(&fref);
             result_node = AstNode::new_constval(ltry!(call), loc);
         }
 
-        result_node.typ = fref.t.clone();
         let mut def_func_node =
-            AstNode::new(Ast::DefFunc(def_name_node, args, result, body), loc);
+            AstNode::new(Ast::DefFunc(name, args, result, body), loc);
         def_func_node.typ = fref.t;
         self.localize_node(&mut def_func_node);
-        self.anons.push(StrupleItem::new(name, def_func_node));
+        self.anons.push(StrupleItem::new(name_str, def_func_node));
         Ok(result_node)
+        */
+        Ok(AstNode::void())
+    }
+
+    /// Given args and closed types, return closure type info
+    /// for function type f(A, B), and closed var w/ types X, Y, return
+    /// full type_args struple Struple [A, B, X, Y]
+    /// <Closure A B>
+    /// <Closure (X Y) A B>
+    fn pre_closure(&mut self,
+        args: &Xlist,
+        closed_types: StrupleKV<&'static str, &'static str>,
+        loc: Loc,
+    ) -> Lresult<()>
+    {
+        let mut closed_type: Xlist = Vec::with_capacity(closed_types.len());
+        let mut closed_vars: Xlist = Vec::with_capacity(closed_types.len());
+        let mut vars_to_close = Vec::with_capacity(closed_types.len());
+        let mut cl_type_args: TypeArgs = Vec::with_capacity(args.len());
+
+        for var in closed_types {
+            closed_type.push(StrupleItem::new(
+                Some(var.k),
+                AstNode::new(Ast::Id(var.v), loc),
+            ));
+            let closed_type_lstr = Lstr::Sref(var.v);
+            let open_typ = Type::open(closed_type_lstr.clone());
+            /*
+            impl_type_args.push(StrupleItem::new(
+                closed_type_lstr,
+                open_typ.clone(),
+            ));
+            */
+            cl_type_args.push(StrupleItem::new(
+                closed_type_lstr,
+                open_typ.clone(),
+            ));
+            vars_to_close
+                .push(StrupleItem::new(Lstr::Sref(var.k), open_typ));
+
+            closed_vars.push(StrupleItem::new(
+                Some(var.k),
+                AstNode::new(Ast::Id(var.v), loc),
+            ));
+        }
+
+        Ok(())
     }
 
     fn pre_scope(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
@@ -839,15 +907,18 @@ impl<'p> ScopeCheck<'p>
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
             }
-            Ast::DefFunc(_name, ref_args, ref_result, ref_body) => {
+            Ast::DefFunc(ref_name, ref_args, ref_result, ref_body) => {
+                ltry!(self.pre_anon_func_typevars(ref_name, ref_result, ref_args, ref_body, loc));
+
                 // collect all the undefined variables in body
                 // validate their scope in this func
                 // if there are closed vars, create a new func
                 // make fname a globally unique id later, mix in args
+                let name = mem::take(ref_name);
                 let result = mem::take(ref_result);
                 let args = mem::take(ref_args);
                 let body = mem::take(ref_body);
-                *node = ltry!(self.pre_closure(node.loc, result, args, body));
+                *node = ltry!(self.pre_anon_func(name, result, args, body, loc));
                 return Ok(AstStep::Rewrite);
             }
             _ => {
@@ -2118,13 +2189,15 @@ impl Semantics
         } else {
             result.typ = ltry!(
                 type_check.match_type(&ftyp.result, &result.typ),
+                "module": modname.as_lstr().clone(),
+                "function": Lstr::Sref(f.f),
                 "ftyp_result": ldisplay!(&ftyp.result),
                 "result_type": ldisplay!(&result.typ),
             );
         }
 
         for an in anons.iter_mut() {
-            if let Ast::DefFunc(_name, _args, _result, body) = &mut *an.v.node {
+            if let Ast::DefFunc(_name, args, _result, body) = &mut *an.v.node {
                 let anon_ftyp = an.v.typ.func_ref().unwrap();
                 ltry!(type_check.add_anon_func_args(&anon_ftyp));
                 ltry!(

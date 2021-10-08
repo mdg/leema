@@ -334,7 +334,31 @@ impl Type
     }
 
     /// Construct a closure type. This may not be necessary
-    pub fn closure(inner: Type, closed: TypeArgs) -> Type
+    /// all type args
+    /// closed var tuple
+    /// call result
+    /// call args
+    pub fn closure(type_args: TypeArgs, result: Type, args: TypeArgs, closed: TypeArgs) -> Type
+    {
+        let type_argst = Type::t(Type::PATH_FN_TYPEARGS, type_args);
+        let argst = Type::t(Type::PATH_FN_ARGS, args);
+        let closed_argst = Type::tuple(closed);
+        Type::t(
+            Type::PATH_CLOSURE,
+            vec![
+                StrupleItem::new(Type::FNKEY_TYPEARGS, type_argst),
+                StrupleItem::new(Type::FNKEY_RESULT, result),
+                StrupleItem::new(Type::FNKEY_ARGS, argst),
+                StrupleItem::new(Type::FNKEY_CLOSED, closed_argst),
+            ],
+        )
+    }
+
+    /// Construct a closure type. This may not be necessary
+    /// base function type
+    /// closed tuple type
+    /// closed args type + base func
+    pub fn closure1(inner: Type, closed: TypeArgs) -> Type
     {
         let closed_argst = Type::t(Type::PATH_FN_CLOSEDARGS, closed);
         Type::t(
@@ -347,6 +371,7 @@ impl Type
     }
 
     /// Construct the type of a closure implementation function
+    /// closed args
     pub fn closure_impl(inner: Type, closed: TypeArgs) -> Type
     {
         Type::t(
@@ -1223,6 +1248,7 @@ impl Val
         Val::Tuple(t)
     }
 
+    /*
     pub fn void_closure(f: Fref, closed_args: TypeArgs) -> Lresult<Val>
     {
         let mut args = Vec::with_capacity(1 + closed_args.len());
@@ -1234,6 +1260,7 @@ impl Val
         args[0].v = ltry!(Lresult::<Val>::from(&f));
         Ok(Val::Struct(closure_t, args))
     }
+    */
 
     pub fn tuple_from_list(l: &Val) -> Val
     {
