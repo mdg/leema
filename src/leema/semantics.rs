@@ -2260,11 +2260,12 @@ impl Semantics
 #[cfg(test)]
 mod tests
 {
-    use super::TypeCheck;
+    use super::{ScopeCheck, TypeCheck};
     use crate::leema::ast2::Ast;
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
+    use crate::leema::parser;
     use crate::leema::program;
     use crate::leema::proto::{ProtoLib, ProtoModule};
     use crate::leema::struple::{self, StrupleItem};
@@ -2320,6 +2321,29 @@ mod tests
     }
 
     #[test]
+    #[ignore]
+    fn scopecheck_pre_anon_func_typevars()
+    {
+        let input = r#"fn :: i -> i * 2 --"#;
+        let mut asts = parser::parse(parser::Rule::expr, input).unwrap();
+        let mut def_func = asts.remove(0);
+
+        let mut fref = Fref::with_modules(From::from("/foo"), "main");
+        fref.t = Type::f(Type::VOID, vec![]);
+        let ftyp_ref = fref.t.func_ref().unwrap();
+
+        let lib = ProtoLib::new();
+        let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
+        let mut scopecheck = ScopeCheck::new(&lib, &proto, &ftyp_ref).unwrap();
+
+        if let Ast::DefFunc(ref mut name, ref mut args, ref mut result, ref mut body) = *def_func.node {
+            let loc = def_func.loc;
+            scopecheck.pre_anon_func_typevars(name, result, args, body, loc).unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore]
     fn scopecheck_anon_func()
     {
         let input = r#"
