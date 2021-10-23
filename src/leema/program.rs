@@ -23,7 +23,6 @@ pub struct Lib
 {
     loader: Interloader,
     protos: ProtoLib,
-    semantics: Semantics,
     rust_load: HashMap<Canonical, fn(&str) -> Option<code::Code>>,
     code: HashMap<Fref, Code>,
 }
@@ -43,7 +42,6 @@ impl Lib
         let mut proglib = Lib {
             loader: l,
             protos: ProtoLib::new(),
-            semantics: Semantics::new(),
             rust_load: HashMap::new(),
             code: HashMap::new(),
         };
@@ -120,6 +118,11 @@ impl Lib
     pub fn find_proto(&self, path: &Canonical) -> Lresult<&ProtoModule>
     {
         self.protos.path_proto(&path)
+    }
+
+    pub fn lib(&self) -> &ProtoLib
+    {
+        &self.protos
     }
 
     pub fn read_semantics(&mut self, f: &Fref) -> Lresult<Semantics>

@@ -2321,20 +2321,19 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn scopecheck_pre_anon_func_typevars()
     {
         let input = r#"fn :: i -> i * 2 --"#;
         let mut asts = parser::parse(parser::Rule::expr, input).unwrap();
         let mut def_func = asts.remove(0);
 
+        let prog = core_program(&[("/foo", "".to_string())]);
         let mut fref = Fref::with_modules(From::from("/foo"), "main");
         fref.t = Type::f(Type::VOID, vec![]);
         let ftyp_ref = fref.t.func_ref().unwrap();
 
-        let lib = ProtoLib::new();
         let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
-        let mut scopecheck = ScopeCheck::new(&lib, &proto, &ftyp_ref).unwrap();
+        let mut scopecheck = ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
 
         if let Ast::DefFunc(ref mut name, ref mut args, ref mut result, ref mut body) = *def_func.node {
             let loc = def_func.loc;
