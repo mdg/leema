@@ -2323,9 +2323,15 @@ mod tests
     #[test]
     fn scopecheck_pre_anon_func_typevars()
     {
-        let input = r#"fn :: i -> i * 2 --"#;
-        let mut asts = parser::parse(parser::Rule::expr, input).unwrap();
-        let mut def_func = asts.remove(0);
+        let input = r#"
+        fn :: i -> i * 2 --
+        "#;
+        let mut asts = parser::parse(parser::Rule::stmt_block, input).unwrap();
+        let def_func = if let Ast::Block(mut lines) = *asts.remove(0).node {
+            lines.remove(0)
+        } else {
+            panic!("expected Block, found {:?}", asts);
+        };
 
         let prog = core_program(&[("/foo", "".to_string())]);
         let mut fref = Fref::with_modules(From::from("/foo"), "main");
@@ -2335,9 +2341,21 @@ mod tests
         let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
         let mut scopecheck = ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
 
-        if let Ast::DefFunc(ref mut name, ref mut args, ref mut result, ref mut body) = *def_func.node {
-            let loc = def_func.loc;
-            scopecheck.pre_anon_func_typevars(name, result, args, body, loc).unwrap();
+        if let Ast::DefFunc(mut name, mut args, mut result, mut body) = *def_func.node {
+            scopecheck.pre_anon_func_typevars(&mut name, &mut result, &mut args, &mut body, def_func.loc).unwrap();
+
+            if let Ast::Generic(name_id, type_args) = *name.node {
+                assert_matches!(*name_id.node, Ast::Id("anon_fn_0@2"));
+                assert_eq!(2, type_args.len());
+                assert_matches!(type_args[0].k, Some("A.0"));
+                assert_matches!(type_args[1].k, Some("A.1"));
+                assert_matches!(*type_args[0].v.node, Ast::Id("A.0"));
+                assert_matches!(*type_args[1].v.node, Ast::Id("A.1"));
+            } else {
+                panic!("expected Generic, found {:?}", name);
+            }
+        } else {
+            panic!("expected DefFunc, found {:?}", def_func);
         }
     }
 
