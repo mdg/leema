@@ -435,8 +435,8 @@ impl<'p> ScopeCheck<'p>
         // so create a type var to infer later if it's undeclared
         if *result.node == Ast::NOTOKEN {
             let next_type = next_type_it.next().unwrap();
-            type_args.push(StrupleItem::new(Some(next_type), AstNode::void()));
             *result.node = Ast::Id(next_type);
+            type_args.push(StrupleItem::new(None, result.clone()));
             type_arg_t.push(StrupleItem::new(
                 Lstr::Sref(*next_type),
                 Type::open(Lstr::Sref(*next_type)),
@@ -454,8 +454,8 @@ impl<'p> ScopeCheck<'p>
                 a.k = Some(var);
                 *a.v.node = Ast::Id(next_type_name);
                 type_args.push(StrupleItem::new(
-                    Some(next_type_name),
-                    AstNode::void(),
+                    None,
+                    a.v.clone()
                 ));
                 type_arg_t.push(StrupleItem::new(
                     Lstr::Sref(*next_type_name),
@@ -2323,6 +2323,15 @@ mod tests
     #[test]
     fn scopecheck_pre_anon_func_typevars()
     {
+        let foo_call_input = r#"<foo A B>"#;
+        let mut foo_call =
+            parser::parse(parser::Rule::expr, foo_call_input).unwrap();
+        let (foo_name, foo_args) = if let Ast::Generic(fname, fargs) = *foo_call.remove(0).node {
+            (fname, fargs)
+        } else {
+            panic!("expected Generic, found {:?}", foo_call);
+        };
+
         let input = r#"
         fn :: i -> i * 2 --
         "#;
@@ -2345,10 +2354,13 @@ mod tests
             scopecheck.pre_anon_func_typevars(&mut name, &mut result, &mut args, &mut body, def_func.loc).unwrap();
 
             if let Ast::Generic(name_id, type_args) = *name.node {
+                // assert that the new name is the same structure as <foo A B>
+                assert_matches!(*foo_name.node, Ast::Id("foo"));
                 assert_matches!(*name_id.node, Ast::Id("anon_fn_0@2"));
+                assert_eq!(2, foo_args.len());
                 assert_eq!(2, type_args.len());
-                assert_matches!(type_args[0].k, Some("A.0"));
-                assert_matches!(type_args[1].k, Some("A.1"));
+                assert_eq!(type_args[0].k, foo_args[0].k);
+                assert_eq!(type_args[1].k, foo_args[1].k);
                 assert_matches!(*type_args[0].v.node, Ast::Id("A.0"));
                 assert_matches!(*type_args[1].v.node, Ast::Id("A.1"));
             } else {
