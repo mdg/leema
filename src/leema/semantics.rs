@@ -191,6 +191,50 @@ impl ast2::Op for CloseVars
     }
 }
 
+struct AnonFuncDef
+{
+    name: &'static str,
+    body: AstNode,
+    loc: Loc,
+}
+
+impl AnonFuncDef
+{
+    pub fn new(name: &'static str, loc: Loc) -> AnonFuncDef
+    {
+        AnonFuncDef {
+            name,
+            body: AstNode::void(),
+            loc,
+        }
+    }
+
+    pub fn into_def_func_node(self) -> Lresult<AstNode>
+    {
+        let name = self.name_node();
+        let func_type = self.func_type();
+        let loc = self.loc;
+        let body = self.body;
+        let mut dfn = AstNode::new(Ast::DefFunc(
+            name,
+            vec![],
+            AstNode::void(),
+            body), loc);
+        dfn.typ = func_type;
+        Ok(dfn)
+    }
+
+    pub fn name_node(&self) -> AstNode
+    {
+        AstNode::new(Ast::Id(self.name), self.loc)
+    }
+
+    pub fn func_type(&self) -> Type
+    {
+        Type::f(Type::VOID, vec![])
+    }
+}
+
 struct ScopeCheck<'p>
 {
     lib: &'p ProtoLib,
@@ -395,6 +439,30 @@ impl<'p> ScopeCheck<'p>
         Ok(ast2::walk(body.clone(), &mut macro_replace)?)
     }
 
+    fn pre_anon_functype(
+        &mut self,
+        _result: &mut AstNode,
+        _args: &mut Xlist,
+        _body: &mut AstNode,
+        loc: Loc,
+    ) -> Lresult<AnonFuncDef>
+    {
+        // totally hacky to make this a static str. need to figure this out.
+        let name_str = format!("anon_fn_{}", self.localized_id(&loc));
+        let name_str = Interloader::static_str(name_str);
+
+        Ok(AnonFuncDef::new(name_str, loc))
+    }
+
+    fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
+    {
+        let name = anon_f.name;
+        let mut def_func_node = anon_f.into_def_func_node()?;
+        self.localize_node(&mut def_func_node);
+        self.anons.push(StrupleItem::new(name, def_func_node));
+        Ok(())
+    }
+
     /// set all the type vars, preset the name to include type vars
     fn pre_anon_func_typevars(
         &mut self,
@@ -488,6 +556,13 @@ impl<'p> ScopeCheck<'p>
             AstNode::new(Ast::Generic(fname, type_args), loc)
         };
 
+        // name: Lstr,
+        // generics: Struple<&str, Ast::Void>,
+        // result: Type,
+        // arg types: Struple<Lstr, Ast::Type>,
+        // closed types: Struple<Lstr, Ast::Type>,
+        // body
+
         Ok(())
     }
 
@@ -497,7 +572,6 @@ impl<'p> ScopeCheck<'p>
     /// Closure<
     fn pre_anon_func(
         &mut self,
-        _name: AstNode,
         _result: AstNode,
         _args: Xlist,
         mut _body: AstNode,
@@ -914,11 +988,10 @@ let name_str = "test";
                 // validate their scope in this func
                 // if there are closed vars, create a new func
                 // make fname a globally unique id later, mix in args
-                let name = mem::take(ref_name);
                 let result = mem::take(ref_result);
                 let args = mem::take(ref_args);
                 let body = mem::take(ref_body);
-                *node = ltry!(self.pre_anon_func(name, result, args, body, loc));
+                *node = ltry!(self.pre_anon_func(result, args, body, loc));
                 return Ok(AstStep::Rewrite);
             }
             _ => {
@@ -2351,12 +2424,15 @@ mod tests
         let mut scopecheck = ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
 
         if let Ast::DefFunc(mut name, mut args, mut result, mut body) = *def_func.node {
+            let anon_f = scopecheck.pre_anon_functype(&mut result, &mut args, &mut body, def_func.loc).unwrap();
             scopecheck.pre_anon_func_typevars(&mut name, &mut result, &mut args, &mut body, def_func.loc).unwrap();
+
+            assert_eq!("anon_fn_0@2", anon_f.name);
 
             if let Ast::Generic(name_id, type_args) = *name.node {
                 // assert that the new name is the same structure as <foo A B>
                 assert_matches!(*foo_name.node, Ast::Id("foo"));
-                assert_matches!(*name_id.node, Ast::Id("anon_fn_0@2"));
+                assert_matches!(*name_id.node, Ast::Id("anon_fn_1@2"));
                 assert_eq!(2, foo_args.len());
                 assert_eq!(2, type_args.len());
                 assert_eq!(type_args[0].k, foo_args[0].k);
