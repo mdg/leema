@@ -191,20 +191,25 @@ impl ast2::Op for CloseVars
     }
 }
 
+#[derive(Debug)]
 struct AnonFuncDef
 {
     name: &'static str,
+    result: AstNode,
+    args: Xlist,
     body: AstNode,
     loc: Loc,
 }
 
 impl AnonFuncDef
 {
-    pub fn new(name: &'static str, loc: Loc) -> AnonFuncDef
+    pub fn new(name: &'static str, body: AstNode, loc: Loc) -> AnonFuncDef
     {
         AnonFuncDef {
             name,
-            body: AstNode::void(),
+            result: AstNode::void(),
+            args: vec![],
+            body,
             loc,
         }
     }
@@ -443,7 +448,7 @@ impl<'p> ScopeCheck<'p>
         &mut self,
         _result: &mut AstNode,
         _args: &mut Xlist,
-        _body: &mut AstNode,
+        body: AstNode,
         loc: Loc,
     ) -> Lresult<AnonFuncDef>
     {
@@ -451,7 +456,7 @@ impl<'p> ScopeCheck<'p>
         let name_str = format!("anon_fn_{}", self.localized_id(&loc));
         let name_str = Interloader::static_str(name_str);
 
-        Ok(AnonFuncDef::new(name_str, loc))
+        Ok(AnonFuncDef::new(name_str, body, loc))
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
@@ -981,8 +986,15 @@ let name_str = "test";
                 *node = AstNode::new(matchx, node.loc);
                 return Ok(AstStep::Rewrite);
             }
-            Ast::DefFunc(ref_name, ref_args, ref_result, ref_body) => {
-                ltry!(self.pre_anon_func_typevars(ref_name, ref_result, ref_args, ref_body, loc));
+            Ast::DefFunc(_ref_name, ref_args, ref_result, ref_body) => {
+                let body = mem::take(ref_body);
+                let fn_def = self.pre_anon_functype(
+                    ref_result,
+                    ref_args,
+                    body,
+                    node.loc,
+                )?;
+eprintln!("fn def: {:?}", fn_def);
 
                 // collect all the undefined variables in body
                 // validate their scope in this func
@@ -990,8 +1002,7 @@ let name_str = "test";
                 // make fname a globally unique id later, mix in args
                 let result = mem::take(ref_result);
                 let args = mem::take(ref_args);
-                let body = mem::take(ref_body);
-                *node = ltry!(self.pre_anon_func(result, args, body, loc));
+                *node = ltry!(self.pre_anon_func(result, args, fn_def.body, loc));
                 return Ok(AstStep::Rewrite);
             }
             _ => {
@@ -2334,7 +2345,7 @@ impl Semantics
 mod tests
 {
     use super::{ScopeCheck, TypeCheck};
-    use crate::leema::ast2::Ast;
+    use crate::leema::ast2::{Ast, AstNode, Loc};
     use crate::leema::loader::Interloader;
     use crate::leema::lstr::Lstr;
     use crate::leema::module::ModKey;
@@ -2423,11 +2434,14 @@ mod tests
         let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
         let mut scopecheck = ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
 
-        if let Ast::DefFunc(mut name, mut args, mut result, mut body) = *def_func.node {
-            let anon_f = scopecheck.pre_anon_functype(&mut result, &mut args, &mut body, def_func.loc).unwrap();
-            scopecheck.pre_anon_func_typevars(&mut name, &mut result, &mut args, &mut body, def_func.loc).unwrap();
+        if let Ast::DefFunc(mut name, mut args, mut result, body) = *def_func.node {
+            let anon_f = scopecheck.pre_anon_functype(&mut result, &mut args, body, def_func.loc).unwrap();
 
+            let expected_name_node = AstNode::new(
+                Ast::Id("anon_fn_0@2"), Loc::new(2, 9));
             assert_eq!("anon_fn_0@2", anon_f.name);
+            assert_eq!(expected_name_node, anon_f.name_node());
+            assert_eq!(Loc::new(2, 9), anon_f.loc);
 
             if let Ast::Generic(name_id, type_args) = *name.node {
                 // assert that the new name is the same structure as <foo A B>
