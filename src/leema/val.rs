@@ -1189,6 +1189,25 @@ impl sendclone::SendClone for Fref
 
 pub type MsgVal = msg::MsgItem<Val>;
 
+/// Val objects
+///
+/// Can it be simplified for call types?
+/// CallType | Binding | SubjectArg
+/// -------------------------------
+///    1     | Static  |    No
+///    2     | Static  |    Yes
+///    3     | Dynamic |    No
+///    4     | Dynamic |    Yes
+/// -------------------------------
+/// Is 1 just 2 w/ Subject == Void? Same for 3 and 4?
+/// Can Call just be:
+/// * Struct(FuncT, [Fref, Subject])
+/// * Struct(FuncT, [Fref, Binding, Subject])
+/// * EnumStruct(FuncT, CallType, [Fref, Subject])
+/// * Arbirtray type of Subject means subjected SubjectveFuncT is Generic
+/// * Struct(FuncT, Fref)
+/// * Struct(<SubjectiveFuncT T>, [Fref, T])
+/////////////////////////////////////////////
 #[derive(Clone)]
 pub enum Val
 {
@@ -1212,7 +1231,10 @@ pub enum Val
     Call(Fref, Struple2<Val>),
     Closure(Fref, Struple2<Val>, Fref, Struple2<Val>),
     ResourceRef(i64),
+    // can Val::Future just be a Val::Lib?
     Future(Arc<Mutex<Receiver<Val>>>),
+
+    // Special language implementation values
     Wildcard,
     PatternVar(Reg),
 }

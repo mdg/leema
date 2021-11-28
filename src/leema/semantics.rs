@@ -8,7 +8,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
-use crate::leema::struple::{self, StrupleItem, StrupleKV};
+use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArg,
     TypeArgSlice, TypeArgs, TypeRef, Val,
@@ -194,7 +194,9 @@ impl ast2::Op for CloseVars
 #[derive(Debug)]
 struct AnonFuncDef
 {
+    m: ModKey,
     name: &'static str,
+    closed: Xlist,
     result: AstNode,
     args: Xlist,
     body: AstNode,
@@ -203,15 +205,34 @@ struct AnonFuncDef
 
 impl AnonFuncDef
 {
-    pub fn new(name: &'static str, body: AstNode, loc: Loc) -> AnonFuncDef
+    pub fn new(m: ModKey, name: &'static str, body: AstNode, loc: Loc) -> AnonFuncDef
     {
         AnonFuncDef {
+            m,
             name,
+            closed: vec![],
             result: AstNode::void(),
             args: vec![],
             body,
             loc,
         }
+    }
+
+    pub fn call_object(&self) -> Lresult<AstNode>
+    {
+        let fval = Val::Call(self.fref(), self.argvals());
+        let cval = if self.closed.is_empty() {
+            AstNode::new_constval(fval, self.loc)
+        } else {
+            return Err(lfail!(
+                failure::Mode::LeemaTodoFailure,
+                "closures not implemented",
+                "module": self.m.name.as_lstr().clone(),
+                "function": Lstr::Sref(self.name),
+                "type": ldisplay!(self.func_type()),
+            ));
+        };
+        return Ok(cval)
     }
 
     pub fn into_def_func_node(self) -> Lresult<AstNode>
@@ -234,9 +255,21 @@ impl AnonFuncDef
         AstNode::new(Ast::Id(self.name), self.loc)
     }
 
+    pub fn fref(&self) -> Fref
+    {
+        Fref::new(self.m.clone(), self.name, self.func_type())
+    }
+
     pub fn func_type(&self) -> Type
     {
         Type::f(Type::VOID, vec![])
+    }
+
+    pub fn argvals(&self) -> Struple2<Val>
+    {
+        self.args.iter().map(|i| {
+            StrupleItem::new(i.k.map(|s| Lstr::Sref(s)), Val::VOID)
+        }).collect()
     }
 }
 
@@ -456,7 +489,7 @@ impl<'p> ScopeCheck<'p>
         let name_str = format!("anon_fn_{}", self.localized_id(&loc));
         let name_str = Interloader::static_str(name_str);
 
-        Ok(AnonFuncDef::new(name_str, body, loc))
+        Ok(AnonFuncDef::new(self.local_mod.key.clone(), name_str, body, loc))
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
@@ -988,21 +1021,19 @@ let name_str = "test";
             }
             Ast::DefFunc(_ref_name, ref_args, ref_result, ref_body) => {
                 let body = mem::take(ref_body);
-                let fn_def = self.pre_anon_functype(
+                let fn_def = ltry!(self.pre_anon_functype(
                     ref_result,
                     ref_args,
                     body,
                     node.loc,
-                )?;
-eprintln!("fn def: {:?}", fn_def);
+                ));
 
                 // collect all the undefined variables in body
                 // validate their scope in this func
                 // if there are closed vars, create a new func
                 // make fname a globally unique id later, mix in args
-                let result = mem::take(ref_result);
-                let args = mem::take(ref_args);
-                *node = ltry!(self.pre_anon_func(result, args, fn_def.body, loc));
+                *node = ltry!(fn_def.call_object());
+                ltry!(self.push_anon_func(fn_def));
                 return Ok(AstStep::Rewrite);
             }
             _ => {
