@@ -199,20 +199,22 @@ struct AnonFuncDef
     closed: Xlist,
     result: AstNode,
     args: Xlist,
+    type_args: TypeArgs,
     body: AstNode,
     loc: Loc,
 }
 
 impl AnonFuncDef
 {
-    pub fn new(m: ModKey, name: &'static str, body: AstNode, loc: Loc) -> AnonFuncDef
+    pub fn new(m: ModKey, name: &'static str, result: AstNode, args: Xlist, body: AstNode, loc: Loc) -> AnonFuncDef
     {
         AnonFuncDef {
             m,
             name,
             closed: vec![],
-            result: AstNode::void(),
-            args: vec![],
+            result,
+            args,
+            type_args: vec![],
             body,
             loc,
         }
@@ -479,8 +481,8 @@ impl<'p> ScopeCheck<'p>
 
     fn pre_anon_functype(
         &mut self,
-        _result: &mut AstNode,
-        _args: &mut Xlist,
+        result: AstNode,
+        args: Xlist,
         body: AstNode,
         loc: Loc,
     ) -> Lresult<AnonFuncDef>
@@ -489,7 +491,7 @@ impl<'p> ScopeCheck<'p>
         let name_str = format!("anon_fn_{}", self.localized_id(&loc));
         let name_str = Interloader::static_str(name_str);
 
-        Ok(AnonFuncDef::new(self.local_mod.key.clone(), name_str, body, loc))
+        Ok(AnonFuncDef::new(self.local_mod.key.clone(), name_str, result, args, body, loc))
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
@@ -1020,10 +1022,12 @@ let name_str = "test";
                 return Ok(AstStep::Rewrite);
             }
             Ast::DefFunc(_ref_name, ref_args, ref_result, ref_body) => {
+                let result = mem::take(ref_result);
+                let args = mem::take(ref_args);
                 let body = mem::take(ref_body);
                 let fn_def = ltry!(self.pre_anon_functype(
-                    ref_result,
-                    ref_args,
+                    result,
+                    args,
                     body,
                     node.loc,
                 ));
