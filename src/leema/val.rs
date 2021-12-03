@@ -1204,9 +1204,11 @@ pub type MsgVal = msg::MsgItem<Val>;
 /// * Struct(FuncT, [Fref, Subject])
 /// * Struct(FuncT, [Fref, Binding, Subject])
 /// * EnumStruct(FuncT, CallType, [Fref, Subject])
-/// * Arbirtray type of Subject means subjected SubjectveFuncT is Generic
-/// * Struct(FuncT, Fref)
-/// * Struct(<SubjectiveFuncT T>, [Fref, T])
+/// Arbirtray type of Subject means subjected SubjectveFuncT is Generic
+/// * Fref(Fref)
+/// * Struct(FuncT, [Fref])
+/// * Struct(<Method T>, [Fref, T])
+/// * Struct(<SubjectiveFunc T>, [Fref, T])
 /////////////////////////////////////////////
 #[derive(Clone)]
 pub enum Val

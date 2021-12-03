@@ -19,10 +19,11 @@ use crate::leema::program;
 use crate::leema::val::{Fref, Type, Val};
 
 use docopt::Docopt;
+use serde_derive::Deserialize;
 use std::env;
 
 #[derive(Debug)]
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 struct Args
 {
     arg_script: String,
@@ -87,7 +88,7 @@ fn main()
 fn real_main() -> Lresult<()>
 {
     let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.decode())
+        .and_then(|d| d.argv(std::env::args().into_iter()).deserialize())
         .unwrap_or_else(|e| e.exit());
 
     let verbosenv = env::var_os(ENV_VERBOSE);

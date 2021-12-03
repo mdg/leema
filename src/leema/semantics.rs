@@ -2465,7 +2465,7 @@ mod tests
         let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
         let mut scopecheck = ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
 
-        if let Ast::DefFunc(mut name, mut args, mut result, body) = *def_func.node {
+        if let Ast::DefFunc(name, mut args, mut result, body) = *def_func.node {
             let anon_f = scopecheck.pre_anon_functype(&mut result, &mut args, body, def_func.loc).unwrap();
 
             let expected_name_node = AstNode::new(
