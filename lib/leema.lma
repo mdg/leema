@@ -4,10 +4,8 @@ datatype Fref -RUST-
 
 ## self.f
 datatype <Method T> ::
-    self: T
-    subj: T
-    this: T
     f: Fref
+    self: T
 --
 
 datatype ModTyp
