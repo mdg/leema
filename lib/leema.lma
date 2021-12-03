@@ -1,5 +1,15 @@
 ## Copyright 2021 Matthew Graham
 
+datatype Fref -RUST-
+
+## self.f
+datatype <Method T> ::
+    self: T
+    subj: T
+    this: T
+    f: Fref
+--
+
 datatype ModTyp
 |File
 |Enum
