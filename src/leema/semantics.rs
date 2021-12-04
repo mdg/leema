@@ -199,25 +199,35 @@ struct AnonFuncDef
     closed: Xlist,
     result: AstNode,
     args: Xlist,
-    type_args: TypeArgs,
+    result_t: Type,
+    args_t: TypeArgs,
     body: AstNode,
     loc: Loc,
 }
 
 impl AnonFuncDef
 {
-    pub fn new(m: ModKey, name: &'static str, result: AstNode, args: Xlist, body: AstNode, loc: Loc) -> AnonFuncDef
+    pub fn new<F>(m: ModKey, name: &'static str, result: AstNode, args: Xlist, body: AstNode, ast_to_type: F, loc: Loc) -> Lresult<AnonFuncDef>
+        where F: Fn(&AstNode) -> Lresult<Type>
     {
-        AnonFuncDef {
+        let result_t = ast_to_type(&result)?;
+        let args_t: Lresult<TypeArgs> = args.iter().enumerate().map(|(i, a)| {
+            Ok(StrupleItem::new(
+                Lstr::Sref(Type::unwrap_static_name(&a.k, i)?),
+                ast_to_type(&a.v)?,
+            ))
+        }).collect();
+        Ok(AnonFuncDef {
             m,
             name,
             closed: vec![],
             result,
             args,
-            type_args: vec![],
+            result_t,
+            args_t: args_t?,
             body,
             loc,
-        }
+        })
     }
 
     pub fn call_object(&self) -> Lresult<AstNode>
@@ -490,8 +500,11 @@ impl<'p> ScopeCheck<'p>
         // totally hacky to make this a static str. need to figure this out.
         let name_str = format!("anon_fn_{}", self.localized_id(&loc));
         let name_str = Interloader::static_str(name_str);
+        let ast_to_type = |a: &AstNode| {
+            self.local_mod.ast_to_type(a, &[])
+        };
 
-        Ok(AnonFuncDef::new(self.local_mod.key.clone(), name_str, result, args, body, loc))
+        AnonFuncDef::new(self.local_mod.key.clone(), name_str, result, args, body, ast_to_type, loc)
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
