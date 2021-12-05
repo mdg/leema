@@ -2315,7 +2315,7 @@ impl Semantics
         }
 
         for an in anons.iter_mut() {
-            if let Ast::DefFunc(_name, args, _result, body) = &mut *an.v.node {
+            if let Ast::DefFunc(_name, _args, _result, body) = &mut *an.v.node {
                 let anon_ftyp = an.v.typ.func_ref().unwrap();
                 ltry!(type_check.add_anon_func_args(&anon_ftyp));
                 ltry!(
