@@ -338,7 +338,12 @@ impl Type
     /// closed var tuple
     /// call result
     /// call args
-    pub fn closure(type_args: TypeArgs, result: Type, args: TypeArgs, closed: TypeArgs) -> Type
+    pub fn closure(
+        type_args: TypeArgs,
+        result: Type,
+        args: TypeArgs,
+        closed: TypeArgs,
+    ) -> Type
     {
         let type_argst = Type::t(Type::PATH_FN_TYPEARGS, type_args);
         let argst = Type::t(Type::PATH_FN_ARGS, args);

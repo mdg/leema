@@ -203,7 +203,13 @@ struct AnonFuncDef
 
 impl AnonFuncDef
 {
-    pub fn new(proto: &ProtoModule, name: &'static str, func_type: Type, body: AstNode, loc: Loc) -> Lresult<AnonFuncDef>
+    pub fn new(
+        proto: &ProtoModule,
+        name: &'static str,
+        func_type: Type,
+        body: AstNode,
+        loc: Loc,
+    ) -> Lresult<AnonFuncDef>
     {
         Ok(AnonFuncDef {
             m: proto.key.clone(),
@@ -228,7 +234,7 @@ impl AnonFuncDef
                 "type": ldisplay!(self.func_type()),
             ));
         };
-        return Ok(cval)
+        return Ok(cval);
     }
 
     pub fn into_def_func_node(self) -> Lresult<AstNode>
@@ -237,11 +243,10 @@ impl AnonFuncDef
         let func_type = self.func_type().clone();
         let loc = self.loc;
         let body = self.body;
-        let mut dfn = AstNode::new(Ast::DefFunc(
-            name,
-            vec![],
-            AstNode::void(),
-            body), loc);
+        let mut dfn = AstNode::new(
+            Ast::DefFunc(name, vec![], AstNode::void(), body),
+            loc,
+        );
         dfn.typ = func_type;
         Ok(dfn)
     }
@@ -252,12 +257,17 @@ impl AnonFuncDef
         if !self.func_type.is_generic() {
             return fname;
         }
-        let type_args = self.func_type.args.iter().map(|a| {
-            StrupleItem::new(
-                a.k.sref().ok(),
-                AstNode::new(Ast::Type(a.v.clone()), self.loc),
-            )
-        }).collect();
+        let type_args = self
+            .func_type
+            .args
+            .iter()
+            .map(|a| {
+                StrupleItem::new(
+                    a.k.sref().ok(),
+                    AstNode::new(Ast::Type(a.v.clone()), self.loc),
+                )
+            })
+            .collect();
         AstNode::new(Ast::Generic(fname, type_args), self.loc)
     }
 
@@ -274,9 +284,11 @@ impl AnonFuncDef
     pub fn argvals(&self) -> Lresult<Struple2<Val>>
     {
         let func_ref = self.func_type.try_func_ref()?;
-        Ok(func_ref.args.iter().map(|a| {
-            StrupleItem::new(Some(a.k.clone()), Val::VOID)
-        }).collect())
+        Ok(func_ref
+            .args
+            .iter()
+            .map(|a| StrupleItem::new(Some(a.k.clone()), Val::VOID))
+            .collect())
     }
 }
 
@@ -520,10 +532,7 @@ impl<'p> ScopeCheck<'p>
         // inherit type args from the outer function
         for ta in self.type_args.iter() {
             if let Lstr::Sref(a) = ta.k {
-                type_args_t.push(StrupleItem::new(
-                    Lstr::Sref(a),
-                    ta.v.clone(),
-                ));
+                type_args_t.push(StrupleItem::new(Lstr::Sref(a), ta.v.clone()));
             } else {
                 panic!("not a static Lstr: {}", ta.k);
             }
@@ -560,10 +569,7 @@ impl<'p> ScopeCheck<'p>
                 // convert arg name to k and add open type var
                 let next_type_name = next_type_it.next().unwrap();
                 let open_t = Type::open(Lstr::Sref(*next_type_name));
-                arg_t.push(StrupleItem::new(
-                    Lstr::Sref(var),
-                    open_t.clone(),
-                ));
+                arg_t.push(StrupleItem::new(Lstr::Sref(var), open_t.clone()));
                 type_args_t.push(StrupleItem::new(
                     Lstr::Sref(*next_type_name),
                     open_t,
@@ -576,7 +582,7 @@ impl<'p> ScopeCheck<'p>
         }
         Ok(Type::generic_f(type_args_t, result_t, arg_t))
     }
-/*
+    /*
         let closure_t = ltry!(self.local_mod.ast_to_ftype(result, &args, type_arg_t.as_slice()));
         let closure_tref = ltry!(closure_t.try_func_ref());
 
@@ -618,7 +624,7 @@ impl<'p> ScopeCheck<'p>
     ) -> Lresult<AstNode>
     {
         /*
-let name_str = "test";
+        let name_str = "test";
         let ftyp =
             ltry!(self.local_mod.ast_to_ftype(&result, &args, &type_type_args));
 
@@ -713,7 +719,8 @@ let name_str = "test";
     /// full type_args struple Struple [A, B, X, Y]
     /// <Closure A B>
     /// <Closure (X Y) A B>
-    fn pre_closure(&mut self,
+    fn pre_closure(
+        &mut self,
         args: &Xlist,
         closed_types: StrupleKV<&'static str, &'static str>,
         loc: Loc,
@@ -737,12 +744,9 @@ let name_str = "test";
                 open_typ.clone(),
             ));
             */
-            cl_type_args.push(StrupleItem::new(
-                closed_type_lstr,
-                open_typ.clone(),
-            ));
-            vars_to_close
-                .push(StrupleItem::new(Lstr::Sref(var.k), open_typ));
+            cl_type_args
+                .push(StrupleItem::new(closed_type_lstr, open_typ.clone()));
+            vars_to_close.push(StrupleItem::new(Lstr::Sref(var.k), open_typ));
 
             closed_vars.push(StrupleItem::new(
                 Some(var.k),
@@ -1022,12 +1026,10 @@ let name_str = "test";
             }
             Ast::DefFunc(_ref_name, ref_args, ref_result, ref_body) => {
                 let body = mem::take(ref_body);
-                let func_type = self.pre_anon_functype(&ref_result, &ref_args, loc)?;
-                let fn_def = ltry!(self.new_anon_func_def(
-                    func_type,
-                    body,
-                    node.loc,
-                ));
+                let func_type =
+                    self.pre_anon_functype(&ref_result, &ref_args, loc)?;
+                let fn_def =
+                    ltry!(self.new_anon_func_def(func_type, body, node.loc,));
 
                 // collect all the undefined variables in body
                 // validate their scope in this func
@@ -2442,11 +2444,12 @@ mod tests
         let foo_call_input = r#"<foo A B>"#;
         let mut foo_call =
             parser::parse(parser::Rule::expr, foo_call_input).unwrap();
-        let (_foo_name, _foo_args) = if let Ast::Generic(fname, fargs) = *foo_call.remove(0).node {
-            (fname, fargs)
-        } else {
-            panic!("expected Generic, found {:?}", foo_call);
-        };
+        let (_foo_name, _foo_args) =
+            if let Ast::Generic(fname, fargs) = *foo_call.remove(0).node {
+                (fname, fargs)
+            } else {
+                panic!("expected Generic, found {:?}", foo_call);
+            };
 
         let input = r#"
         fn :: i -> i * 2 --
@@ -2464,10 +2467,13 @@ mod tests
         let ftyp_ref = fref.t.func_ref().unwrap();
 
         let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
-        let mut scopecheck = ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
+        let mut scopecheck =
+            ScopeCheck::new(&prog.lib(), &proto, &ftyp_ref).unwrap();
 
         if let Ast::DefFunc(_name, mut args, mut result, _) = *def_func.node {
-            let anon_t = scopecheck.pre_anon_functype(&mut result, &mut args, def_func.loc).unwrap();
+            let anon_t = scopecheck
+                .pre_anon_functype(&mut result, &mut args, def_func.loc)
+                .unwrap();
 
             let anon_fref = anon_t.try_func_ref().unwrap();
             assert_eq!(Type::open(Lstr::Sref("A.0")), *anon_fref.result);
