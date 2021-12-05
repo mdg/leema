@@ -1,6 +1,6 @@
 use crate::leema::code::{Code, Op, OpVec};
 use crate::leema::failure::{Failure, Lresult};
-use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
+use crate::leema::frame::{Event, Frame, FrameTrace, Parent, Stack};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
 use crate::leema::lstr::Lstr;
@@ -19,16 +19,18 @@ pub struct Fiber
     pub fiber_id: i64,
     pub next_task_id: i64,
     pub head: Frame,
+    pub stack: Stack,
 }
 
 impl Fiber
 {
-    pub fn spawn(id: i64, root: Frame) -> Fiber
+    pub fn spawn(id: i64, stack: Stack, root: Frame) -> Fiber
     {
         Fiber {
             fiber_id: id,
             next_task_id: 1,
             head: root,
+            stack,
         }
     }
 
@@ -69,13 +71,13 @@ impl Fiber
                 });
             }
         }
-        let pushed_stack = self.head.stack.push(50);
+        let stack: *mut Stack = &mut self.stack;
         let mut newf = Frame {
             parent: Parent::Null,
             function: func,
             trace: self.head.push_frame_trace(line),
+            stack,
             e: Env::with_args(args),
-            stack: pushed_stack,
             pc: 0,
         };
         mem::swap(&mut self.head, &mut newf);

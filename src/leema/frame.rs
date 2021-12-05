@@ -296,14 +296,15 @@ pub struct Frame
     pub parent: Parent,
     pub function: Fref,
     pub trace: Arc<FrameTrace>,
+    pub stack: *mut Stack,
     pub e: Env,
-    pub stack: Stack,
     pub pc: i32,
 }
 
 impl Frame
 {
     pub fn new_root(
+        stack: &mut Stack,
         parent: Parent,
         function: Fref,
         args: Struple2<Val>,
@@ -314,8 +315,8 @@ impl Frame
             parent,
             trace: FrameTrace::new_root(),
             function,
+            stack,
             e: env,
-            stack: Stack::new(50),
             pc: 0,
         }
     }
