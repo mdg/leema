@@ -11,9 +11,10 @@ func fizbuz :: x:Int max:Int ->
     |_ -> io.print("$x\n")
     --
 
-    if x < max ->
-        fizbuz(x + 1, max)
+    if x == max ->
+        return 0
     --
+    fizbuz(x + 1, max)
 --
 
 
