@@ -1,11 +1,12 @@
 use crate::leema::code::{Code, Op, OpVec};
 use crate::leema::failure::{Failure, Lresult};
-use crate::leema::frame::{Event, Frame, FrameTrace, Parent, Stack};
+use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::reg::Reg;
+use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Env, Fref, Type, Val};
 
@@ -19,12 +20,12 @@ pub struct Fiber
     pub fiber_id: i64,
     pub next_task_id: i64,
     pub head: Frame,
-    pub stack: Stack,
+    pub stack: stack::Buffer,
 }
 
 impl Fiber
 {
-    pub fn spawn(id: i64, stack: Stack, root: Frame) -> Fiber
+    pub fn spawn(id: i64, stack: stack::Buffer, root: Frame) -> Fiber
     {
         Fiber {
             fiber_id: id,
@@ -71,7 +72,7 @@ impl Fiber
                 });
             }
         }
-        let stack: *mut Stack = &mut self.stack;
+        let stack: stack::Frame = self.stack.frame();
         let mut newf = Frame {
             parent: Parent::Null,
             function: func,

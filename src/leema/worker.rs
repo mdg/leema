@@ -1,10 +1,11 @@
 use crate::leema::code::Code;
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
-use crate::leema::frame::{self, Event, Frame, FrameTrace, Parent};
+use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::rsrc;
+use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, MsgVal, Val};
 
@@ -394,8 +395,8 @@ impl Worker
             WorkerMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn2 {}\n", func);
                 let parent = Parent::new_fork(result_dst);
-                let mut stack = frame::Stack::new(DEFAULT_STACK_SIZE);
-                let root = Frame::new_root(&mut stack, parent, func, args);
+                let mut stack = stack::Buffer::new(DEFAULT_STACK_SIZE);
+                let root = Frame::new_root(stack.frame(), parent, func, args);
                 self.spawn_fiber(stack, root);
             }
             WorkerMsg::FoundCode(fiber_id, fref, code) => {
@@ -468,7 +469,7 @@ impl Worker
         }
     }
 
-    pub fn spawn_fiber(&mut self, stack: frame::Stack, frame: Frame)
+    pub fn spawn_fiber(&mut self, stack: stack::Buffer, frame: Frame)
     {
         vout!("spawn_fiber({})\n", frame.function);
         let id = self.next_fiber_id;

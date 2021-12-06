@@ -3,6 +3,7 @@ use crate::leema::failure::Lresult;
 use crate::leema::module::ModKey;
 use crate::leema::reg::{Ireg, Reg};
 use crate::leema::rsrc;
+use crate::leema::stack;
 use crate::leema::struple::Struple2;
 use crate::leema::val::{Env, Fref, Val};
 
@@ -238,65 +239,12 @@ impl fmt::Display for FrameTrace
 }
 
 #[derive(Debug)]
-pub struct Stack
-{
-    data: Vec<Val>,
-    base: usize,
-    size: usize,
-}
-
-impl Stack
-{
-    pub fn new(size: usize) -> Stack
-    {
-        Stack {
-            data: Vec::with_capacity(std::cmp::max(64, size)),
-            base: 0,
-            size,
-        }
-    }
-
-    pub fn push(&mut self, new_size: usize) -> Stack
-    {
-        let mut new_stack = Stack {
-            data: vec![],
-            base: self.base + self.size,
-            size: new_size,
-        };
-        self.data.reserve(new_stack.base + new_stack.size);
-        mem::swap(&mut self.data, &mut new_stack.data);
-        new_stack
-    }
-
-    pub fn restore(&mut self, old_stack: &mut Stack)
-    {
-        mem::swap(&mut self.data, &mut old_stack.data);
-    }
-
-    pub fn get(&self, i: usize) -> Lresult<&Val>
-    {
-        Ok(self.data.get(self.base + i).unwrap())
-    }
-
-    pub fn get_mut(&mut self, i: usize) -> Lresult<&mut Val>
-    {
-        Ok(self.data.get_mut(self.base + i).unwrap())
-    }
-
-    pub fn set(&mut self, i: usize, d: Val) -> Lresult<()>
-    {
-        *self.data.get_mut(self.base + i).unwrap() = d;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
 pub struct Frame
 {
     pub parent: Parent,
     pub function: Fref,
     pub trace: Arc<FrameTrace>,
-    pub stack: *mut Stack,
+    pub stack: stack::Frame,
     pub e: Env,
     pub pc: i32,
 }
@@ -304,7 +252,7 @@ pub struct Frame
 impl Frame
 {
     pub fn new_root(
-        stack: &mut Stack,
+        stack: stack::Frame,
         parent: Parent,
         function: Fref,
         args: Struple2<Val>,

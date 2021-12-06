@@ -31,6 +31,7 @@ pub mod reg;
 pub mod rsrc;
 pub mod semantics;
 pub mod sendclone;
+pub mod stack;
 pub mod struple;
 pub mod token;
 pub mod types;
