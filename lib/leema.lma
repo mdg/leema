@@ -2,10 +2,15 @@
 
 datatype Fref -RUST-
 
+datatype <Closure C F> ::
+    closed: C
+    f: F
+--
+
 ## self.f
 datatype <Method T> ::
-    f: Fref
     self: T
+    f: Fref
 --
 
 datatype ModTyp

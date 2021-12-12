@@ -1,6 +1,6 @@
 use crate::leema::code::{Code, Op, OpVec};
 use crate::leema::failure::{Failure, Lresult};
-use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
+use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
 use crate::leema::lstr::Lstr;
@@ -8,9 +8,8 @@ use crate::leema::module::ModKey;
 use crate::leema::reg::Reg;
 use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{Env, Fref, Type, Val};
+use crate::leema::val::{Fref, Type, Val};
 
-use std::mem;
 use std::rc::Rc;
 
 
@@ -20,7 +19,7 @@ pub struct Fiber
     pub fiber_id: i64,
     pub next_task_id: i64,
     pub head: Frame,
-    pub stack: stack::Buffer,
+    stack: stack::Buffer,
 }
 
 impl Fiber
@@ -72,25 +71,15 @@ impl Fiber
                 });
             }
         }
-        let stack: stack::Frame = self.stack.frame();
-        let mut newf = Frame {
-            parent: Parent::Null,
-            function: func,
-            trace: self.head.push_frame_trace(line),
-            stack,
-            e: Env::with_args(args),
-            pc: 0,
-        };
-        mem::swap(&mut self.head, &mut newf);
-        let parent = Parent::Caller(code, Box::new(newf), dst);
-        self.head.set_parent(parent);
+        self.head = self.head.push_call(code, dst, func, line, args);
     }
 
     pub fn push_tailcall(&mut self, func: Fref, args: Struple2<Val>)
     {
+        let callv = Val::Call(func.clone(), vec![]);
         self.head.function = func;
         self.head.pc = 0;
-        self.head.e = Env::with_args(args);
+        self.head.tail_call_args(callv, args);
         self.head.trace = self.head.push_frame_trace(0);
     }
 

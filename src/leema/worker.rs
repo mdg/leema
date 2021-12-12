@@ -395,8 +395,9 @@ impl Worker
             WorkerMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn2 {}\n", func);
                 let parent = Parent::new_fork(result_dst);
-                let mut stack = stack::Buffer::new(DEFAULT_STACK_SIZE);
-                let root = Frame::new_root(stack.frame(), parent, func, args);
+                let (stack, e) =
+                    stack::Buffer::new(DEFAULT_STACK_SIZE, func, args);
+                let root = Frame::new_root(e, parent, func, args);
                 self.spawn_fiber(stack, root);
             }
             WorkerMsg::FoundCode(fiber_id, fref, code) => {

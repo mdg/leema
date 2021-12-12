@@ -1,6 +1,6 @@
 use crate::leema::failure::{self, Lresult};
 use crate::leema::reg::{Ireg, Reg};
-use crate::leema::struple::Struple2;
+use crate::leema::struple::{Struple2, Struple2Slice, StrupleItem};
 use crate::leema::val::{Fref, Val};
 
 /// StackBuffer stores the data for a particular fiber/task
@@ -8,12 +8,12 @@ use crate::leema::val::{Fref, Val};
 /// ### Call stack handling
 ///
 /// Push Result Reg       <-- frame base
+/// Push Fref
+/// Push Closed or Self
 /// Push Arg0
 /// ...
 /// Push ArgN
-/// Push Closed or Self
-/// Push Fref
-/// Call     <- what's the call register?
+/// Call(Base)   <- count up in stack for result/call
 /// Expand Locals w/ Void
 /// Measure diff to frame base
 ///
@@ -37,7 +37,7 @@ use crate::leema::val::{Fref, Val};
 #[derive(Debug)]
 pub struct Buffer
 {
-    data: Vec<Val>,
+    data: Struple2<Val>,
 }
 
 impl Buffer
@@ -54,33 +54,44 @@ impl Buffer
     fn push_frame_args(&mut self, f: Fref, args: Struple2<Val>) -> Ref
     {
         // push result
-        self.data.push(Val::VOID);
         let result_index = self.data.len();
+        self.data.push(StrupleItem::new_v(Val::VOID));
+        let result: *mut Val = &mut self.data.last_mut().unwrap().v;
 
-        // push func
-        self.data.push(Val::Func(f));
+        // push args
         let arg_0 = self.data.len();
         // push args
         for a in args.into_iter() {
-            self.data.push(a.v);
+            self.data.push(a);
         }
+
+        // push func
+        let func_index = self.data.len();
+        self.data.push(StrupleItem::new_v(Val::Func(f)));
+        let func: *mut Val = &mut self.data.last_mut().unwrap().v;
 
         let stack: *mut Buffer = unsafe { self };
         Ref {
-            param: &self.data[arg_0..self.data.len()],
-            local: &mut [],
-            result_index: 1,
             stack,
+            result,
+            func,
+            subj: None,
+            param: &self.data[arg_0..self.data.len()],
+            local: None,
+            result_index,
         }
     }
 }
 
 pub struct Ref
 {
-    param: *const [Val],
-    local: *mut [Val],
-    result_index: usize,
     stack: *mut Buffer,
+    result: *mut Val,
+    func: *const Val,
+    subj: Option<*mut Val>,
+    param: *const Struple2Slice<Val>,
+    local: Option<*mut Struple2Slice<Val>>,
+    result_index: usize,
 }
 
 impl Ref
@@ -91,25 +102,36 @@ impl Ref
         stack.push_frame_args(func, args)
     }
 
+    pub fn pop_frame(self)
+    {
+        let stack: &mut Buffer = &mut unsafe { *self.stack };
+        stack.data.truncate(self.result_index + 1);
+    }
+
     /**
      * handy accessor function when calling from rust native functions
      */
     pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
-        unsafe { *self.param }.get(p as usize).ok_or_else(|| lfail!(
-            failure::Mode::RuntimeLeemaFailure,
-            "invalid param index",
-            "param": ldisplay!(p),
-        ))
+        unsafe { *self.param }
+            .get(p as usize)
+            .map(|p| &p.v)
+            .ok_or_else(|| {
+                lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "invalid param index",
+                    "param": ldisplay!(p),
+                )
+            })
     }
 
     /**
      * handy accessor function when calling from rust native functions
+     */
     pub fn get_params(&self) -> &Struple2Slice<Val>
     {
-        unsafe { *self.param }
+        &unsafe { *self.param }
     }
-     */
 
     pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {

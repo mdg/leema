@@ -1,11 +1,11 @@
 use crate::leema::code::Code;
 use crate::leema::failure::Lresult;
 use crate::leema::module::ModKey;
-use crate::leema::reg::{Ireg, Reg};
+use crate::leema::reg::Reg;
 use crate::leema::rsrc;
 use crate::leema::stack;
 use crate::leema::struple::Struple2;
-use crate::leema::val::{Env, Fref, Val};
+use crate::leema::val::{Fref, Val};
 
 use std::fmt::{self, Debug};
 use std::mem;
@@ -244,45 +244,65 @@ pub struct Frame
     pub parent: Parent,
     pub function: Fref,
     pub trace: Arc<FrameTrace>,
-    pub stack: stack::Frame,
-    pub e: Env,
+    // rename this to something better than "e"
+    pub e: stack::Ref,
+
+    // result: Val,
+    // result_ptr: Option<*mut Val>,
+    // subj: Option<*mut Val>,
+    // func: *const Val,
     pub pc: i32,
 }
 
 impl Frame
 {
     pub fn new_root(
-        stack: stack::Frame,
+        stack: stack::Ref,
         parent: Parent,
         function: Fref,
         args: Struple2<Val>,
     ) -> Frame
     {
-        let env = Env::with_args(args);
         Frame {
             parent,
             trace: FrameTrace::new_root(),
             function,
-            stack,
-            e: env,
+            e: stack,
             pc: 0,
         }
     }
 
-    /*
-    pub fn new_fork(f: &Frame, ready: &Arc<AtomicBool>, tx: mpsc::Sender<Msg>)
-        -> Frame
+    pub fn push_call(
+        self,
+        curr_code: Rc<Code>,
+        result: Reg,
+        func: Fref,
+        line: i16,
+        args: Struple2<Val>,
+    ) -> Frame
     {
-        Frame{
-            parent: Parent::Fork(ready.clone(), tx),
-            name: f.name.clone(),
-            trace: f.trace.clone(),
-            e: f.e.clone(),
-            id: f.id,
+        let e = self.e.push_frame_args(func, args);
+        let mut newf = Frame {
+            parent: Parent::Null,
+            function: func,
+            trace: self.push_frame_trace(line),
+            e,
             pc: 0,
-        }
+        };
+        let new_parent = Parent::Caller(curr_code, Box::new(self), result);
+        newf.set_parent(new_parent);
+        newf
     }
-    */
+
+    pub fn tail_call_args(&mut self, _call: Val, _args: Struple2<Val>)
+    {
+        /*
+        (*self.func) = call;
+        for a in args.iter_mut() {
+            a
+        }
+        */
+    }
 
     pub fn set_parent(&mut self, p: Parent)
     {
@@ -297,21 +317,6 @@ impl Frame
     pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>
     {
         FrameTrace::push_call(&self.trace, &self.function, line)
-    }
-
-    pub fn take_env(&mut self) -> Env
-    {
-        let mut e = Env::new();
-        mem::swap(&mut e, &mut self.e);
-        e
-    }
-
-    /**
-     * handy accessor function when calling from rust native functions
-     */
-    pub fn get_param(&self, p: i8) -> Lresult<&Val>
-    {
-        self.e.get_reg(Reg::Param(Ireg::Reg(p)))
     }
 }
 

@@ -8,7 +8,9 @@ use crate::leema::module::{ModKey, ModTyp};
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Iregistry, Reg};
 use crate::leema::sendclone;
-use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{
+    self, Struple2, Struple2Slice, StrupleItem, StrupleKV,
+};
 
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::HashMap;
@@ -1231,6 +1233,7 @@ pub enum Val
     EnumStruct(Type, Lstr, Struple2<Val>),
     EnumToken(Type, Lstr),
     Token(Type),
+    Func(Fref),
     Map(LmapNode),
     Failure2(Box<Failure>),
     Type(Type),
@@ -2275,7 +2278,7 @@ impl Env
         }
     }
 
-    pub fn get_params(&self) -> &Struple2<Val>
+    pub fn get_params(&self) -> &Struple2Slice<Val>
     {
         &self.params
     }
