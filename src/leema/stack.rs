@@ -3,6 +3,14 @@ use crate::leema::reg::Reg;
 use crate::leema::val::Val;
 
 /// StackBuffer stores the data for a particular fiber/task
+///
+/// Call stack handling
+/// Push result reg
+/// Push Fref or <Closure Fref Closed> or <Method Fref Self>
+/// Push Arg0
+/// ...
+/// Push ArgN
+/// Call
 #[derive(Debug)]
 pub struct Buffer
 {
