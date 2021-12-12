@@ -4,13 +4,35 @@ use crate::leema::val::Val;
 
 /// StackBuffer stores the data for a particular fiber/task
 ///
-/// Call stack handling
-/// Push result reg
-/// Push Fref or <Closure Fref Closed> or <Method Fref Self>
+/// ### Call stack handling
+///
+/// Push result reg       <-- frame base
+/// Push Fref
+/// Push Closed or Self
 /// Push Arg0
 /// ...
 /// Push ArgN
 /// Call
+/// Expand LocalsN w/ Void
+/// Measure diff to frame base
+///
+/// ### Call stack return
+///
+/// pop Args
+/// pop Closed or Self
+/// pop Fref
+/// how to know how much to pop?
+///
+/// ### Tail call
+///
+/// pop Args
+/// pop Closed or Self
+/// pop Fref
+/// push Fref
+/// push Closed or Self
+/// push Args
+/// Call
+///
 #[derive(Debug)]
 pub struct Buffer
 {
