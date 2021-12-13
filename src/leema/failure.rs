@@ -31,12 +31,12 @@ macro_rules! lfail {
                     crate::leema::lstr::Lstr::Sref(file!()),
                 ),
                 crate::leema::struple::StrupleItem::new(
-                    crate::leema::lstr::Lstr::Lstr::Sref("rline"),
+                    crate::leema::lstr::Lstr::Sref("rline"),
                     lstrf!("{}", line!()),
                 ),
                 crate::leema::struple::StrupleItem::new(
-                    crate::leema::lstr::Lstr::Lstr::Sref("msg"),
-                    crate::leema::lstr::Lstr::Lstr::Sref($msg),
+                    crate::leema::lstr::Lstr::Sref("msg"),
+                    crate::leema::lstr::Lstr::Sref($msg),
                 ),
             ],
         )

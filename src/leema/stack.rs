@@ -58,17 +58,18 @@ impl Buffer
         self.data.push(StrupleItem::new_v(Val::VOID));
         let result: *mut Val = &mut self.data.last_mut().unwrap().v;
 
+        // push func
+        let func_index = self.data.len();
+        self.data.push(StrupleItem::new_v(Val::Func(f)));
+        let func: *mut Val = &mut self.data.last_mut().unwrap().v;
+
         // push args
         let arg_0 = self.data.len();
         // push args
         for a in args.into_iter() {
             self.data.push(a);
         }
-
-        // push func
-        let func_index = self.data.len();
-        self.data.push(StrupleItem::new_v(Val::Func(f)));
-        let func: *mut Val = &mut self.data.last_mut().unwrap().v;
+        let stack_base = self.data.len();
 
         let stack: *mut Buffer = unsafe { self };
         Ref {
@@ -79,6 +80,7 @@ impl Buffer
             param: &self.data[arg_0..self.data.len()],
             local: None,
             result_index,
+            stack_base,
         }
     }
 }
@@ -92,6 +94,7 @@ pub struct Ref
     param: *const Struple2Slice<Val>,
     local: Option<*mut Struple2Slice<Val>>,
     result_index: usize,
+    stack_base: usize,
 }
 
 impl Ref
@@ -136,17 +139,24 @@ impl Ref
     pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
         match r {
-            Reg::Params(Ireg::Reg(i)) => {
-                Ok(unsafe { *self.param }.get(i).unwrap())
+            Reg::Param(Ireg::Reg(i)) => {
+                Ok(&unsafe { *self.param }.get(i as usize).unwrap().v)
             }
-            Reg::Locals(Ireg::Reg(i)) => {
-                Ok(unsafe { *self.local }.get(i).unwrap())
+            Reg::Local(Ireg::Reg(i)) => {
+                if let Some(local) = self.local {
+                    Ok(&unsafe { *local }.get(i as usize).unwrap().v)
+                } else {
+                    Err(lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "no locals allocated"
+                    ))
+                }
             }
             _ => {
                 Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,
                     "cannot get register",
-                    "reg": r,
+                    "reg": ldisplay!(r),
                 ))
             }
         }
@@ -157,10 +167,22 @@ impl Ref
         match r {
             Reg::Local(i) => {
                 let primary = i.get_primary() as usize;
-                if primary >= self.locals.len() {
-                    self.locals.resize(primary + 1, Default::default())
+                if let Some(plocal) = self.local {
+                    let local = &mut unsafe { *plocal };
+                    if primary >= local.len() {
+                        return Err(lfail!(
+                            failure::Mode::RuntimeLeemaFailure,
+                            "cannot set local overflow",
+                            "reg": ldisplay!(r),
+                        ));
+                    }
+                    local[primary].v = v;
+                } else {
+                    Err(lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "cannot set unallocated local"
+                    ))
                 }
-                self.locals.ireg_set(i, v)
             }
             Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
