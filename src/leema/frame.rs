@@ -300,6 +300,11 @@ impl Frame
         */
     }
 
+    pub fn reserve_local(&mut self, num: usize)
+    {
+        self.e.reserve_local(num);
+    }
+
     pub fn set_parent(&mut self, p: Parent)
     {
         self.parent = p;

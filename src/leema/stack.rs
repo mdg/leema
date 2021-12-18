@@ -105,6 +105,17 @@ impl Ref
         stack.push_frame_args(func, args)
     }
 
+    pub fn reserve_local(&mut self, num: usize)
+    {
+        let base = unsafe { &*self.stack }.data.len();
+        let new_size = base + num;
+        let stack_ref = unsafe { &mut *self.stack };
+        stack_ref
+            .data
+            .resize(new_size, StrupleItem::new_v(Val::VOID));
+        self.local = Some(&mut stack_ref.data[base..new_size]);
+    }
+
     pub fn pop_frame(self)
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };
@@ -180,7 +191,9 @@ impl Ref
                 } else {
                     return Err(lfail!(
                         failure::Mode::RuntimeLeemaFailure,
-                        "cannot set unallocated local"
+                        "cannot set unallocated local",
+                        "stack_size":
+                            ldisplay!(unsafe { &*self.stack }.data.len()),
                     ));
                 }
             }

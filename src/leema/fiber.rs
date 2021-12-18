@@ -450,6 +450,7 @@ mod tests
     use crate::leema::frame::{Event, Frame, Parent};
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
+    use crate::leema::stack;
     use crate::leema::val::{Fref, Val};
 
 
@@ -460,7 +461,9 @@ mod tests
         let r2 = Reg::local(2);
         let main_parent = Parent::new_main();
         let callri = Fref::with_modules(From::from("foo"), "bar");
-        let mut frame = Frame::new_root(main_parent, callri, Vec::new());
+        let (stack, e) = stack::Buffer::new(100, callri.clone(), Vec::new());
+        let mut frame = Frame::new_root(e, main_parent, callri);
+        frame.reserve_local(10);
         frame
             .e
             .set_reg(r1, Val::Str(Lstr::Sref("i like ")))
@@ -469,7 +472,7 @@ mod tests
             .e
             .set_reg(r2, Val::Str(Lstr::Sref("burritos")))
             .unwrap();
-        let mut fib = Fiber::spawn(1, frame);
+        let mut fib = Fiber::spawn(1, stack, frame);
 
         let event = fib.execute_strcat(r1, r2).unwrap();
         assert_eq!(Event::Uneventful, event);
