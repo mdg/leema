@@ -51,8 +51,8 @@ pub fn int_add(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
+        let a = f.head.e.get_param(0)?;
+        let b = f.head.e.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia + ib;
@@ -70,8 +70,8 @@ pub fn int_sub(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
+        let a = f.head.e.get_param(0)?;
+        let b = f.head.e.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia - ib;
@@ -89,8 +89,8 @@ pub fn int_mult(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
+        let a = f.head.e.get_param(0)?;
+        let b = f.head.e.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia * ib;
@@ -108,8 +108,8 @@ pub fn int_div(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
+        let a = f.head.e.get_param(0)?;
+        let b = f.head.e.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia / ib;
@@ -127,8 +127,8 @@ pub fn int_mod(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let ic;
     {
-        let a = f.head.get_param(0)?;
-        let b = f.head.get_param(1)?;
+        let a = f.head.e.get_param(0)?;
+        let b = f.head.e.get_param(1)?;
         match (a, b) {
             (&Val::Int(ia), &Val::Int(ib)) => {
                 ic = ia % ib;
@@ -146,7 +146,7 @@ pub fn int_negate(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let result;
     {
-        let a = f.head.get_param(0)?;
+        let a = f.head.e.get_param(0)?;
         match a {
             &Val::Int(a) => {
                 result = -a;

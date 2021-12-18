@@ -396,8 +396,8 @@ impl Worker
                 vout!("worker spawn2 {}\n", func);
                 let parent = Parent::new_fork(result_dst);
                 let (stack, e) =
-                    stack::Buffer::new(DEFAULT_STACK_SIZE, func, args);
-                let root = Frame::new_root(e, parent, func, args);
+                    stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
+                let root = Frame::new_root(e, parent, func);
                 self.spawn_fiber(stack, root);
             }
             WorkerMsg::FoundCode(fiber_id, fref, code) => {
@@ -451,7 +451,7 @@ impl Worker
                 None => None,
             };
 
-            let args = Val::Tuple(fib.head.e.get_params().clone());
+            let args = Val::Tuple(fib.head.e.get_params().to_vec());
             let msg_vals = MsgVal::new(&args);
             self.io_tx
                 .send(IoMsg::Iop {

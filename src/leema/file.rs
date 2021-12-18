@@ -103,7 +103,7 @@ pub fn file_exists(mut ctx: rsrc::IopCtx) -> rsrc::Event
 pub fn file_read(f: &mut Fiber) -> Lresult<Event>
 {
     let open_result = {
-        let fnval = f.head.get_param(0)?;
+        let fnval = f.head.e.get_param(0)?;
         match fnval {
             &Val::Str(ref fnstr) => File::open(&**fnstr),
             _ => {

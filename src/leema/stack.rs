@@ -59,7 +59,6 @@ impl Buffer
         let result: *mut Val = &mut self.data.last_mut().unwrap().v;
 
         // push func
-        let func_index = self.data.len();
         self.data.push(StrupleItem::new_v(Val::Func(f)));
         let func: *mut Val = &mut self.data.last_mut().unwrap().v;
 
@@ -71,7 +70,7 @@ impl Buffer
         }
         let stack_base = self.data.len();
 
-        let stack: *mut Buffer = unsafe { self };
+        let stack: *mut Buffer = self;
         Ref {
             stack,
             result,
@@ -85,6 +84,7 @@ impl Buffer
     }
 }
 
+#[derive(Debug)]
 pub struct Ref
 {
     stack: *mut Buffer,
@@ -101,13 +101,13 @@ impl Ref
 {
     pub fn push_frame_args(&mut self, func: Fref, args: Struple2<Val>) -> Ref
     {
-        let stack: &mut Buffer = &mut unsafe { *self.stack };
+        let stack: &mut Buffer = unsafe { &mut *self.stack };
         stack.push_frame_args(func, args)
     }
 
     pub fn pop_frame(self)
     {
-        let stack: &mut Buffer = &mut unsafe { *self.stack };
+        let stack: &mut Buffer = unsafe { &mut *self.stack };
         stack.data.truncate(self.result_index + 1);
     }
 
@@ -116,7 +116,7 @@ impl Ref
      */
     pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
-        unsafe { *self.param }
+        unsafe { &*self.param }
             .get(p as usize)
             .map(|p| &p.v)
             .ok_or_else(|| {
@@ -133,18 +133,18 @@ impl Ref
      */
     pub fn get_params(&self) -> &Struple2Slice<Val>
     {
-        &unsafe { *self.param }
+        unsafe { &*self.param }
     }
 
     pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
         match r {
             Reg::Param(Ireg::Reg(i)) => {
-                Ok(&unsafe { *self.param }.get(i as usize).unwrap().v)
+                Ok(&unsafe { &*self.param }.get(i as usize).unwrap().v)
             }
             Reg::Local(Ireg::Reg(i)) => {
                 if let Some(local) = self.local {
-                    Ok(&unsafe { *local }.get(i as usize).unwrap().v)
+                    Ok(&unsafe { &*local }.get(i as usize).unwrap().v)
                 } else {
                     Err(lfail!(
                         failure::Mode::RuntimeLeemaFailure,
@@ -168,7 +168,7 @@ impl Ref
             Reg::Local(i) => {
                 let primary = i.get_primary() as usize;
                 if let Some(plocal) = self.local {
-                    let local = &mut unsafe { *plocal };
+                    let local = unsafe { &mut *plocal };
                     if primary >= local.len() {
                         return Err(lfail!(
                             failure::Mode::RuntimeLeemaFailure,
@@ -178,32 +178,44 @@ impl Ref
                     }
                     local[primary].v = v;
                 } else {
-                    Err(lfail!(
+                    return Err(lfail!(
                         failure::Mode::RuntimeLeemaFailure,
                         "cannot set unallocated local"
-                    ))
+                    ));
                 }
             }
             Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
-                if primary >= self.stack.len() {
-                    self.stack.resize(primary + 1, Default::default())
+                let stack = unsafe { &mut *self.stack };
+                if self.stack_base + primary >= stack.data.len() {
+                    return Err(lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "cannot set stack overflow",
+                        "stack_base": ldisplay!(self.stack_base),
+                        "reg": ldisplay!(r),
+                    ));
                 }
-                self.stack.ireg_set(i, v)
+                stack.data[self.stack_base + primary].v = v;
+                // self.stack.ireg_set(i, v);
             }
-            Reg::Param(i) => {
+            Reg::Param(_) => {
                 // debatable whether param should allow writes
                 // might need to reverse this at some point and
                 // copy params before writing
                 // Struple.ireg_set checks bounds
-                self.params.ireg_set(i, v)
+                return Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "cannot set function param",
+                    "reg": ldisplay!(r),
+                ));
+                // self.params.ireg_set(i, v)
             }
             _ => {
-                Err(lfail!(
+                return Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,
                     "cannot set register",
-                    "reg": r,
-                ))
+                    "reg": ldisplay!(r),
+                ));
             }
         }
         Ok(())

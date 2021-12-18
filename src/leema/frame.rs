@@ -256,12 +256,8 @@ pub struct Frame
 
 impl Frame
 {
-    pub fn new_root(
-        stack: stack::Ref,
-        parent: Parent,
-        function: Fref,
-        args: Struple2<Val>,
-    ) -> Frame
+    pub fn new_root(stack: stack::Ref, parent: Parent, function: Fref)
+        -> Frame
     {
         Frame {
             parent,
@@ -273,25 +269,25 @@ impl Frame
     }
 
     pub fn push_call(
-        self,
+        &mut self,
         curr_code: Rc<Code>,
         result: Reg,
         func: Fref,
         line: i16,
         args: Struple2<Val>,
-    ) -> Frame
+    )
     {
-        let e = self.e.push_frame_args(func, args);
-        let mut newf = Frame {
+        let e = self.e.push_frame_args(func.clone(), args);
+        let mut swapf = Frame {
             parent: Parent::Null,
             function: func,
             trace: self.push_frame_trace(line),
             e,
             pc: 0,
         };
-        let new_parent = Parent::Caller(curr_code, Box::new(self), result);
-        newf.set_parent(new_parent);
-        newf
+        mem::swap(self, &mut swapf);
+        let new_parent = Parent::Caller(curr_code, Box::new(swapf), result);
+        self.set_parent(new_parent);
     }
 
     pub fn tail_call_args(&mut self, _call: Val, _args: Struple2<Val>)
@@ -317,6 +313,11 @@ impl Frame
     pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>
     {
         FrameTrace::push_call(&self.trace, &self.function, line)
+    }
+
+    pub fn get_param(&self, p: i8) -> Lresult<&Val>
+    {
+        self.e.get_param(p)
     }
 }
 

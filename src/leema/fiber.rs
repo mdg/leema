@@ -71,7 +71,7 @@ impl Fiber
                 });
             }
         }
-        self.head = self.head.push_call(code, dst, func, line, args);
+        self.head.push_call(code, dst, func, line, args);
     }
 
     pub fn push_tailcall(&mut self, func: Fref, args: Struple2<Val>)

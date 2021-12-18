@@ -1462,6 +1462,7 @@ impl Val
             &Val::EnumStruct(ref typ, _, _) => typ.clone(),
             &Val::EnumToken(ref typ, _) => typ.clone(),
             &Val::Token(ref typ) => typ.clone(),
+            &Val::Func(ref fref) => fref.t.clone(),
             &Val::Buffer(_) => Type::STR,
             &Val::Call(ref fref, _) => fref.t.clone(),
             &Val::Closure(ref fref, _, _, _) => fref.t.clone(),
@@ -1713,6 +1714,7 @@ impl sendclone::SendClone for Val
                 Val::EnumToken(typ.clone_for_send(), vname.clone_for_send())
             }
             &Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
+            &Val::Func(ref fref) => Val::Func(fref.clone_for_send()),
             &Val::Call(ref f, ref args) => {
                 let f2 = f.clone_for_send();
                 let args2 = args.clone_for_send();
@@ -1782,6 +1784,7 @@ impl fmt::Display for Val
             }
             Val::EnumToken(_, ref var_name) => write!(f, "{}", var_name),
             Val::Token(ref typename) => write!(f, "{}", typename),
+            Val::Func(ref fref) => write!(f, "{}", fref),
             Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Buffer(ref _buf) => write!(f, "Buffer"),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
@@ -1843,6 +1846,7 @@ impl fmt::Debug for Val
                 write!(f, "EnumToken({:?}.{:?})", typ, var_name)
             }
             Val::Token(ref name) => write!(f, "Token({:?})", name),
+            Val::Func(ref fref) => write!(f, "Func({:?})", fref),
             Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
@@ -2038,6 +2042,10 @@ impl PartialOrd for Val
             // token to token comparison
             (&Val::Token(ref at), &Val::Token(ref bt)) => {
                 PartialOrd::partial_cmp(&*at, &*bt)
+            }
+            // func to func comparison
+            (&Val::Func(ref f1), &Val::Func(ref f2)) => {
+                PartialOrd::partial_cmp(&*f1, &*f2)
             }
             // fref to fref comparison
             (&Val::Call(ref f1, ref a1), &Val::Call(ref f2, ref a2)) => {
