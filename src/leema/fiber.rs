@@ -119,6 +119,10 @@ impl Fiber
                 self.execute_call(dst, func, lineno)
             }
             &Op::Return => Ok(Event::Success),
+            &Op::ReserveLocal(n) => {
+                self.head.reserve_local(n as usize);
+                Ok(Event::Success)
+            }
             &Op::SetResult(dst) => {
                 if dst == Reg::Void {
                     return Err(rustfail!(

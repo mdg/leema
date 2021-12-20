@@ -192,8 +192,7 @@ impl Ref
                     return Err(lfail!(
                         failure::Mode::RuntimeLeemaFailure,
                         "cannot set unallocated local",
-                        "stack_size":
-                            ldisplay!(unsafe { &*self.stack }.data.len()),
+                        "stack_size": ldisplay!(self.stack_data().len()),
                     ));
                 }
             }
@@ -205,6 +204,7 @@ impl Ref
                         failure::Mode::RuntimeLeemaFailure,
                         "cannot set stack overflow",
                         "stack_base": ldisplay!(self.stack_base),
+                        "stack_size": ldisplay!(self.stack_data().len()),
                         "reg": ldisplay!(r),
                     ));
                 }
@@ -232,5 +232,10 @@ impl Ref
             }
         }
         Ok(())
+    }
+
+    fn stack_data(&self) -> &Struple2Slice<Val>
+    {
+        &unsafe { &*self.stack }.data
     }
 }

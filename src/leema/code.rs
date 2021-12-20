@@ -1,4 +1,4 @@
-use crate::leema::ast2::{Ast, AstNode, Case, Xlist};
+use crate::leema::ast2::{self, Ast, AstNode, Case, StepResult, Xlist};
 use crate::leema::failure::{self, Lresult};
 use crate::leema::fiber;
 use crate::leema::frame;
@@ -45,6 +45,7 @@ pub enum Op
     ApplyFunc(Reg, Reg, u16),
     Return,
     SetResult(Reg),
+    ReserveLocal(i16),
     PropagateFailure(Reg, u16),
     ConstVal(Reg, Val),
     // ConstructEnum(Reg, Type, Lstr, Struple2<Type>),
@@ -73,6 +74,7 @@ impl Clone for Op
             }
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
+            &Op::ReserveLocal(n) => Op::ReserveLocal(n),
             &Op::PropagateFailure(ref src, lineno) => {
                 Op::PropagateFailure(src.clone(), lineno)
             }
@@ -201,11 +203,44 @@ impl Clone for Code
     }
 }
 
-pub fn make_ops2(input: AstNode) -> OpVec
+struct LocalMax
+{
+    local_max: i8,
+}
+
+impl LocalMax
+{
+    pub fn num_locals(node: &mut AstNode) -> Lresult<i8>
+    {
+        let mut max_local = LocalMax { local_max: -1 };
+        ast2::walk_ref_mut(node, &mut max_local)?;
+        Ok(max_local.local_max + 1)
+    }
+}
+
+impl ast2::Op for LocalMax
+{
+    fn pre(&mut self, node: &mut AstNode, _mode: ast2::AstMode) -> StepResult
+    {
+        if let Reg::Local(ireg) = node.dst {
+            let p = ireg.get_primary();
+            if p > self.local_max {
+                self.local_max = p;
+            }
+        }
+        Ok(ast2::AstStep::Ok)
+    }
+}
+
+pub fn make_ops2(mut input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
+    let num_locals = LocalMax::num_locals(&mut input).unwrap();
     let ops_dst = input.dst.clone();
     let mut ops = make_sub_ops2(input);
+    if num_locals > 0 {
+        ops.ops.insert(0, Op::ReserveLocal(num_locals.into()));
+    }
     ops.ops.push(Op::SetResult(ops_dst));
     ops.ops.push(Op::Return);
     ops.ops
@@ -882,8 +917,9 @@ mod tests
         node.dst = Reg::local(3);
         let code = code::make_ops2(node);
 
-        assert_eq!(3, code.len());
+        assert_eq!(4, code.len());
         let x = vec![
+            Op::ReserveLocal(4),
             Op::ConstVal(Reg::local(3), Val::Int(9)),
             Op::SetResult(Reg::local(3)),
             Op::Return,
