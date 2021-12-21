@@ -3,6 +3,8 @@ use crate::leema::reg::{Ireg, Reg};
 use crate::leema::struple::{Struple2, Struple2Slice, StrupleItem};
 use crate::leema::val::{Fref, Val};
 
+use std::pin::Pin;
+
 /// StackBuffer stores the data for a particular fiber/task
 ///
 /// ### Call stack handling
@@ -42,12 +44,16 @@ pub struct Buffer
 
 impl Buffer
 {
-    pub fn new(size: usize, f: Fref, args: Struple2<Val>) -> (Buffer, Ref)
+    pub fn new(
+        size: usize,
+        f: Fref,
+        args: Struple2<Val>,
+    ) -> (Pin<Box<Buffer>>, Ref)
     {
-        let mut b = Buffer {
+        let mut b = Box::pin(Buffer {
             data: Vec::with_capacity(size),
-        };
-        let frame = b.push_frame_args(f, args);
+        });
+        let frame = (*b).push_frame_args(f, args);
         (b, frame)
     }
 
@@ -107,13 +113,18 @@ impl Ref
 
     pub fn reserve_local(&mut self, num: usize)
     {
-        let base = unsafe { &*self.stack }.data.len();
+        if num == 0 {
+            eprintln!("cannot reserve_local with 0 size");
+            return;
+        }
+        let base = self.stack_data().len();
         let new_size = base + num;
         let stack_ref = unsafe { &mut *self.stack };
         stack_ref
             .data
             .resize(new_size, StrupleItem::new_v(Val::VOID));
         self.local = Some(&mut stack_ref.data[base..new_size]);
+        self.stack_base = self.stack_data().len();
     }
 
     pub fn pop_frame(self)
@@ -163,6 +174,10 @@ impl Ref
                     ))
                 }
             }
+            Reg::Stack(Ireg::Reg(i)) => {
+                let index: usize = self.stack_base + (i as usize);
+                Ok(&self.stack_data().get(index).unwrap().v)
+            }
             _ => {
                 Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,
@@ -198,17 +213,17 @@ impl Ref
             }
             Reg::Stack(i) => {
                 let primary = i.get_primary() as usize;
-                let stack = unsafe { &mut *self.stack };
-                if self.stack_base + primary >= stack.data.len() {
+                let stack_data = &mut unsafe { &mut *self.stack }.data;
+                if self.stack_base + primary >= stack_data.len() {
                     return Err(lfail!(
                         failure::Mode::RuntimeLeemaFailure,
                         "cannot set stack overflow",
                         "stack_base": ldisplay!(self.stack_base),
-                        "stack_size": ldisplay!(self.stack_data().len()),
+                        "stack_size": ldisplay!(stack_data.len()),
                         "reg": ldisplay!(r),
                     ));
                 }
-                stack.data[self.stack_base + primary].v = v;
+                stack_data[self.stack_base + primary].v = v;
                 // self.stack.ireg_set(i, v);
             }
             Reg::Param(_) => {
