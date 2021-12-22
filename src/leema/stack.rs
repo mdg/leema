@@ -3,8 +3,6 @@ use crate::leema::reg::{Ireg, Reg};
 use crate::leema::struple::{Struple2, Struple2Slice, StrupleItem};
 use crate::leema::val::{Fref, Val};
 
-use std::pin::Pin;
-
 /// StackBuffer stores the data for a particular fiber/task
 ///
 /// ### Call stack handling
@@ -44,16 +42,12 @@ pub struct Buffer
 
 impl Buffer
 {
-    pub fn new(
-        size: usize,
-        f: Fref,
-        args: Struple2<Val>,
-    ) -> (Pin<Box<Buffer>>, Ref)
+    pub fn new(size: usize, f: Fref, args: Struple2<Val>) -> (Buffer, Ref)
     {
-        let mut b = Box::pin(Buffer {
+        let mut b = Buffer {
             data: Vec::with_capacity(size),
-        });
-        let frame = (*b).push_frame_args(f, args);
+        };
+        let frame = b.push_frame_args(f, args);
         (b, frame)
     }
 
