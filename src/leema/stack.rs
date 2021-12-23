@@ -243,7 +243,7 @@ impl Ref
         Ok(())
     }
 
-    fn stack_data(&self) -> &Struple2Slice<Val>
+    pub fn stack_data(&self) -> &Struple2Slice<Val>
     {
         &unsafe { &*self.stack }.data
     }

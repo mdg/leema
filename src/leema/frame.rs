@@ -251,7 +251,9 @@ pub struct Frame
     // result_ptr: Option<*mut Val>,
     // subj: Option<*mut Val>,
     // func: *const Val,
-    pub pc: i32,
+    pub rp: u32, // return pointer
+    pub sp: u32, // stack pointer
+    pub pc: i32, // program counter
 }
 
 impl Frame
@@ -264,6 +266,8 @@ impl Frame
             trace: FrameTrace::new_root(),
             function,
             e: stack,
+            rp: 0,
+            sp: 0,
             pc: 0,
         }
     }
@@ -278,11 +282,14 @@ impl Frame
     )
     {
         let e = self.e.push_frame_args(func.clone(), args);
+        let sp: u32 = e.stack_data().len() as u32;
         let mut swapf = Frame {
             parent: Parent::Null,
             function: func,
             trace: self.push_frame_trace(line),
             e,
+            rp: self.sp,
+            sp,
             pc: 0,
         };
         mem::swap(self, &mut swapf);
