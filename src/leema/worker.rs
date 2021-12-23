@@ -13,6 +13,7 @@ use crate::leema::lib_core;
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{
     mpsc::{channel, Receiver, Sender},
@@ -470,7 +471,7 @@ impl Worker
         }
     }
 
-    pub fn spawn_fiber(&mut self, stack: stack::Buffer, frame: Frame)
+    pub fn spawn_fiber(&mut self, stack: Pin<Box<stack::Buffer>>, frame: Frame)
     {
         vout!("spawn_fiber({})\n", frame.function);
         let id = self.next_fiber_id;

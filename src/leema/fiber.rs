@@ -10,6 +10,7 @@ use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, Type, Val};
 
+use std::pin::Pin;
 use std::rc::Rc;
 
 
@@ -19,12 +20,13 @@ pub struct Fiber
     pub fiber_id: i64,
     pub next_task_id: i64,
     pub head: Frame,
-    stack: stack::Buffer,
+    stack: Pin<Box<stack::Buffer>>,
 }
 
 impl Fiber
 {
-    pub fn spawn(id: i64, stack: stack::Buffer, root: Frame) -> Fiber
+    pub fn spawn(id: i64, stack: Pin<Box<stack::Buffer>>, root: Frame)
+        -> Fiber
     {
         Fiber {
             fiber_id: id,
