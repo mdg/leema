@@ -79,13 +79,11 @@ impl Buffer
         let stack: *mut Buffer = self;
         Ref {
             stack,
-            result,
-            func,
-            subj: None,
-            param: &self.data[arg_0..self.data.len()],
-            local: None,
-            result_index,
-            stack_base,
+            sp: result_index,
+            subj: false,
+            paramp: arg_0,
+            localp: stack_base,
+            stackp: stack_base,
         }
     }
 }
@@ -94,13 +92,11 @@ impl Buffer
 pub struct Ref
 {
     stack: *mut Buffer,
-    result: *mut Val,
-    func: *const Val,
-    subj: Option<*mut Val>,
-    param: *const Struple2Slice<Val>,
-    local: Option<*mut Struple2Slice<Val>>,
-    result_index: usize,
-    stack_base: usize,
+    sp: usize,
+    paramp: usize,
+    localp: usize,
+    stackp: usize,
+    subj: bool,
 }
 
 impl Ref
@@ -117,20 +113,17 @@ impl Ref
             eprintln!("cannot reserve_local with 0 size");
             return;
         }
-        let base = self.stack_data().len();
-        let new_size = base + num;
+        self.stackp = self.localp + num;
         let stack_ref = unsafe { &mut *self.stack };
         stack_ref
             .data
-            .resize(new_size, StrupleItem::new_v(Val::VOID));
-        self.local = Some(&mut stack_ref.data[base..new_size]);
-        self.stack_base = self.stack_data().len();
+            .resize(self.stackp, StrupleItem::new_v(Val::VOID));
     }
 
     pub fn pop_frame(self)
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };
-        stack.data.truncate(self.result_index + 1);
+        stack.data.truncate(self.sp + 1);
     }
 
     /**
@@ -138,7 +131,7 @@ impl Ref
      */
     pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
-        unsafe { &*self.param }
+        self.param_frame()
             .get(p as usize)
             .map(|p| &p.v)
             .ok_or_else(|| {
@@ -155,28 +148,35 @@ impl Ref
      */
     pub fn get_params(&self) -> &Struple2Slice<Val>
     {
-        unsafe { &*self.param }
+        self.param_frame()
     }
 
     pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
         match r {
-            Reg::Param(Ireg::Reg(i)) => {
-                Ok(&unsafe { &*self.param }.get(i as usize).unwrap().v)
-            }
+            Reg::Param(Ireg::Reg(i)) => self.get_param(i),
             Reg::Local(Ireg::Reg(i)) => {
-                if let Some(local) = self.local {
-                    Ok(&unsafe { &*local }.get(i as usize).unwrap().v)
-                } else {
-                    Err(lfail!(
-                        failure::Mode::RuntimeLeemaFailure,
-                        "no locals allocated"
-                    ))
-                }
+                self.local_frame().get(i as usize).map(|p| &p.v).ok_or_else(
+                    || {
+                        lfail!(
+                            failure::Mode::RuntimeLeemaFailure,
+                            "no locals allocated"
+                        )
+                    },
+                )
             }
             Reg::Stack(Ireg::Reg(i)) => {
-                let index: usize = self.stack_base + (i as usize);
-                Ok(&self.stack_data().get(index).unwrap().v)
+                self.stack_frame().get(i as usize).map(|p| &p.v).ok_or_else(
+                    || {
+                        lfail!(
+                            failure::Mode::RuntimeLeemaFailure,
+                            "no stack allocation",
+                            "reg": ldisplay!(r),
+                            "stack_size": ldisplay!(self.stack_data().len()),
+                            "sp": ldisplay!(self.sp),
+                        )
+                    },
+                )
             }
             _ => {
                 Err(lfail!(
@@ -192,39 +192,32 @@ impl Ref
     {
         match r {
             Reg::Local(i) => {
-                let primary = i.get_primary() as usize;
-                if let Some(plocal) = self.local {
-                    let local = unsafe { &mut *plocal };
-                    if primary >= local.len() {
-                        return Err(lfail!(
+                let dst = self
+                    .local_frame()
+                    .get_mut(i.get_primary() as usize)
+                    .map(|p| &mut p.v)
+                    .ok_or_else(|| {
+                        lfail!(
                             failure::Mode::RuntimeLeemaFailure,
-                            "cannot set local overflow",
-                            "reg": ldisplay!(r),
-                        ));
-                    }
-                    local[primary].v = v;
-                } else {
-                    return Err(lfail!(
-                        failure::Mode::RuntimeLeemaFailure,
-                        "cannot set unallocated local",
-                        "stack_size": ldisplay!(self.stack_data().len()),
-                    ));
-                }
+                            "no locals allocated"
+                        )
+                    })?;
             }
             Reg::Stack(i) => {
-                let primary = i.get_primary() as usize;
-                let stack_data = &mut unsafe { &mut *self.stack }.data;
-                if self.stack_base + primary >= stack_data.len() {
-                    return Err(lfail!(
-                        failure::Mode::RuntimeLeemaFailure,
-                        "cannot set stack overflow",
-                        "stack_base": ldisplay!(self.stack_base),
-                        "stack_size": ldisplay!(stack_data.len()),
-                        "reg": ldisplay!(r),
-                    ));
-                }
-                stack_data[self.stack_base + primary].v = v;
-                // self.stack.ireg_set(i, v);
+                let dst = self
+                    .stack_frame()
+                    .get_mut(i.get_primary() as usize)
+                    .map(|p| &p.v)
+                    .ok_or_else(|| {
+                        lfail!(
+                            failure::Mode::RuntimeLeemaFailure,
+                            "no stack allocation to set",
+                            "reg": ldisplay!(r),
+                            "stack_size": ldisplay!(self.stack_data().len()),
+                            "sp": ldisplay!(self.sp),
+                        )
+                    })?;
+                // dst.ireg_set(
             }
             Reg::Param(_) => {
                 // debatable whether param should allow writes
@@ -252,5 +245,20 @@ impl Ref
     pub fn stack_data(&self) -> &Struple2Slice<Val>
     {
         &unsafe { &*self.stack }.data
+    }
+
+    fn param_frame(&self) -> &Struple2Slice<Val>
+    {
+        self.stack_data()[self.paramp..self.localp]
+    }
+
+    fn local_frame(&self) -> &Struple2Slice<Val>
+    {
+        self.stack_data()[self.localp..self.stackp]
+    }
+
+    fn stack_frame(&self) -> &Struple2Slice<Val>
+    {
+        self.stack_data()[self.stackp..]
     }
 }
