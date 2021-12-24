@@ -132,7 +132,7 @@ impl Ref
     pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
         Ok(ltry!(
-            self.param_frame().ireg_get(Ireg::Reg(p)),
+            FrameRef::ireg_get(&self.param_frame(), Ireg::Reg(p)),
             "param": ldisplay!(p),
             "stack_size": ldisplay!(self.stack_data().len()),
             "sp": ldisplay!(self.sp),
@@ -167,8 +167,9 @@ impl Ref
                 ))
             }
             Reg::Stack(i) => {
-                let sf = self.stack_frame();
-                match sf.ireg_get(i) {
+                let sf: FrameRef<'a> = self.stack_frame();
+                let v: Lresult<&'a Val> = FrameRef::<'a>::ireg_get(&sf, i);
+                match v {
                     Ok(r) => Ok(r),
                     Err(f) => {
                         Err(f.with_context(vec![
@@ -319,11 +320,8 @@ impl<'a> FrameRef<'a>
             range: r_start..range_end,
         }
     }
-}
 
-impl<'a> Iregistry for FrameRef<'a>
-{
-    fn ireg_get(&self, i: Ireg) -> Lresult<&'a Val>
+    fn ireg_get<'b>(&'b self, i: Ireg) -> Lresult<&'a Val>
     {
         match self.data.get(i.get_primary() as usize).as_mut() {
             Some(val) => {
