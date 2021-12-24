@@ -1,8 +1,10 @@
 use crate::leema::failure::{self, Lresult};
-use crate::leema::reg::{Ireg, Reg};
+use crate::leema::lstr::Lstr;
+use crate::leema::reg::{Ireg, Iregistry, Reg};
 use crate::leema::struple::{Struple2, Struple2Slice, StrupleItem};
 use crate::leema::val::{Fref, Val};
 
+use std::ops::{Range, RangeFrom};
 use std::pin::Pin;
 
 /// StackBuffer stores the data for a particular fiber/task
@@ -62,11 +64,9 @@ impl Buffer
         // push result
         let result_index = self.data.len();
         self.data.push(StrupleItem::new_v(Val::VOID));
-        let result: *mut Val = &mut self.data.last_mut().unwrap().v;
 
         // push func
         self.data.push(StrupleItem::new_v(Val::Func(f)));
-        let func: *mut Val = &mut self.data.last_mut().unwrap().v;
 
         // push args
         let arg_0 = self.data.len();
@@ -131,16 +131,12 @@ impl Ref
      */
     pub fn get_param(&self, p: i8) -> Lresult<&Val>
     {
-        self.param_frame()
-            .get(p as usize)
-            .map(|p| &p.v)
-            .ok_or_else(|| {
-                lfail!(
-                    failure::Mode::RuntimeLeemaFailure,
-                    "invalid param index",
-                    "param": ldisplay!(p),
-                )
-            })
+        Ok(ltry!(
+            self.param_frame().ireg_get(Ireg::Reg(p)),
+            "param": ldisplay!(p),
+            "stack_size": ldisplay!(self.stack_data().len()),
+            "sp": ldisplay!(self.sp),
+        ))
     }
 
     /**
@@ -148,35 +144,53 @@ impl Ref
      */
     pub fn get_params(&self) -> &Struple2Slice<Val>
     {
-        self.param_frame()
+        self.param_frame().data
     }
 
-    pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
+    pub fn get_reg<'a>(&'a self, r: Reg) -> Lresult<&'a Val>
     {
         match r {
-            Reg::Param(Ireg::Reg(i)) => self.get_param(i),
-            Reg::Local(Ireg::Reg(i)) => {
-                self.local_frame().get(i as usize).map(|p| &p.v).ok_or_else(
-                    || {
-                        lfail!(
-                            failure::Mode::RuntimeLeemaFailure,
-                            "no locals allocated"
-                        )
-                    },
-                )
+            Reg::Param(i) => {
+                Ok(ltry!(
+                    self.param_frame().ireg_get(i),
+                    "reg": ldisplay!(r),
+                    "stack_size": ldisplay!(self.stack_data().len()),
+                    "sp": ldisplay!(self.sp),
+                ))
             }
-            Reg::Stack(Ireg::Reg(i)) => {
-                self.stack_frame().get(i as usize).map(|p| &p.v).ok_or_else(
-                    || {
-                        lfail!(
-                            failure::Mode::RuntimeLeemaFailure,
-                            "no stack allocation",
-                            "reg": ldisplay!(r),
-                            "stack_size": ldisplay!(self.stack_data().len()),
-                            "sp": ldisplay!(self.sp),
-                        )
-                    },
-                )
+            Reg::Local(i) => {
+                Ok(ltry!(
+                    self.local_frame().ireg_get(i),
+                    "reg": ldisplay!(r),
+                    "stack_size": ldisplay!(self.stack_data().len()),
+                    "sp": ldisplay!(self.sp),
+                ))
+            }
+            Reg::Stack(i) => {
+                let sf = self.stack_frame();
+                match sf.ireg_get(i) {
+                    Ok(r) => Ok(r),
+                    Err(f) => {
+                        Err(f.with_context(vec![
+                            StrupleItem::new(Lstr::Sref("reg"), ldisplay!(r)),
+                            StrupleItem::new(
+                                Lstr::Sref("stack_size"),
+                                ldisplay!(self.stack_data().len()),
+                            ),
+                            StrupleItem::new(
+                                Lstr::Sref("sp"),
+                                ldisplay!(self.sp),
+                            ),
+                        ]))
+                    }
+                }
+                /*
+                Ok(ltry!(sf.ireg_get(i),
+                    "reg": ldisplay!(r),
+                    "stack_size": ldisplay!(self.stack_data().len()),
+                    "sp": ldisplay!(self.sp),
+                ))
+                */
             }
             _ => {
                 Err(lfail!(
@@ -192,32 +206,20 @@ impl Ref
     {
         match r {
             Reg::Local(i) => {
-                let dst = self
-                    .local_frame()
-                    .get_mut(i.get_primary() as usize)
-                    .map(|p| &mut p.v)
-                    .ok_or_else(|| {
-                        lfail!(
-                            failure::Mode::RuntimeLeemaFailure,
-                            "no locals allocated"
-                        )
-                    })?;
+                Ok(ltry!(
+                    self.local_frame_mut().ireg_set(i, v),
+                    "reg": ldisplay!(r),
+                    "stack_size": ldisplay!(self.stack_data().len()),
+                    "sp": ldisplay!(self.sp),
+                ))
             }
             Reg::Stack(i) => {
-                let dst = self
-                    .stack_frame()
-                    .get_mut(i.get_primary() as usize)
-                    .map(|p| &p.v)
-                    .ok_or_else(|| {
-                        lfail!(
-                            failure::Mode::RuntimeLeemaFailure,
-                            "no stack allocation to set",
-                            "reg": ldisplay!(r),
-                            "stack_size": ldisplay!(self.stack_data().len()),
-                            "sp": ldisplay!(self.sp),
-                        )
-                    })?;
-                // dst.ireg_set(
+                Ok(ltry!(
+                    self.stack_frame_mut().ireg_set(i, v),
+                    "reg": ldisplay!(r),
+                    "stack_size": ldisplay!(self.stack_data().len()),
+                    "sp": ldisplay!(self.sp),
+                ))
             }
             Reg::Param(_) => {
                 // debatable whether param should allow writes
@@ -232,14 +234,13 @@ impl Ref
                 // self.params.ireg_set(i, v)
             }
             _ => {
-                return Err(lfail!(
+                Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,
                     "cannot set register",
                     "reg": ldisplay!(r),
-                ));
+                ))
             }
         }
-        Ok(())
     }
 
     pub fn stack_data(&self) -> &Struple2Slice<Val>
@@ -247,18 +248,181 @@ impl Ref
         &unsafe { &*self.stack }.data
     }
 
-    fn param_frame(&self) -> &Struple2Slice<Val>
+    fn param_frame<'a>(&'a self) -> FrameRef<'a>
     {
-        self.stack_data()[self.paramp..self.localp]
+        FrameRef::new("param", self.stack, self.paramp..self.localp)
     }
 
-    fn local_frame(&self) -> &Struple2Slice<Val>
+    fn local_frame<'a>(&'a self) -> FrameRef<'a>
     {
-        self.stack_data()[self.localp..self.stackp]
+        FrameRef::new("local", self.stack, self.localp..self.stackp)
     }
 
-    fn stack_frame(&self) -> &Struple2Slice<Val>
+    fn stack_frame<'a>(&'a self) -> FrameRef<'a>
     {
-        self.stack_data()[self.stackp..]
+        FrameRef::new_from("stack", self.stack, self.stackp..)
+    }
+
+    /*
+    fn param_frame_mut<'a>(&mut self) -> FrameRefMut<'a>
+    {
+        FrameRefMut::new("param", self.stack, self.paramp..self.localp)
+    }
+    */
+
+    fn local_frame_mut<'a>(&mut self) -> FrameRefMut<'a>
+    {
+        FrameRefMut::new("local", self.stack, self.localp..self.stackp)
+    }
+
+    fn stack_frame_mut<'a>(&mut self) -> FrameRefMut<'a>
+    {
+        FrameRefMut::new_from("stack", self.stack, self.stackp..)
+    }
+}
+
+struct FrameRef<'a>
+{
+    pub data: &'a Struple2Slice<Val>,
+    name: &'static str,
+    range: Range<usize>,
+}
+
+impl<'a> FrameRef<'a>
+{
+    pub fn new(
+        name: &'static str,
+        stack: *const Buffer,
+        r: Range<usize>,
+    ) -> FrameRef<'a>
+    {
+        let data = &unsafe { &*stack }.data[r.clone()];
+        FrameRef {
+            data,
+            name,
+            range: r,
+        }
+    }
+
+    pub fn new_from(
+        name: &'static str,
+        stack: *const Buffer,
+        r: RangeFrom<usize>,
+    ) -> FrameRef<'a>
+    {
+        let r_start = r.start;
+        let data = &unsafe { &*stack }.data[r];
+        let range_end = unsafe { &*stack }.data.len();
+        FrameRef {
+            data,
+            name,
+            range: r_start..range_end,
+        }
+    }
+}
+
+impl<'a> Iregistry for FrameRef<'a>
+{
+    fn ireg_get(&self, i: Ireg) -> Lresult<&'a Val>
+    {
+        match self.data.get(i.get_primary() as usize).as_mut() {
+            Some(val) => {
+                if let Ireg::Sub(_, sub) = i {
+                    val.v.ireg_get(Ireg::Reg(sub))
+                } else {
+                    Ok(&val.v)
+                }
+            }
+            None => {
+                Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "cannot get invalid register",
+                    "frame": Lstr::Sref(self.name),
+                    "range": ldebug!(self.range),
+                ))
+            }
+        }
+    }
+
+    fn ireg_set(&mut self, _r: Ireg, _v: Val) -> Lresult<()>
+    {
+        Err(lfail!(
+            failure::Mode::RuntimeLeemaFailure,
+            "cannot set FrameRef"
+        ))
+    }
+}
+
+struct FrameRefMut<'a>
+{
+    data: &'a mut Struple2Slice<Val>,
+    name: &'static str,
+    range: Range<usize>,
+}
+
+impl<'a> FrameRefMut<'a>
+{
+    pub fn new(
+        name: &'static str,
+        stack: *mut Buffer,
+        r: Range<usize>,
+    ) -> FrameRefMut<'a>
+    {
+        let data = &mut unsafe { &mut *stack }.data[r.clone()];
+        FrameRefMut {
+            data,
+            name,
+            range: r,
+        }
+    }
+
+    pub fn new_from(
+        name: &'static str,
+        stack: *mut Buffer,
+        r: RangeFrom<usize>,
+    ) -> FrameRefMut<'a>
+    {
+        let r_start = r.start;
+        let data = &mut unsafe { &mut *stack }.data[r];
+        let range_end = unsafe { &*stack }.data.len();
+        FrameRefMut {
+            data,
+            name,
+            range: r_start..range_end,
+        }
+    }
+}
+
+impl<'a> Iregistry for FrameRefMut<'a>
+{
+    fn ireg_get(&self, _i: Ireg) -> Lresult<&'a Val>
+    {
+        Err(lfail!(
+            failure::Mode::RuntimeLeemaFailure,
+            "cannot get FrameRefMut",
+            "frame": Lstr::Sref(self.name),
+        ))
+    }
+
+    fn ireg_set(&mut self, r: Ireg, v: Val) -> Lresult<()>
+    {
+        match self.data.get_mut(r.get_primary() as usize).as_mut() {
+            Some(dst) => {
+                if let Ireg::Sub(_, sub) = r {
+                    dst.v.ireg_set(Ireg::Reg(sub), v)
+                } else {
+                    dst.v = v;
+                    Ok(())
+                }
+            }
+            None => {
+                Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "cannot set invalid register",
+                    "frame": Lstr::Sref(self.name),
+                    "range": ldebug!(self.range),
+                ))
+            }
+        }
     }
 }
