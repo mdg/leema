@@ -124,7 +124,8 @@ impl Fiber
             &Op::ReserveLocal(n, s) => {
                 self.head.reserve_local(n as usize);
                 self.head.e.reserve_stack(s as usize);
-                Ok(Event::Success)
+                self.head.pc = self.head.pc + 1;
+                Ok(Event::Uneventful)
             }
             &Op::SetResult(dst) => {
                 if dst == Reg::Void {
