@@ -231,7 +231,6 @@ impl Fiber
 
     /**
      * get code from func
-     * make an Env from the args
      * make a new frame state
      * create a new frame w/ func code and new frame state
      * set curf.flag to Called(new_frame)

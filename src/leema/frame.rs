@@ -356,7 +356,6 @@ fn execute_fork(curf: &mut Frame,
 
     // args are empty for a fork
     // create new frame
-    let e = Env::new();
     // set current state to called
     let (tx, rx) = mpsc::channel::<Val>();
     let ready = Arc::new(AtomicBool::new(false));
