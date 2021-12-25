@@ -215,6 +215,11 @@ impl Ref
         }
     }
 
+    pub fn set_result(&mut self, v: Val)
+    {
+        unsafe { &mut *self.stack }.data[0].v = v;
+    }
+
     pub fn set_reg(&mut self, r: Reg, v: Val) -> Lresult<()>
     {
         match r {

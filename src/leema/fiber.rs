@@ -137,7 +137,8 @@ impl Fiber
                     ));
                 }
                 let result = ltry!(self.head.e.get_reg(dst)).clone();
-                self.head.parent.set_result(result);
+                self.head.parent.set_result(result.clone());
+                self.head.e.set_result(result);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
