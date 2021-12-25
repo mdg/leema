@@ -120,6 +120,18 @@ impl Ref
             .resize(self.stackp, StrupleItem::new_v(Val::VOID));
     }
 
+    pub fn reserve_stack(&mut self, num: usize)
+    {
+        if num == 0 {
+            eprintln!("cannot reserve_stack with 0 size");
+            return;
+        }
+        let stack_ref = unsafe { &mut *self.stack };
+        stack_ref
+            .data
+            .resize(stack_ref.data.len() + num, StrupleItem::new_v(Val::VOID));
+    }
+
     pub fn pop_frame(self)
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };
@@ -341,14 +353,6 @@ impl<'a> FrameRef<'a>
             }
         }
     }
-
-    fn ireg_set(&mut self, _r: Ireg, _v: Val) -> Lresult<()>
-    {
-        Err(lfail!(
-            failure::Mode::RuntimeLeemaFailure,
-            "cannot set FrameRef"
-        ))
-    }
 }
 
 struct FrameRefMut<'a>
@@ -388,18 +392,6 @@ impl<'a> FrameRefMut<'a>
             name,
             range: r_start..range_end,
         }
-    }
-}
-
-impl<'a> Iregistry for FrameRefMut<'a>
-{
-    fn ireg_get(&self, _i: Ireg) -> Lresult<&'a Val>
-    {
-        Err(lfail!(
-            failure::Mode::RuntimeLeemaFailure,
-            "cannot get FrameRefMut",
-            "frame": Lstr::Sref(self.name),
-        ))
     }
 
     fn ireg_set(&mut self, r: Ireg, v: Val) -> Lresult<()>

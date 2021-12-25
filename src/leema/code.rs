@@ -45,7 +45,7 @@ pub enum Op
     ApplyFunc(Reg, Reg, u16),
     Return,
     SetResult(Reg),
-    ReserveLocal(i16),
+    ReserveLocal(i16, i16),
     PropagateFailure(Reg, u16),
     ConstVal(Reg, Val),
     // ConstructEnum(Reg, Type, Lstr, Struple2<Type>),
@@ -74,7 +74,7 @@ impl Clone for Op
             }
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
-            &Op::ReserveLocal(n) => Op::ReserveLocal(n),
+            &Op::ReserveLocal(n, s) => Op::ReserveLocal(n, s),
             &Op::PropagateFailure(ref src, lineno) => {
                 Op::PropagateFailure(src.clone(), lineno)
             }
@@ -206,15 +206,27 @@ impl Clone for Code
 struct LocalMax
 {
     local_max: i8,
+    stack_max: i8,
 }
 
 impl LocalMax
 {
-    pub fn num_locals(node: &mut AstNode) -> Lresult<i8>
+    pub fn num_locals(node: &mut AstNode) -> Lresult<(i8, i8)>
     {
-        let mut max_local = LocalMax { local_max: -1 };
+        let mut max_local = LocalMax::default();
         ast2::walk_ref_mut(node, &mut max_local)?;
-        Ok(max_local.local_max + 1)
+        Ok((max_local.local_max + 1, max_local.stack_max + 1))
+    }
+}
+
+impl Default for LocalMax
+{
+    fn default() -> LocalMax
+    {
+        LocalMax {
+            local_max: -1,
+            stack_max: -1,
+        }
     }
 }
 
@@ -222,11 +234,20 @@ impl ast2::Op for LocalMax
 {
     fn pre(&mut self, node: &mut AstNode, _mode: ast2::AstMode) -> StepResult
     {
-        if let Reg::Local(ireg) = node.dst {
-            let p = ireg.get_primary();
-            if p > self.local_max {
-                self.local_max = p;
+        match node.dst {
+            Reg::Local(ireg) => {
+                let p = ireg.get_primary();
+                if p > self.local_max {
+                    self.local_max = p;
+                }
             }
+            Reg::Stack(ireg) => {
+                let p = ireg.get_primary();
+                if p > self.stack_max {
+                    self.stack_max = p;
+                }
+            }
+            _ => {}
         }
         Ok(ast2::AstStep::Ok)
     }
@@ -235,11 +256,12 @@ impl ast2::Op for LocalMax
 pub fn make_ops2(mut input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
-    let num_locals = LocalMax::num_locals(&mut input).unwrap();
+    let (num_locals, num_stack) = LocalMax::num_locals(&mut input).unwrap();
     let ops_dst = input.dst.clone();
     let mut ops = make_sub_ops2(input);
-    if num_locals > 0 {
-        ops.ops.insert(0, Op::ReserveLocal(num_locals.into()));
+    if num_locals > 0 || num_stack > 0 {
+        ops.ops
+            .insert(0, Op::ReserveLocal(num_locals.into(), num_stack.into()));
     }
     ops.ops.push(Op::SetResult(ops_dst));
     ops.ops.push(Op::Return);
@@ -919,7 +941,7 @@ mod tests
 
         assert_eq!(4, code.len());
         let x = vec![
-            Op::ReserveLocal(4),
+            Op::ReserveLocal(4, 0),
             Op::ConstVal(Reg::local(3), Val::Int(9)),
             Op::SetResult(Reg::local(3)),
             Op::Return,

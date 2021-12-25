@@ -121,8 +121,9 @@ impl Fiber
                 self.execute_call(dst, func, lineno)
             }
             &Op::Return => Ok(Event::Success),
-            &Op::ReserveLocal(n) => {
+            &Op::ReserveLocal(n, s) => {
                 self.head.reserve_local(n as usize);
+                self.head.e.reserve_stack(s as usize);
                 Ok(Event::Success)
             }
             &Op::SetResult(dst) => {
