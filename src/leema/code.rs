@@ -38,6 +38,17 @@ impl fmt::Display for ModSym
     }
 }
 
+/// if
+/// |a -> b
+/// |-> false
+/// --
+/// PushReg(a)
+/// BranchIf(0) (pops)
+/// PushReg(b)
+/// Jump(1)
+/// Label(0)
+/// PushConst(false)
+/// Label(1)
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Op
@@ -48,11 +59,56 @@ pub enum Op
     ApplyFunc(Reg, Reg, u16),
 
     /// Call the function at .0 items up the stack
+    /// Args are between .0 and HEAD
+    ///     still not clear where self/closed goes
     /// Source line at .1
-    StackCall(i16, u16),
+    /// Leave the result on the stack
+    PushCall(i16, u16),
 
     /// Push a constant value onto the stack
     PushConst(Val),
+
+    /// Push a register value onto the stack
+    PushReg(Reg),
+
+    /// Pop a register off the stack and move it to a local
+    PopReg(Reg),
+
+    /// Pop a register off the stack and match it to the given pattern
+    PopMatch(Val),
+
+    /// Pop a register off the stack and branch on a pattern match
+    /// match x
+    /// |1 -> "a"
+    /// |y -> "b$y"
+    /// --
+    /// PushReg(x)
+    /// BranchMatch(1, 1) (pops if match)
+    /// PushConst("a")
+    /// Jump(0)
+    /// Label(1)
+    /// PopMatch(y)
+    ///    BranchMatch(2, y) (pops if match)
+    ///    Push("b$y")
+    ///    Jump(0)
+    ///    Label(2)
+    ///    Pop(Null)
+    ///    PushFailure "no match"
+    /// Label(0)
+    BranchMatch(i16, Val),
+
+    /// Pop a register value off the stack
+    /// Jump if it's not true
+    BranchIf(i16),
+
+    /// Push a register value onto the stack
+    Label(i16),
+
+    /// Pop two vals off the stack, append and push
+    PopListCons,
+
+    /// Pop two vals off the stack, append and push
+    PopStrCat,
 
     /// Return to the calling function
     Return,
@@ -68,10 +124,11 @@ pub enum Op
     // Construple(Reg, Type, Struple2<Type>),
     Copy(Reg, Reg),
     // Fork(Reg, Reg, Reg),
+    /// Jump up or down in the function
     Jump(i16),
     JumpIfNot(i16, Reg),
     IfFailure(Reg, i16),
-    // jump if no match, pattern reg, input reg
+    /// jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),
     ListCons(Reg, Reg, Reg),
     StrCat(Reg, Reg),
@@ -88,7 +145,7 @@ impl Clone for Op
             &Op::ApplyFunc(ref dst, ref f, line) => {
                 Op::ApplyFunc(dst.clone(), f.clone(), line)
             }
-            &Op::StackCall(f, line) => Op::StackCall(f, line),
+            &Op::PushCall(f, line) => Op::PushCall(f, line),
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
             &Op::ReserveLocal(n, s) => Op::ReserveLocal(n, s),

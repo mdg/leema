@@ -118,7 +118,7 @@ impl Fiber
                 self.execute_cons_list(dst, head, tail)
             }
             &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
-            &Op::StackCall(func, _lineno) => {
+            &Op::PushCall(func, _lineno) => {
                 eprintln!("tbd call head - {}", func);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)

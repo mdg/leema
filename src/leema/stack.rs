@@ -114,6 +114,14 @@ impl Ref
         Ok(())
     }
 
+    pub fn stack_pop(&mut self) -> Lresult<Val>
+    {
+        let stack_ref = unsafe { &mut *self.stack };
+        stack_ref.data.pop().map(|i| i.v).ok_or_else(|| {
+            lfail!(failure::Mode::RuntimeLeemaFailure, "stack underflow")
+        })
+    }
+
     pub fn reserve_local(&mut self, num: usize)
     {
         if num == 0 {
