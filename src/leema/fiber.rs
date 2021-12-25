@@ -105,6 +105,7 @@ impl Fiber
         let op = ops.get(opc).unwrap();
         vout!("exec: {:?}\n", op);
         let result = match op {
+            &Op::PushConst(ref v) => self.execute_push_const(v),
             &Op::ConstVal(ref dst, ref v) => self.execute_const_val(*dst, v),
             &Op::Copy(dst, src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
@@ -117,11 +118,16 @@ impl Fiber
                 self.execute_cons_list(dst, head, tail)
             }
             &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
+            &Op::StackCall(func, _lineno) => {
+                eprintln!("tbd call head - {}", func);
+                self.head.pc += 1;
+                Ok(Event::Uneventful)
+            }
             &Op::ApplyFunc(dst, func, lineno) => {
                 self.execute_call(dst, func, lineno)
             }
             &Op::StackPush => {
-                self.head.e.stack_push();
+                ltry!(self.head.e.stack_push(Val::VOID));
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
@@ -253,6 +259,13 @@ impl Fiber
         vout!("execute_call({})\n", fref);
 
         Ok(Event::Call(dst.clone(), line as i16, fref, args))
+    }
+
+    pub fn execute_push_const(&mut self, v: &Val) -> Lresult<Event>
+    {
+        ltry!(self.head.e.stack_push(v.clone()));
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>

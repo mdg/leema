@@ -107,10 +107,11 @@ impl Ref
         stack.push_frame_args(func, args)
     }
 
-    pub fn stack_push(&mut self)
+    pub fn stack_push(&mut self, v: Val) -> Lresult<()>
     {
         let stack_ref = unsafe { &mut *self.stack };
-        stack_ref.data.push(StrupleItem::new_v(Val::VOID));
+        stack_ref.data.push(StrupleItem::new_v(v));
+        Ok(())
     }
 
     pub fn reserve_local(&mut self, num: usize)
@@ -210,6 +211,10 @@ impl Ref
                     "sp": ldisplay!(self.sp),
                 ))
                 */
+            }
+            Reg::Top => {
+                eprintln!("unexpected get Reg::Top");
+                Ok(&self.stack_data().last().unwrap().v)
             }
             _ => {
                 Err(lfail!(

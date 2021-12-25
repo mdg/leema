@@ -42,11 +42,26 @@ impl fmt::Display for ModSym
 #[derive(PartialEq)]
 pub enum Op
 {
+    /// Call the function at .1
+    /// Return the result to .0
+    /// Source line at .2
     ApplyFunc(Reg, Reg, u16),
+
+    /// Call the function at .0 items up the stack
+    /// Source line at .1
+    StackCall(i16, u16),
+
+    /// Push a constant value onto the stack
+    PushConst(Val),
+
+    /// Return to the calling function
     Return,
     SetResult(Reg),
+    /// Reserve .0 registers for locals and .1 registers for stack
+    /// Eventually get ride of .1
     ReserveLocal(i16, i16),
     PropagateFailure(Reg, u16),
+    /// Is this necessary? Just PushConst(VOID) isn't it?
     StackPush,
     ConstVal(Reg, Val),
     // ConstructEnum(Reg, Type, Lstr, Struple2<Type>),
@@ -73,6 +88,7 @@ impl Clone for Op
             &Op::ApplyFunc(ref dst, ref f, line) => {
                 Op::ApplyFunc(dst.clone(), f.clone(), line)
             }
+            &Op::StackCall(f, line) => Op::StackCall(f, line),
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
             &Op::ReserveLocal(n, s) => Op::ReserveLocal(n, s),
@@ -80,6 +96,7 @@ impl Clone for Op
                 Op::PropagateFailure(src.clone(), lineno)
             }
             &Op::StackPush => Op::StackPush,
+            &Op::PushConst(ref src) => Op::PushConst(src.clone_for_send()),
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.clone_for_send())
             }
