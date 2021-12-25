@@ -47,6 +47,7 @@ pub enum Op
     SetResult(Reg),
     ReserveLocal(i16, i16),
     PropagateFailure(Reg, u16),
+    StackPush,
     ConstVal(Reg, Val),
     // ConstructEnum(Reg, Type, Lstr, Struple2<Type>),
     // Construple(Reg, Type, Struple2<Type>),
@@ -78,6 +79,7 @@ impl Clone for Op
             &Op::PropagateFailure(ref src, lineno) => {
                 Op::PropagateFailure(src.clone(), lineno)
             }
+            &Op::StackPush => Op::StackPush,
             &Op::ConstVal(ref dst, ref src) => {
                 Op::ConstVal(dst.clone(), src.clone_for_send())
             }

@@ -92,6 +92,8 @@ pub enum Reg
     Param(Ireg),
     Local(Ireg),
     Stack(Ireg),
+    /// Top of the stack
+    Top,
     Lib,
     Void,
     Undecided,
@@ -133,6 +135,7 @@ impl Reg
             &Reg::Param(Ireg::Reg(_)) => true,
             &Reg::Local(Ireg::Reg(_)) => true,
             &Reg::Stack(Ireg::Reg(_)) => true,
+            &Reg::Top => true,
             _ => false,
         }
     }
@@ -168,6 +171,7 @@ impl fmt::Display for Reg
             &Reg::Param(ref r) => write!(f, "Param{}", r),
             &Reg::Local(ref r) => write!(f, "Local{}", r),
             &Reg::Stack(ref r) => write!(f, "Stack{}", r),
+            &Reg::Top => write!(f, "Reg::Top"),
             &Reg::Lib => write!(f, "Reg::Lib"),
             &Reg::Void => write!(f, "Reg::Void"),
             &Reg::Undecided => write!(f, "Reg::Undecided"),

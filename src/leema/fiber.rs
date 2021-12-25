@@ -120,6 +120,11 @@ impl Fiber
             &Op::ApplyFunc(dst, func, lineno) => {
                 self.execute_call(dst, func, lineno)
             }
+            &Op::StackPush => {
+                self.head.e.stack_push();
+                self.head.pc += 1;
+                Ok(Event::Uneventful)
+            }
             &Op::Return => Ok(Event::Success),
             &Op::ReserveLocal(n, s) => {
                 self.head.reserve_local(n as usize);

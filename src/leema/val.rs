@@ -2269,6 +2269,12 @@ impl Env
                 Ok(ltry!(self.locals.ireg_get(i), "reg": reg_str))
             }
             Reg::Stack(i) => lfailoc!(self.stack.ireg_get(i)),
+            Reg::Top => {
+                Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "cannot get top from Env"
+                ))
+            }
             Reg::Void => {
                 Err(rustfail!("leema_failure", "Cannot get Reg::Void",))
             }

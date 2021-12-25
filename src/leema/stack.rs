@@ -107,6 +107,12 @@ impl Ref
         stack.push_frame_args(func, args)
     }
 
+    pub fn stack_push(&mut self)
+    {
+        let stack_ref = unsafe { &mut *self.stack };
+        stack_ref.data.push(StrupleItem::new_v(Val::VOID));
+    }
+
     pub fn reserve_local(&mut self, num: usize)
     {
         if num == 0 {
