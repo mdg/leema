@@ -147,6 +147,11 @@ impl Fiber
                 self.head.pc = self.head.pc + 1;
                 Ok(Event::Uneventful)
             }
+            &Op::PushResult => {
+                let result = ltry!(self.head.e.stack_pop());
+                self.head.e.set_result(result);
+                Ok(Event::Uneventful)
+            }
             &Op::SetResult(dst) => {
                 if dst == Reg::Void {
                     return Err(rustfail!(

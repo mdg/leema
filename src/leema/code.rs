@@ -110,6 +110,9 @@ pub enum Op
     /// Pop two vals off the stack, append and push
     PopStrCat,
 
+    /// Pop a value off the stack and set it as the result
+    PushResult,
+
     /// Return to the calling function
     Return,
     SetResult(Reg),
@@ -148,6 +151,7 @@ impl Clone for Op
             &Op::PushCall(f, line) => Op::PushCall(f, line),
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
+            &Op::PushResult => Op::PushResult,
             &Op::ReserveLocal(n, s) => Op::ReserveLocal(n, s),
             &Op::PropagateFailure(ref src, lineno) => {
                 Op::PropagateFailure(src.clone(), lineno)
@@ -343,13 +347,12 @@ pub fn make_ops2(mut input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
     let (num_locals, num_stack) = LocalMax::num_locals(&mut input).unwrap();
-    let ops_dst = input.dst.clone();
     let mut ops = make_sub_ops2(input);
     if num_locals > 0 || num_stack > 0 {
         ops.ops
             .insert(0, Op::ReserveLocal(num_locals.into(), num_stack.into()));
     }
-    ops.ops.push(Op::SetResult(ops_dst));
+    ops.ops.push(Op::PushResult);
     ops.ops.push(Op::Return);
     ops.ops
 }
@@ -369,7 +372,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::ConstVal(v) => vec![Op::ConstVal(input_dst, v.clone())],
+        Ast::ConstVal(v) => vec![Op::PushConst(v.clone())],
         Ast::Call(f, args) => make_call_ops(input_dst, f, args),
         Ast::Copy(src) => {
             let mut src_ops = make_sub_ops2(src);
@@ -1028,8 +1031,8 @@ mod tests
         assert_eq!(4, code.len());
         let x = vec![
             Op::ReserveLocal(4, 0),
-            Op::ConstVal(Reg::local(3), Val::Int(9)),
-            Op::SetResult(Reg::local(3)),
+            Op::PushConst(Val::Int(9)),
+            Op::PushResult,
             Op::Return,
         ];
         assert_eq!(x, code);
