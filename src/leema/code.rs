@@ -158,7 +158,12 @@ impl Clone for Op
                 Op::ConstVal(dst.clone(), src.clone_for_send())
             }
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
+            &Op::BranchMatch(j, ref patt) => {
+                Op::BranchMatch(j, patt.clone_for_send())
+            }
+            &Op::BranchIf(j) => Op::BranchIf(j),
             &Op::Jump(j) => Op::Jump(j),
+            &Op::Label(j) => Op::Label(j),
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
             &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
@@ -168,6 +173,11 @@ impl Clone for Op
                     input.clone(),
                 )
             }
+            &Op::PushReg(src) => Op::PushReg(src),
+            &Op::PopReg(dst) => Op::PopReg(dst),
+            &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
+            &Op::PopListCons => Op::PopListCons,
+            &Op::PopStrCat => Op::PopStrCat,
             &Op::ListCons(ref dst, ref head, ref tail) => {
                 Op::ListCons(dst.clone(), head.clone(), tail.clone())
             }

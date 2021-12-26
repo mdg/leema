@@ -107,6 +107,8 @@ impl Ref
         stack.push_frame_args(func, args)
     }
 
+    /// does this need to return a Result? push doesn't return anything.
+    /// looks like there's Vec::try_reserve() that will do it
     pub fn stack_push(&mut self, v: Val) -> Lresult<()>
     {
         let stack_ref = unsafe { &mut *self.stack };
@@ -118,7 +120,15 @@ impl Ref
     {
         let stack_ref = unsafe { &mut *self.stack };
         stack_ref.data.pop().map(|i| i.v).ok_or_else(|| {
-            lfail!(failure::Mode::RuntimeLeemaFailure, "stack underflow")
+            lfail!(failure::Mode::RuntimeLeemaFailure, "stack pop underflow")
+        })
+    }
+
+    pub fn stack_top(&mut self) -> Lresult<&Val>
+    {
+        let stack_ref = unsafe { &mut *self.stack };
+        stack_ref.data.last().map(|i| &i.v).ok_or_else(|| {
+            lfail!(failure::Mode::RuntimeLeemaFailure, "stack top underflow")
         })
     }
 

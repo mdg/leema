@@ -1,5 +1,5 @@
 use crate::leema::code::{Code, Op, OpVec};
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
@@ -106,6 +106,13 @@ impl Fiber
         vout!("exec: {:?}\n", op);
         let result = match op {
             &Op::PushConst(ref v) => self.execute_push_const(v),
+            &Op::PushReg(ref src) => self.execute_push_reg(*src),
+            &Op::PopReg(ref dst) => self.execute_pop_reg(*dst),
+            &Op::PopMatch(ref patt) => self.execute_pop_match(patt),
+            &Op::BranchMatch(jmp, ref patt) => {
+                self.execute_branch_match(jmp, patt)
+            }
+            &Op::BranchIf(jmp) => self.execute_branch_if(jmp),
             &Op::ConstVal(ref dst, ref v) => self.execute_const_val(*dst, v),
             &Op::Copy(dst, src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
@@ -117,6 +124,8 @@ impl Fiber
             &Op::ListCons(dst, head, tail) => {
                 self.execute_cons_list(dst, head, tail)
             }
+            &Op::PopListCons => self.execute_pop_list_cons(),
+            &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
             &Op::PushCall(func, _lineno) => {
                 eprintln!("tbd call head - {}", func);
@@ -158,6 +167,13 @@ impl Fiber
                 self.head.pc += 1;
                 ev
             }
+            &Op::Label(lbl) => {
+                return Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "unexpected label op",
+                    "label": ldisplay!(lbl),
+                ));
+            }
         };
         Ok(ltry!(
             result,
@@ -165,6 +181,18 @@ impl Fiber
             "mod": self.head.function.m.name.to_lstr(),
             "func": Lstr::Sref(self.head.function.f),
         ))
+    }
+
+    pub fn execute_pop_str_cat(&mut self) -> Lresult<Event>
+    {
+        let result = {
+            let dst = ltry!(self.head.e.stack_pop());
+            let src = ltry!(self.head.e.stack_pop());
+            Val::Str(Lstr::from(format!("{}{}", dst, src)))
+        };
+        ltry!(self.head.e.stack_push(result));
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
@@ -267,6 +295,113 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
+    pub fn execute_push_reg(&mut self, src: Reg) -> Lresult<Event>
+    {
+        let v = ltry!(self.head.e.get_reg(src)).clone();
+        ltry!(self.head.e.stack_push(v));
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_pop_reg(&mut self, dst: Reg) -> Lresult<Event>
+    {
+        let v = ltry!(self.head.e.stack_pop());
+        ltry!(self.head.e.set_reg(dst, v));
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_pop_match(&mut self, patt: &Val) -> Lresult<Event>
+    {
+        vout!("execute_pop_match({:?})\n", patt,);
+        let matches = {
+            let ival = ltry!(self.head.e.stack_pop());
+            Val::pattern_match(patt, &ival)
+        };
+        if let Some(assignments) = matches {
+            for a in assignments {
+                match a {
+                    (Reg::Param(_), _) => {
+                        // don't write into param, it's already correct
+                    }
+                    (pdst, v) => {
+                        ltry!(self.head.e.set_reg(pdst, v));
+                    }
+                }
+            }
+        }
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_branch_match(
+        &mut self,
+        jmp: i16,
+        patt: &Val,
+    ) -> Lresult<Event>
+    {
+        vout!("execute_branch_match({:?})\n", patt,);
+        let matches = {
+            let ival = ltry!(self.head.e.stack_top());
+            Val::pattern_match(patt, ival)
+        };
+        if let Some(assignments) = matches {
+            for a in assignments {
+                match a {
+                    (Reg::Param(_), _) => {
+                        // don't write into param, it's already correct
+                    }
+                    (pdst, v) => {
+                        ltry!(self.head.e.set_reg(pdst, v));
+                    }
+                }
+            }
+            ltry!(self.head.e.stack_pop());
+            self.head.pc += 1;
+        } else {
+            // no match, so do the jump
+            self.head.pc += jmp as i32;
+        }
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_branch_if(&mut self, jmp: i16) -> Lresult<Event>
+    {
+        vout!("execute_branch_if({:?})\n", jmp);
+        let tjump: i32 = {
+            match ltry!(self.head.e.stack_pop()) {
+                Val::Bool(test) => {
+                    if test {
+                        vout!("if test is true\n");
+                        1
+                    } else {
+                        vout!("if test is false\n");
+                        jmp as i32
+                    }
+                }
+                // EnumToken(Type, Lstr),
+                Val::EnumToken(typ, var) if typ == Type::BOOL => {
+                    if var.as_str() == "True" {
+                        vout!("if test is True\n");
+                        1
+                    } else {
+                        vout!("if test is False\n");
+                        jmp as i32
+                    }
+                }
+                unexpected => {
+                    return Err(rustfail!(
+                        "type_failure",
+                        "can't if check a not bool {:?}",
+                        unexpected,
+                    ));
+                }
+            }
+        };
+        self.head.pc += tjump;
+        Ok(Event::Uneventful)
+    }
+
     pub fn execute_const_val(&mut self, reg: Reg, v: &Val) -> Lresult<Event>
     {
         ltry!(
@@ -328,6 +463,18 @@ impl Fiber
 
         ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_pop_list_cons(&mut self) -> Lresult<Event>
+    {
+        let new_list = {
+            let headval = ltry!(self.head.e.stack_pop());
+            let tailval = ltry!(self.head.e.stack_pop());
+            list::cons(headval, tailval)
+        };
+        ltry!(self.head.e.stack_push(new_list));
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
