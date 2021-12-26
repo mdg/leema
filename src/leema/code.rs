@@ -373,7 +373,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::ConstVal(v) => vec![Op::PushConst(v.clone())],
-        Ast::Call(f, args) => make_call_ops(input_dst, f, args),
+        Ast::Call(f, args) => make_call_ops(f, args),
         Ast::Copy(src) => {
             let mut src_ops = make_sub_ops2(src);
             src_ops.ops.push(Op::Copy(input_dst.clone(), src_ops.dst));
@@ -396,7 +396,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
                 })
                 .collect();
                 */
-            xops.ops.push(Op::MatchPattern(input_dst, pval, xops.dst));
+            xops.ops.push(Op::PopMatch(pval));
             // xops.ops.append(&mut failops);
             xops.ops
         }
@@ -410,9 +410,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             }
             cs_ops.ops
         }
-        Ast::List(items) => make_list_ops(input_dst, items),
+        Ast::List(items) => make_list_ops(items),
         Ast::Tuple(items) => {
-            let newtup = Op::ConstVal(input_dst, Val::new_tuple(items.len()));
+            let newtup = Op::PushConst(Val::new_tuple(items.len()));
             let mut ops: Vec<Op> = vec![newtup];
             for (i, item) in items.into_iter().enumerate() {
                 let subdst = input_dst.sub(i as i8);
@@ -426,7 +426,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::StrExpr(items) => make_str_ops(input_dst.clone(), items),
+        Ast::StrExpr(items) => make_str_ops(items),
         Ast::Ifx(cases) => make_if_ops(cases),
         Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases),
         Ast::Wildcard => vec![Op::ConstVal(input_dst, Val::Bool(true))],
@@ -525,13 +525,22 @@ pub fn make_sub_ops(input: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
+/// 23: Void (result)
+/// 24: f
+/// 25: arg0
+/// 26: arg1
+pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
 {
-    vout!("make_call_ops: {} = {:?}\n", dst, f);
+    vout!("make_call_ops: {:?}\n", f);
 
     let lineno = f.loc.lineno;
-    let mut fops = make_sub_ops2(f);
+    let mut call_ops = OpVec::new();
+    call_ops.push(Op::PushConst(Val::VOID));
 
+    let mut fops = make_sub_ops2(f);
+    call_ops.append(&mut fops.ops);
+
+    let argc = args.len() as i16;
     let mut argops: OpVec = args
         .into_iter()
         .rev()
@@ -540,9 +549,9 @@ pub fn make_call_ops(dst: Reg, f: AstNode, args: Xlist) -> OpVec
             iargops.ops
         })
         .collect();
-    fops.ops.append(&mut argops);
-    fops.ops.push(Op::ApplyFunc(dst, fops.dst, lineno));
-    fops.ops
+    call_ops.append(&mut argops);
+    call_ops.push(Op::PushCall(argc + 2, lineno));
+    call_ops
 }
 
 pub fn make_construple_ops(
@@ -720,27 +729,25 @@ pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_list_ops(dst: Reg, items: Xlist) -> OpVec
+pub fn make_list_ops(items: Xlist) -> OpVec
 {
-    let mut ops = vec![Op::ConstVal(dst, Val::Nil)];
+    let mut ops = vec![Op::PushConst(Val::Nil)];
     for i in items.into_iter().rev() {
-        let idst = i.v.dst;
         let mut listops = make_sub_ops2(i.v);
         ops.append(&mut listops.ops);
-        ops.push(Op::ListCons(dst, idst, dst));
+        ops.push(Op::PopListCons);
     }
     ops
 }
 
-pub fn make_str_ops(dst: Reg, items: Vec<AstNode>) -> OpVec
+pub fn make_str_ops(items: Vec<AstNode>) -> OpVec
 {
     let mut ops: Vec<Op> = Vec::with_capacity(items.len());
-    ops.push(Op::ConstVal(dst, Val::empty_str()));
+    ops.push(Op::PushConst(Val::empty_str()));
     for i in items {
-        let idst = i.dst;
         let mut strops = make_sub_ops2(i);
         ops.append(&mut strops.ops);
-        ops.push(Op::StrCat(dst.clone(), idst));
+        ops.push(Op::PopStrCat);
     }
     ops
 }
