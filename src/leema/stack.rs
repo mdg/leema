@@ -88,6 +88,14 @@ impl Buffer
     }
 }
 
+/// Stack frame representation
+/// sp/0: result
+/// 1: parent
+/// 2: subject - module, method, closure, subject
+/// 3: function
+/// 4..lp: args
+/// lp..sp: locals
+/// sp..: stack, calls
 #[derive(Debug)]
 pub struct Ref
 {
@@ -295,6 +303,11 @@ impl Ref
         &unsafe { &*self.stack }.data
     }
 
+    pub fn func_val<'a>(&'a self) -> &'a Val
+    {
+        FrameRef::new_from("func", self.stack, self.sp..)
+    }
+
     fn param_frame<'a>(&'a self) -> FrameRef<'a>
     {
         FrameRef::new("param", self.stack, self.paramp..self.localp)
@@ -308,6 +321,11 @@ impl Ref
     fn stack_frame<'a>(&'a self) -> FrameRef<'a>
     {
         FrameRef::new_from("stack", self.stack, self.stackp..)
+    }
+
+    fn result_mut<'a>(&'a self) -> FrameRef<'a>
+    {
+        FrameRef::new("param", self.stack, self.paramp..self.localp)
     }
 
     /*
