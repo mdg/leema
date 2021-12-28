@@ -307,9 +307,13 @@ impl Frame
         */
     }
 
-    pub fn reserve_local(&mut self, num: usize)
+    pub fn parent(&self, code: Rc<Code>) -> Val
     {
-        self.e.reserve_local(num);
+        Val::Struct(Type::PARENT_FRAME, vec![
+            StrupleItem::new(Some(Lstr::Sref("code")), Val::Code(code)),
+            StrupleItem::new(Some(Lstr::Sref("sp")), Val::Int(self.sp as i64)),
+            StrupleItem::new(Some(Lstr::Sref("pc")), Val::Int(self.pc as i64)),
+        ])
     }
 
     pub fn set_parent(&mut self, p: Parent)
