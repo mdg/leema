@@ -16,6 +16,12 @@ datatype Tuple -RUST-
 datatype Void --
 datatype NoResult --
 
+datatype FrameTraceDir
+|CallUp
+|FailHere
+|ReturnDown
+--
+
 datatype <ClosureImpl F T> -RUST-
 datatype <Closure CallT ClosedT> ::
     f:<ClosureImpl CallT ClosedT>
