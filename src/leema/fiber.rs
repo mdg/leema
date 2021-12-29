@@ -15,6 +15,14 @@ use std::rc::Rc;
 
 
 #[derive(Debug)]
+pub enum Source
+{
+    Root,
+    Task,
+    Fork,
+}
+
+#[derive(Debug)]
 pub struct Fiber
 {
     pub fiber_id: i64,
