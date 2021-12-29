@@ -45,7 +45,7 @@ type MsgLstr = MsgItem<Lstr>;
 #[derive(Debug)]
 pub enum AppMsg
 {
-    // Spawn(module, function)
+    /// Start a new task
     Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
     MainResult(MsgVal),
 }
@@ -53,7 +53,7 @@ pub enum AppMsg
 #[derive(Debug)]
 pub enum WorkerMsg
 {
-    // Spawn(module, function)
+    /// Start a new task
     Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
     // FoundCode(fiber_id, fref, code)
     FoundCode(i64, MsgItem<Fref>, Code),

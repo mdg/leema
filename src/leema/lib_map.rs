@@ -10,7 +10,7 @@ use crate::leema::worker::RustFuncContext;
 
 pub fn new(f: &mut Fiber) -> Lresult<frame::Event>
 {
-    f.head.parent.set_result(Val::Map(Lmap::new()));
+    f.head.e.set_result(Val::Map(Lmap::new()));
     frame::Event::success()
 }
 
@@ -26,7 +26,7 @@ pub fn set(f: &mut Fiber) -> Lresult<frame::Event>
             panic!("first param to map::set is not a map: {:?}", p0);
         }
     };
-    f.head.parent.set_result(Val::Map(mresult));
+    f.head.e.set_result(Val::Map(mresult));
     frame::Event::success()
 }
 
@@ -62,7 +62,7 @@ pub fn has_key(f: &mut Fiber) -> Lresult<frame::Event>
             panic!("first param to map::has is not a map: {:?}", p0);
         }
     };
-    f.head.parent.set_result(Val::Bool(map_has));
+    f.head.e.set_result(Val::Bool(map_has));
     frame::Event::success()
 }
 
@@ -76,7 +76,7 @@ pub fn len(f: &mut Fiber) -> Lresult<frame::Event>
             panic!("first param to map::len is not a map: {:?}", p0);
         }
     };
-    f.head.parent.set_result(Val::Int(len as i64));
+    f.head.e.set_result(Val::Int(len as i64));
     frame::Event::success()
 }
 

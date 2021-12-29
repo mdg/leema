@@ -1,3 +1,4 @@
+use crate::leema::failure;
 use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
 use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
@@ -235,6 +236,39 @@ impl AppCaller
             .send(AppMsg::Spawn(result_send, call, args))
             .unwrap();
         result_recv
+    }
+
+    pub fn wait_for_result(&mut self, mut result_recv: Receiver<Val>) -> Val
+    {
+        vout!("wait_for_result\n");
+        // this name is a little off. it's # of cycles when nothing was done
+        let mut result = None;
+        while result.is_none() {
+            result = self.try_recv_result(&mut result_recv);
+        }
+        vout!("result received\n");
+        result.unwrap()
+    }
+
+    pub fn try_recv_result(
+        &mut self,
+        result_recv: &mut Receiver<Val>,
+    ) -> Option<Val>
+    {
+        match result_recv.try_recv() {
+            Ok(result) => Some(result),
+            Err(TryRecvError::Empty) => {
+                // do nothing, not finished yet
+                None
+            }
+            Err(TryRecvError::Disconnected) => {
+                println!("error receiving application result");
+                Some(Val::Failure2(Box::new(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "disconnected before receiving result"
+                ))))
+            }
+        }
     }
 }
 

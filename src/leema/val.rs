@@ -240,10 +240,9 @@ impl Type
     pub const STR: Type = Type::named(Type::PATH_STR);
     pub const TYPE: Type = Type::named(Type::PATH_TYPE);
     pub const VOID: Type = Type::named(Type::PATH_VOID);
-    /*
-    pub const : Type = Type::named(Type::PATH_);
-    pub const : Type = Type::named(Type::PATH_);
-    */
+
+    // language implementation types
+    pub const PARENT_FRAME: Type = Type::named("/leema/ParentFrame");
 
     // leema type paths
     // only used for internal compilation, not user code

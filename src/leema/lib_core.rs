@@ -62,7 +62,7 @@ pub fn int_add(f: &mut Fiber) -> Lresult<frame::Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Int(ic));
+    f.head.e.set_result(Val::Int(ic));
     frame::Event::success()
 }
 
@@ -81,7 +81,7 @@ pub fn int_sub(f: &mut Fiber) -> Lresult<frame::Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Int(ic));
+    f.head.e.set_result(Val::Int(ic));
     frame::Event::success()
 }
 
@@ -100,7 +100,7 @@ pub fn int_mult(f: &mut Fiber) -> Lresult<frame::Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Int(ic));
+    f.head.e.set_result(Val::Int(ic));
     frame::Event::success()
 }
 
@@ -119,7 +119,7 @@ pub fn int_div(f: &mut Fiber) -> Lresult<frame::Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Int(ic));
+    f.head.e.set_result(Val::Int(ic));
     frame::Event::success()
 }
 
@@ -138,7 +138,7 @@ pub fn int_mod(f: &mut Fiber) -> Lresult<frame::Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Int(ic));
+    f.head.e.set_result(Val::Int(ic));
     frame::Event::success()
 }
 
@@ -156,7 +156,7 @@ pub fn int_negate(f: &mut Fiber) -> Lresult<frame::Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Int(result));
+    f.head.e.set_result(Val::Int(result));
     frame::Event::success()
 }
 
@@ -234,7 +234,7 @@ pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let i = f.head.e.get_param(0)?;
     if let &Val::Bool(b) = i {
-        f.head.parent.set_result(Val::Bool(!b));
+        f.head.e.set_result(Val::Bool(!b));
         frame::Event::success()
     } else {
         Err(Failure::leema_new(

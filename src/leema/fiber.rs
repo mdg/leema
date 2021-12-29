@@ -1,26 +1,17 @@
-use crate::leema::code::{Code, Op, OpVec};
+use crate::leema::code::{Op, OpVec};
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
 use crate::leema::lstr::Lstr;
-use crate::leema::module::ModKey;
 use crate::leema::reg::Reg;
 use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, Type, Val};
 
 use std::pin::Pin;
-use std::rc::Rc;
+use std::sync::mpsc::Sender;
 
-
-#[derive(Debug)]
-pub enum Source
-{
-    Root,
-    Task,
-    Fork,
-}
 
 #[derive(Debug)]
 pub struct Fiber
@@ -29,29 +20,25 @@ pub struct Fiber
     pub next_task_id: i64,
     pub head: Frame,
     stack: Pin<Box<stack::Buffer>>,
+    result_sender: Option<Sender<Val>>,
 }
 
 impl Fiber
 {
-    pub fn spawn(id: i64, stack: Pin<Box<stack::Buffer>>, root: Frame)
-        -> Fiber
+    pub fn spawn(
+        id: i64,
+        stack: Pin<Box<stack::Buffer>>,
+        root: Frame,
+        result: Option<Sender<Val>>,
+    ) -> Fiber
     {
         Fiber {
             fiber_id: id,
             next_task_id: 1,
             head: root,
             stack,
+            result_sender: result,
         }
-    }
-
-    pub fn module_name(&self) -> &ModKey
-    {
-        &self.head.function.m
-    }
-
-    pub fn function_name(&self) -> &'static str
-    {
-        &self.head.function.f
     }
 
     pub fn new_task_key(&mut self) -> (i64, i64)
@@ -61,36 +48,27 @@ impl Fiber
         (child, self.fiber_id)
     }
 
-    pub fn push_call(
-        &mut self,
-        code: Rc<Code>,
-        dst: Reg,
-        line: i16,
-        mut func: Fref,
-        args: Struple2<Val>,
-    )
-    {
-        // if it's a method, substitute in the implementing type
-        if func.is_method() {
-            if let Some(selfie) = args.first() {
-                let self_val_t = selfie.v.get_type();
-                // replace self type instead of mod
-                let ftyp = func.t.func_ref_mut().unwrap();
-                ftyp.args.first_mut().map(|f| {
-                    f.v = self_val_t;
-                });
-            }
-        }
-        self.head.push_call(code, dst, func, line, args);
-    }
-
     pub fn push_tailcall(&mut self, func: Fref, args: Struple2<Val>)
     {
         let callv = Val::Call(func.clone(), vec![]);
-        self.head.function = func;
         self.head.pc = 0;
         self.head.tail_call_args(callv, args);
         self.head.trace = self.head.push_frame_trace(0);
+    }
+
+    pub fn take_result_sender(&mut self) -> Option<Sender<Val>>
+    {
+        self.result_sender.take()
+    }
+
+    pub fn take_result(&self) -> Val
+    {
+        (*self.stack).take_result()
+    }
+
+    pub fn get_result(&self) -> &Val
+    {
+        (*self.stack).get_result()
     }
 
     pub fn execute_leema_frame(&mut self, ops: &OpVec) -> Lresult<Event>
@@ -100,7 +78,7 @@ impl Fiber
             e = match self.execute_leema_op(ops) {
                 Ok(success) => success,
                 Err(f) => {
-                    return Err(f.lstr_loc(self.head.function.m.best_path(), 0));
+                    return Err(f.lstr_loc(self.head.module().best_path(), 0));
                 }
             };
         }
@@ -135,8 +113,8 @@ impl Fiber
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
-            &Op::PushCall(func, _lineno) => {
-                eprintln!("tbd call head - {}", func);
+            &Op::PushCall(func, lineno) => {
+                self.execute_push_call(func, lineno);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
@@ -150,7 +128,7 @@ impl Fiber
             }
             &Op::Return => Ok(Event::Success),
             &Op::ReserveLocal(n, s) => {
-                self.head.reserve_local(n as usize);
+                self.head.e.reserve_local(n as usize);
                 self.head.e.reserve_stack(s as usize);
                 self.head.pc = self.head.pc + 1;
                 Ok(Event::Uneventful)
@@ -170,7 +148,6 @@ impl Fiber
                     ));
                 }
                 let result = ltry!(self.head.e.get_reg(dst)).clone();
-                self.head.parent.set_result(result.clone());
                 self.head.e.set_result(result);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
@@ -191,8 +168,8 @@ impl Fiber
         Ok(ltry!(
             result,
             "pc": lstrf!("{}", opc),
-            "mod": self.head.function.m.name.to_lstr(),
-            "func": Lstr::Sref(self.head.function.f),
+            "mod": self.head.module().name.as_lstr().clone(),
+            "func": Lstr::Sref(self.head.function().f),
         ))
     }
 
@@ -299,6 +276,15 @@ impl Fiber
         vout!("execute_call({})\n", fref);
 
         Ok(Event::Call(dst.clone(), line as i16, fref, args))
+    }
+
+    pub fn execute_push_call(
+        &mut self,
+        func: i16,
+        lineno: i16,
+    ) -> Lresult<Event>
+    {
+        Ok(Event::PushCall(func, lineno as i16))
     }
 
     pub fn execute_push_const(&mut self, v: &Val) -> Lresult<Event>
@@ -603,7 +589,7 @@ impl Fiber
             &Val::Failure2(ref failure) => {
                 let new_trace = FrameTrace::propagate_down(
                     failure.trace.as_ref().unwrap(),
-                    &self.head.function,
+                    self.head.function(),
                     line as i16,
                 );
                 Err(Failure::leema_new(
@@ -658,7 +644,7 @@ mod tests
             .e
             .set_reg(r2, Val::Str(Lstr::Sref("burritos")))
             .unwrap();
-        let mut fib = Fiber::spawn(1, stack, frame);
+        let mut fib = Fiber::spawn(1, stack, frame, None);
 
         let event = fib.execute_strcat(r1, r2).unwrap();
         assert_eq!(Event::Uneventful, event);

@@ -8,7 +8,6 @@ use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, Val};
 
 use std::fmt::{self, Debug};
-use std::mem;
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -17,7 +16,7 @@ use std::sync::Arc;
 pub enum Parent
 {
     Null,
-    Caller(Rc<Code>, Box<Frame>, Reg),
+    Caller(Rc<Code>, Box<Frame>),
     Fork(Sender<Val>),
     Task,
     Repl(Val),
@@ -39,9 +38,7 @@ impl Parent
     pub fn set_result(&mut self, r: Val)
     {
         match self {
-            &mut Parent::Caller(_, ref mut pf, ref dst) => {
-                pf.e.set_reg(*dst, r).unwrap();
-            }
+            &mut Parent::Caller(_, ref mut pf) => {}
             // &mut Parent::Fork(_, _) => {}
             &mut Parent::Main(ref mut res) => {
                 *res = r;
@@ -67,8 +64,8 @@ impl Debug for Parent
     {
         match self {
             &Parent::Null => write!(f, "Parent::Null"),
-            &Parent::Caller(ref code, ref pf, ref dst) => {
-                write!(f, "Parent::Caller({:?}, {}, {:?})", dst, code, pf)
+            &Parent::Caller(ref code, ref pf) => {
+                write!(f, "Parent::Caller({}, {:?})", code, pf)
             }
             &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
             &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
@@ -82,6 +79,7 @@ pub enum Event
 {
     Uneventful,
     Call(Reg, i16, Fref, Struple2<Val>),
+    PushCall(i16, i16),
     TailCall(Fref, Struple2<Val>),
     NewTask(Fref, Struple2<Val>),
     FutureWait(Reg),
@@ -109,6 +107,9 @@ impl fmt::Debug for Event
                     "Event::Call({:?}@{}, {}, {:?})",
                     r, line, cfunc, cargs
                 )
+            }
+            &Event::PushCall(ref func, line) => {
+                write!(f, "Event::PushCall({} @{})", func, line)
             }
             &Event::TailCall(ref cfunc, ref cargs) => {
                 write!(f, "Event::TailCall({}, {:?})", cfunc, cargs)
@@ -192,6 +193,11 @@ impl FrameTrace
         })
     }
 
+    pub fn pop_call(self) -> Option<Arc<FrameTrace>>
+    {
+        self.parent.take()
+    }
+
     pub fn propagate_down(
         trace: &Arc<FrameTrace>,
         func: &Fref,
@@ -239,63 +245,84 @@ impl fmt::Display for FrameTrace
 }
 
 #[derive(Debug)]
+struct ParentFrame
+{
+    code: Rc<Code>,
+    stack: stack::Ref,
+    pc: i32, // program counter
+}
+
+#[derive(Debug)]
 pub struct Frame
 {
-    pub parent: Parent,
-    pub function: Fref,
     pub trace: Arc<FrameTrace>,
-    // rename this to something better than "e"
+    /// rename this to something better than "e"
     pub e: stack::Ref,
+    parents: Vec<ParentFrame>,
 
-    // result: Val,
-    // result_ptr: Option<*mut Val>,
-    // subj: Option<*mut Val>,
-    // func: *const Val,
-    pub rp: u32, // return pointer
-    pub sp: u32, // stack pointer
+    // pub sp: u32, // stack pointer
     pub pc: i32, // program counter
 }
 
 impl Frame
 {
-    pub fn new_root(stack: stack::Ref, parent: Parent, function: Fref)
-        -> Frame
+    pub fn new_root(stack: stack::Ref) -> Frame
     {
         Frame {
-            parent,
             trace: FrameTrace::new_root(),
-            function,
             e: stack,
-            rp: 0,
-            sp: 0,
+            parents: vec![],
             pc: 0,
         }
     }
 
     pub fn push_call(
-        &mut self,
-        curr_code: Rc<Code>,
-        result: Reg,
-        func: Fref,
+        self,
+        calling_code: Rc<Code>,
+        new_call: i16,
         line: i16,
-        args: Struple2<Val>,
-    )
+    ) -> Lresult<Frame>
     {
-        let e = self.e.push_frame_args(func.clone(), args);
-        let sp: u32 = e.stack_data().len() as u32;
-        let mut swapf = Frame {
-            parent: Parent::Null,
-            function: func,
-            trace: self.push_frame_trace(line),
-            e,
-            rp: self.sp,
-            sp,
-            pc: 0,
+        /*
+         * TODO come back to this after regular stack calls are done
+         * If this is going to be done, it can be done in Frame::push_call
+        let mut func = match self.head.e.func_val() {
+            Val::Func(ref fref) => fref.clone(),
+            other => {
+                return Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "expected function value",
+                    "value": ldebug!(other),
+                ));
+            }
         };
-        mem::swap(self, &mut swapf);
-        let new_parent = Parent::Caller(curr_code, Box::new(swapf), result);
-        self.set_parent(new_parent);
+        // if it's a method, substitute in the implementing type
+        if func.is_method() {
+            if let Some(selfie) = args.first() {
+                let self_val_t = selfie.v.get_type();
+                // replace self type instead of mod
+                let ftyp = func.t.func_ref_mut().unwrap();
+                ftyp.args.first_mut().map(|f| {
+                    f.v = self_val_t;
+                });
+            }
+        }
+        */
+        let stack = self.e.push_new_call(new_call);
+        let mut parents = self.parents;
+        parents.push(ParentFrame {
+            code: calling_code,
+            stack: self.e,
+            pc: self.pc,
+        });
+        Ok(Frame {
+            trace: self.push_frame_trace(line),
+            parents,
+            e: stack,
+            pc: 0,
+        })
     }
+
 
     pub fn tail_call_args(&mut self, _call: Val, _args: Struple2<Val>)
     {
@@ -307,28 +334,34 @@ impl Frame
         */
     }
 
-    pub fn parent(&self, code: Rc<Code>) -> Val
+    pub fn pop_call(self) -> Option<(Rc<Code>, Frame)>
     {
-        Val::Struct(Type::PARENT_FRAME, vec![
-            StrupleItem::new(Some(Lstr::Sref("code")), Val::Code(code)),
-            StrupleItem::new(Some(Lstr::Sref("sp")), Val::Int(self.sp as i64)),
-            StrupleItem::new(Some(Lstr::Sref("pc")), Val::Int(self.pc as i64)),
-        ])
-    }
-
-    pub fn set_parent(&mut self, p: Parent)
-    {
-        self.parent = p;
-    }
-
-    pub fn take_parent(&mut self) -> Parent
-    {
-        mem::replace(&mut self.parent, Parent::Null)
+        let parent = self.parents.pop()?;
+        let code = parent.code;
+        let f = Frame {
+            trace: self.trace.pop_call()?,
+            parents: self.parents,
+            e: parent.stack,
+            // move forward one, past the previous call
+            pc: self.pc + 1,
+        };
+        Some((code, f))
     }
 
     pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>
     {
-        FrameTrace::push_call(&self.trace, &self.function, line)
+        FrameTrace::push_call(&self.trace, self.function(), line)
+    }
+
+    pub fn module(&self) -> &ModKey
+    {
+        // self.e.subject().module()
+        &self.function().m
+    }
+
+    pub fn function(&self) -> &Fref
+    {
+        self.e.fref().unwrap()
     }
 
     pub fn get_param(&self, p: i8) -> Lresult<&Val>

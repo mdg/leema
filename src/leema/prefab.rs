@@ -29,7 +29,7 @@ pub fn bool_xor(f: &mut Fiber) -> Lresult<Event>
             }
         }
     }
-    f.head.parent.set_result(Val::Bool(result));
+    f.head.e.set_result(Val::Bool(result));
     Event::success()
 }
 
@@ -40,7 +40,7 @@ pub fn less_than(f: &mut Fiber) -> Lresult<Event>
         let vb = f.head.e.get_param(1)?;
         Val::Bool(va < vb)
     };
-    f.head.parent.set_result(result);
+    f.head.e.set_result(result);
     Event::success()
 }
 
@@ -51,7 +51,7 @@ pub fn less_than_equal(f: &mut Fiber) -> Lresult<Event>
         let vb = f.head.e.get_param(1)?;
         Val::Bool(va <= vb)
     };
-    f.head.parent.set_result(result);
+    f.head.e.set_result(result);
     Event::success()
 }
 
@@ -62,7 +62,7 @@ pub fn equal(f: &mut Fiber) -> Lresult<Event>
         let vb = f.head.e.get_param(1)?;
         Val::Bool(va == vb)
     };
-    f.head.parent.set_result(result);
+    f.head.e.set_result(result);
     Event::success()
 }
 
@@ -73,7 +73,7 @@ pub fn greater_than(f: &mut Fiber) -> Lresult<Event>
         let vb = f.head.get_param(1)?;
         va > vb
     };
-    f.head.parent.set_result(Val::Bool(result));
+    f.head.e.set_result(Val::Bool(result));
     Event::success()
 }
 
@@ -84,7 +84,7 @@ pub fn greater_than_equal(f: &mut Fiber) -> Lresult<Event>
         let vb = f.head.get_param(1)?;
         va >= vb
     };
-    f.head.parent.set_result(Val::Bool(result));
+    f.head.e.set_result(Val::Bool(result));
     Event::success()
 }
 
@@ -95,7 +95,7 @@ pub fn get_type(f: &mut Fiber) -> Lresult<Event>
         let v = f.head.get_param(0)?;
         result = v.get_type();
     }
-    f.head.parent.set_result(Val::Type(result));
+    f.head.e.set_result(Val::Type(result));
     Event::success()
 }
 
@@ -124,11 +124,11 @@ pub fn cin(f: &mut Fiber) -> Lresult<Event>
     let mut input = String::new();
     match stdin().read_line(&mut input) {
         Ok(_) => {
-            f.head.parent.set_result(Val::Str(Lstr::from(input)));
+            f.head.e.set_result(Val::Str(Lstr::from(input)));
             Event::success()
         }
         Err(_) => {
-            f.head.parent.set_result(Val::failure(
+            f.head.e.set_result(Val::failure(
                 Val::Hashtag(Lstr::Sref("console_read_fail")),
                 Val::Str(Lstr::EMPTY),
                 f.head.trace.fail_here(),
@@ -147,7 +147,7 @@ pub fn printerr(f: &mut Fiber) -> Lresult<Event>
         write!(stderr(), "{}", va)
             .map_err(|e| rustfail!("io_failure", "{}", e))?;
     }
-    f.head.parent.set_result(Val::VOID);
+    f.head.e.set_result(Val::VOID);
     Event::success()
 }
 

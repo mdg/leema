@@ -122,7 +122,7 @@ pub fn file_read(f: &mut Fiber) -> Lresult<Event>
             )
         }
     };
-    f.head.parent.set_result(openf);
+    f.head.e.set_result(openf);
     Event::success()
 }
 
@@ -141,9 +141,9 @@ pub fn file_stream_read(f: &mut Fiber) -> Lresult<Event>
             .expect("failed to read from file to string");
         //let result = myf.f.lock().unwrap().read_to_string(&mut input);
     }
-    f.head.parent.set_result(Val::Str(Lstr::from(input)));
+    f.head.e.set_result(Val::Str(Lstr::from(input)));
     */
-    f.head.parent.set_result(Val::Str(Lstr::Sref("")));
+    f.head.e.set_result(Val::Str(Lstr::Sref("")));
     Event::success()
 }
 

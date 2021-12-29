@@ -59,6 +59,16 @@ impl Buffer
         (b, frame)
     }
 
+    pub fn take_result(&self) -> Val
+    {
+        self.data.swap_remove(0).v
+    }
+
+    pub fn get_result(&self) -> &Val
+    {
+        &self.data[0].v
+    }
+
     fn push_frame_args(&mut self, f: Fref, args: Struple2<Val>) -> Ref
     {
         // push result
@@ -80,7 +90,6 @@ impl Buffer
         Ref {
             stack,
             sp: result_index,
-            subj: false,
             paramp: arg_0,
             localp: stack_base,
             stackp: stack_base,
@@ -90,10 +99,9 @@ impl Buffer
 
 /// Stack frame representation
 /// sp/0: result
-/// 1: parent
-/// 2: subject - module, method, closure, subject
-/// 3: function
-/// 4..lp: args
+/// 1: subject - module, method, closure, subject
+/// 2: function
+/// 3..lp: args
 /// lp..sp: locals
 /// sp..: stack, calls
 #[derive(Debug)]
@@ -104,11 +112,26 @@ pub struct Ref
     paramp: usize,
     localp: usize,
     stackp: usize,
-    subj: bool,
 }
 
 impl Ref
 {
+    const BASE_FRAME_SIZE: usize = 3;
+
+    pub fn push_new_call(&self, relative_sp: i16) -> Ref
+    {
+        let stack: &mut Buffer = unsafe { &mut *self.stack };
+        let new_sp = stack.data.len() - (relative_sp as usize);
+        let paramp = new_sp + Self::BASE_FRAME_SIZE;
+        Ref {
+            stack: self.stack,
+            sp: new_sp,
+            paramp,
+            localp: paramp,
+            stackp: paramp,
+        }
+    }
+
     pub fn push_frame_args(&mut self, func: Fref, args: Struple2<Val>) -> Ref
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };
@@ -169,6 +192,11 @@ impl Ref
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };
         stack.data.truncate(self.sp + 1);
+    }
+
+    pub fn get_sp(&self) -> usize
+    {
+        self.sp
     }
 
     /**
@@ -254,7 +282,8 @@ impl Ref
 
     pub fn set_result(&mut self, v: Val)
     {
-        unsafe { &mut *self.stack }.data[0].v = v;
+        let data: &mut Struple2<Val> = &mut unsafe { &mut *self.stack }.data;
+        data[self.sp].v = v;
     }
 
     pub fn set_reg(&mut self, r: Reg, v: Val) -> Lresult<()>
@@ -305,7 +334,21 @@ impl Ref
 
     pub fn func_val<'a>(&'a self) -> &'a Val
     {
-        FrameRef::new_from("func", self.stack, self.sp..)
+        &self.stack_data()[self.sp + 2].v
+    }
+
+    pub fn fref<'a>(&'a self) -> Lresult<&'a Fref>
+    {
+        match self.func_val() {
+            Val::Func(ref fref) => Ok(fref),
+            other => {
+                Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "expected function value",
+                    "value": ldebug!(other),
+                ))
+            }
+        }
     }
 
     fn param_frame<'a>(&'a self) -> FrameRef<'a>

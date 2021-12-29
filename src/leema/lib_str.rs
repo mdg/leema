@@ -14,7 +14,7 @@ pub fn len(f: &mut Fiber) -> Lresult<frame::Event>
         let src = f.head.e.get_param(0)?;
         Val::Int(src.str().len() as i64)
     };
-    f.head.parent.set_result(result);
+    f.head.e.set_result(result);
     frame::Event::success()
 }
 
@@ -22,7 +22,7 @@ pub fn is_empty(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let src = f.head.e.get_param(0)?;
     let empty = src.str().is_empty();
-    f.head.parent.set_result(Val::Bool(empty));
+    f.head.e.set_result(Val::Bool(empty));
     frame::Event::success()
 }
 
@@ -30,7 +30,7 @@ pub fn join(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let src = f.head.e.get_param(0)?;
     let total_len = list::fold_ref(0, src, |tlen, s| tlen + s.str().len());
-    f.head.parent.set_result(Val::Int(total_len as i64));
+    f.head.e.set_result(Val::Int(total_len as i64));
     frame::Event::success()
 }
 
@@ -67,7 +67,7 @@ pub fn split(f: &mut Fiber) -> Lresult<frame::Event>
             list::cons(Val::Str(Lstr::from(s.to_string())), acc)
         })
     };
-    f.head.parent.set_result(result);
+    f.head.e.set_result(result);
     frame::Event::success()
 }
 

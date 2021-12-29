@@ -58,7 +58,7 @@ impl<'a> RustFuncContext<'a>
 
     pub fn current_fref(&self) -> &Fref
     {
-        &self.task.head.function
+        self.task.head.e.fref().unwrap()
     }
 
     pub fn pc(&self) -> i32
@@ -83,7 +83,7 @@ impl<'a> RustFuncContext<'a>
 
     pub fn set_result(&mut self, r: Val)
     {
-        self.task.head.parent.set_result(r);
+        self.task.head.e.set_result(r);
     }
 
     pub fn new_call(
@@ -213,12 +213,12 @@ impl Worker
 
     fn load_code(&mut self, curf: Fiber) -> Lresult<()>
     {
-        let opt_code = self.find_code(&curf.head.function);
+        let opt_code = self.find_code(curf.head.function());
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
             let args = Val::Tuple(vec![StrupleItem::new_v(Val::Call(
-                curf.head.function.clone(),
+                curf.head.function().clone(),
                 vec![],
             ))]);
             let msg = IoMsg::Iop {
@@ -270,7 +270,7 @@ impl Worker
         let e = match evr {
             Ok(ev) => ev,
             Err(failure) => {
-                fbr.head.parent.set_result(Val::Failure2(Box::new(failure)));
+                fbr.head.e.set_result(Val::Failure2(Box::new(failure)));
                 self.return_from_call(fbr);
                 return Ok(Async::NotReady);
             }
@@ -282,8 +282,12 @@ impl Worker
                 Ok(Async::NotReady)
             }
             Event::Call(dst, line, func, args) => {
-                vout!("push_call({} {}, {:?})\n", line, func, args);
-                fbr.push_call(code.clone(), dst, line, func, args);
+                unimplemented!();
+            }
+            Event::PushCall(func, line) => {
+                vout!("push_call({} @{})\n", func, line);
+                fbr.head =
+                    fbr.head.push_call(code.clone(), func, line).unwrap();
                 self.load_code(fbr)?;
                 Result::Ok(Async::NotReady)
             }
@@ -302,7 +306,7 @@ impl Worker
                     StrupleItem::new(None, Val::Int(new_child)),
                     StrupleItem::new(None, Val::Int(new_parent)),
                 ]);
-                fbr.head.parent.set_result(new_task_key);
+                fbr.head.e.set_result(new_task_key);
                 self.return_from_call(fbr);
                 Result::Ok(Async::NotReady)
             }
@@ -363,30 +367,20 @@ impl Worker
 
     pub fn return_from_call(&mut self, mut fbr: Fiber)
     {
-        let parent = fbr.head.take_parent();
-        match parent {
-            Parent::Caller(old_code, mut pf, dst) => {
-                pf.pc += 1;
-                fbr.head = *pf;
-                vout!("return to caller: {}()\n", fbr.head.function);
-                vout!(" result: {}\n", dst);
-                self.push_fresh(ReadyFiber::Ready(fbr, old_code));
-            }
-            Parent::Repl(_) => {}
-            Parent::Main(res) => {
-                vout!("finished main func\n");
-                let msg = AppMsg::MainResult(MsgVal::new(&res));
-                self.done = true;
-                self.app_tx.send(msg).expect("app message send failure");
-            }
-            Parent::Fork(_) => {
-                // this should have already happened
-            }
-            Parent::Task => {} // nothing to do
-            Parent::Null => {
-                // this shouldn't have happened
-                vout!("Parent::Null but how?\n");
-            }
+        if let Some((caller_code, parent)) = fbr.head.pop_call() {
+            fbr.head = parent;
+            vout!("return to caller: {}()\n", fbr.head.function().f);
+            self.push_fresh(ReadyFiber::Ready(fbr, caller_code));
+            return;
+        }
+
+        // should write some metrics about being done
+
+        // fiber is done, how to finish it?
+        if let Some(dst) = fbr.take_result_sender() {
+            vout!("send riber result\n");
+            let result = fbr.take_result();
+            dst.send(result).expect("call result send failure");
         }
     }
 
@@ -398,8 +392,8 @@ impl Worker
                 let parent = Parent::new_fork(result_dst);
                 let (stack, e) =
                     stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
-                let root = Frame::new_root(e, parent, func);
-                self.spawn_fiber(stack, root);
+                let root = Frame::new_root(e);
+                self.spawn_fiber(stack, root, Some(result_dst));
             }
             WorkerMsg::FoundCode(fiber_id, fref, code) => {
                 let newf = fref.take();
@@ -427,7 +421,7 @@ impl Worker
                         panic!("cannot handle a future now");
                     }
                 };
-                fib.head.parent.set_result(result_val);
+                fib.head.e.stack_push(result_val);
                 self.return_from_call(fib);
             }
             WorkerMsg::Done => {
@@ -471,12 +465,17 @@ impl Worker
         }
     }
 
-    pub fn spawn_fiber(&mut self, stack: Pin<Box<stack::Buffer>>, frame: Frame)
+    pub fn spawn_fiber(
+        &mut self,
+        stack: Pin<Box<stack::Buffer>>,
+        frame: Frame,
+        result: Option<Sender<Val>>,
+    )
     {
-        vout!("spawn_fiber({})\n", frame.function);
+        vout!("spawn_fiber({})\n", frame.function().f);
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
-        let fib = Fiber::spawn(id, stack, frame);
+        let fib = Fiber::spawn(id, stack, frame, result);
         self.fresh.push_back(ReadyFiber::New(fib));
     }
 

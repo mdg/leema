@@ -63,7 +63,7 @@ pub enum Op
     ///     still not clear where self/closed goes
     /// Source line at .1
     /// Leave the result on the stack
-    PushCall(i16, u16),
+    PushCall(i16, i16),
 
     /// Push a constant value onto the stack
     PushConst(Val),
@@ -550,7 +550,7 @@ pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
         })
         .collect();
     call_ops.append(&mut argops);
-    call_ops.push(Op::PushCall(argc + 2, lineno));
+    call_ops.push(Op::PushCall(argc + 2, lineno as i16));
     call_ops
 }
 
