@@ -23,7 +23,11 @@ pub enum Result
 pub enum Event
 {
     Uneventful,
-    PushCall(i16, i16),
+    PushCall
+    {
+        argc: i16,
+        line: i16,
+    },
     TailCall(Fref, Struple2<Val>),
     NewTask(Fref, Struple2<Val>),
     FutureWait(Reg),
@@ -45,8 +49,8 @@ impl fmt::Debug for Event
     {
         match self {
             &Event::Uneventful => write!(f, "Uneventful"),
-            &Event::PushCall(ref func, line) => {
-                write!(f, "Event::PushCall({} @{})", func, line)
+            &Event::PushCall { argc, line } => {
+                write!(f, "Event::PushCall({} @{})", argc, line)
             }
             &Event::TailCall(ref cfunc, ref cargs) => {
                 write!(f, "Event::TailCall({}, {:?})", cfunc, cargs)
@@ -69,9 +73,10 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (&Event::PushCall(f1, line1), &Event::PushCall(f2, line2)) => {
-                f1 == f2 && line1 == line2
-            }
+            (
+                &Event::PushCall { argc: a1, line: l1 },
+                &Event::PushCall { argc: a2, line: l2 },
+            ) => a1 == a2 && l1 == l2,
             (
                 &Event::NewTask(ref f1, ref a1),
                 &Event::NewTask(ref f2, ref a2),
@@ -215,7 +220,7 @@ impl Frame
     pub fn push_call(
         self,
         calling_code: Rc<Code>,
-        new_call: i16,
+        argc: i16,
         line: i16,
     ) -> Lresult<Frame>
     {
@@ -245,7 +250,7 @@ impl Frame
         }
         */
         let parent_trace = self.push_frame_trace(line);
-        let stack = self.e.push_new_call(new_call);
+        let stack = self.e.push_new_call(argc);
         let mut parents = self.parents;
         parents.push(ParentFrame {
             code: calling_code,

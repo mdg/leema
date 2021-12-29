@@ -116,19 +116,25 @@ pub struct Ref
 
 impl Ref
 {
-    const BASE_FRAME_SIZE: usize = 3;
+    const RESULT_INDEX: usize = 0;
+    const FUNC_INDEX: usize = 1;
+    const SUBJ_INDEX: usize = 2;
+    const PARAM_INDEX: usize = 3;
+    const BASE_STACK_SIZE: usize = Self::PARAM_INDEX;
 
-    pub fn push_new_call(&self, relative_sp: i16) -> Ref
+    pub fn push_new_call(&self, iargc: i16) -> Ref
     {
+        let argc = iargc as usize;
         let stack: &mut Buffer = unsafe { &mut *self.stack };
-        let new_sp = stack.data.len() - (relative_sp as usize);
-        let paramp = new_sp + Self::BASE_FRAME_SIZE;
+        let new_sp = stack.data.len() - Self::BASE_STACK_SIZE - argc;
+        let paramp = new_sp + Self::PARAM_INDEX;
+        let localp = paramp + argc;
         Ref {
             stack: self.stack,
             sp: new_sp,
             paramp,
-            localp: paramp,
-            stackp: paramp,
+            localp: localp,
+            stackp: localp,
         }
     }
 
@@ -333,7 +339,7 @@ impl Ref
 
     pub fn func_val<'a>(&'a self) -> &'a Val
     {
-        &self.stack_data()[self.sp + 2].v
+        &self.stack_data()[self.sp + Self::FUNC_INDEX].v
     }
 
     pub fn fref<'a>(&'a self) -> Lresult<&'a Fref>
@@ -344,6 +350,7 @@ impl Ref
                 Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,
                     "expected function value",
+                    "sp": ldisplay!(self.sp),
                     "value": ldebug!(other),
                 ))
             }

@@ -113,7 +113,7 @@ impl Fiber
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
-            &Op::PushCall(func, lineno) => self.execute_push_call(func, lineno),
+            &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
             &Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
                 self.head.pc += 1;
@@ -240,13 +240,10 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_push_call(
-        &mut self,
-        func: i16,
-        lineno: i16,
-    ) -> Lresult<Event>
+    pub fn execute_push_call(&mut self, argc: i16, line: i16)
+        -> Lresult<Event>
     {
-        Ok(Event::PushCall(func, lineno as i16))
+        Ok(Event::PushCall { argc, line })
     }
 
     pub fn execute_push_const(&mut self, v: &Val) -> Lresult<Event>

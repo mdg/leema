@@ -58,7 +58,11 @@ pub enum Op
     ///     still not clear where self/closed goes
     /// Source line at .1
     /// Leave the result on the stack
-    PushCall(i16, i16),
+    PushCall
+    {
+        argc: i16,
+        line: i16,
+    },
 
     /// Push a constant value onto the stack
     PushConst(Val),
@@ -140,7 +144,7 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            &Op::PushCall(f, line) => Op::PushCall(f, line),
+            &Op::PushCall { argc, line } => Op::PushCall { argc, line },
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),
             &Op::PushResult => Op::PushResult,
@@ -527,11 +531,19 @@ pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
 
     let lineno = f.loc.lineno;
     let mut call_ops = OpVec::new();
+
+    // push the result
     call_ops.push(Op::PushConst(Val::VOID));
 
+    // push the call
     let mut fops = make_sub_ops2(f);
     call_ops.append(&mut fops.ops);
 
+    // push the subject
+    // void for now, should this go in the call later?
+    call_ops.push(Op::PushConst(Val::VOID));
+
+    // push the args
     let argc = args.len() as i16;
     let mut argops: OpVec = args
         .into_iter()
@@ -542,7 +554,10 @@ pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
         })
         .collect();
     call_ops.append(&mut argops);
-    call_ops.push(Op::PushCall(argc + 2, lineno as i16));
+    call_ops.push(Op::PushCall {
+        argc,
+        line: lineno as i16,
+    });
     call_ops
 }
 

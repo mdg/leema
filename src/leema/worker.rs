@@ -107,7 +107,10 @@ impl<'a> RustFuncContext<'a>
             // push the key too maybe?
             self.task.head.e.stack_push(a.v);
         }
-        Ok(Event::PushCall(argc, start_pc as i16))
+        Ok(Event::PushCall {
+            argc,
+            line: start_pc as i16,
+        })
     }
 
     pub fn new_task(&self, f: Fref, args: Struple2<Val>)
@@ -293,10 +296,10 @@ impl Worker
                 self.return_from_call(fbr);
                 Ok(Async::NotReady)
             }
-            Event::PushCall(func, line) => {
-                vout!("push_call({} @{})\n", func, line);
+            Event::PushCall { argc, line } => {
+                vout!("push_call({} @{})\n", argc, line);
                 fbr.head =
-                    fbr.head.push_call(code.clone(), func, line).unwrap();
+                    fbr.head.push_call(code.clone(), argc, line).unwrap();
                 self.load_code(fbr)?;
                 Result::Ok(Async::NotReady)
             }
