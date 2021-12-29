@@ -61,7 +61,7 @@ impl Fiber
         self.result_sender.take()
     }
 
-    pub fn take_result(&self) -> Val
+    pub fn take_result(&mut self) -> Val
     {
         (*self.stack).take_result()
     }
@@ -113,16 +113,9 @@ impl Fiber
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
-            &Op::PushCall(func, lineno) => {
-                self.execute_push_call(func, lineno);
-                self.head.pc += 1;
-                Ok(Event::Uneventful)
-            }
-            &Op::ApplyFunc(dst, func, lineno) => {
-                self.execute_call(dst, func, lineno)
-            }
+            &Op::PushCall(func, lineno) => self.execute_push_call(func, lineno),
             &Op::StackPush => {
-                ltry!(self.head.e.stack_push(Val::VOID));
+                self.head.e.stack_push(Val::VOID);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
@@ -180,7 +173,7 @@ impl Fiber
             let src = ltry!(self.head.e.stack_pop());
             Val::Str(Lstr::from(format!("{}{}", dst, src)))
         };
-        ltry!(self.head.e.stack_push(result));
+        self.head.e.stack_push(result);
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -247,37 +240,6 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    /**
-     * get code from func
-     * make a new frame state
-     * create a new frame w/ func code and new frame state
-     * set curf.flag to Called(new_frame)
-     */
-    pub fn execute_call(
-        &mut self,
-        dst: Reg,
-        freg: Reg,
-        line: u16,
-    ) -> Lresult<Event>
-    {
-        let (fref, args): (Fref, Struple2<Val>) = {
-            let ref fname_val = ltry!(self.head.e.get_reg(freg));
-            match *fname_val {
-                &Val::Call(ref f, ref args) => (f.clone(), args.clone()),
-                _ => {
-                    return Err(rustfail!(
-                        "failure",
-                        "that's not a function! {:?}",
-                        fname_val,
-                    ));
-                }
-            }
-        };
-        vout!("execute_call({})\n", fref);
-
-        Ok(Event::Call(dst.clone(), line as i16, fref, args))
-    }
-
     pub fn execute_push_call(
         &mut self,
         func: i16,
@@ -289,7 +251,7 @@ impl Fiber
 
     pub fn execute_push_const(&mut self, v: &Val) -> Lresult<Event>
     {
-        ltry!(self.head.e.stack_push(v.clone()));
+        self.head.e.stack_push(v.clone());
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -297,7 +259,7 @@ impl Fiber
     pub fn execute_push_reg(&mut self, src: Reg) -> Lresult<Event>
     {
         let v = ltry!(self.head.e.get_reg(src)).clone();
-        ltry!(self.head.e.stack_push(v));
+        self.head.e.stack_push(v);
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -472,7 +434,7 @@ impl Fiber
             let tailval = ltry!(self.head.e.stack_pop());
             list::cons(headval, tailval)
         };
-        ltry!(self.head.e.stack_push(new_list));
+        self.head.e.stack_push(new_list);
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -619,7 +581,7 @@ impl Fiber
 mod tests
 {
     use crate::leema::fiber::Fiber;
-    use crate::leema::frame::{Event, Frame, Parent};
+    use crate::leema::frame::{Event, Frame};
     use crate::leema::lstr::Lstr;
     use crate::leema::reg::Reg;
     use crate::leema::stack;
@@ -631,11 +593,10 @@ mod tests
     {
         let r1 = Reg::local(1);
         let r2 = Reg::local(2);
-        let main_parent = Parent::new_main();
         let callri = Fref::with_modules(From::from("foo"), "bar");
         let (stack, e) = stack::Buffer::new(100, callri.clone(), Vec::new());
-        let mut frame = Frame::new_root(e, main_parent, callri);
-        frame.reserve_local(10);
+        let mut frame = Frame::new_root(e);
+        frame.e.reserve_local(10);
         frame
             .e
             .set_reg(r1, Val::Str(Lstr::Sref("i like ")))

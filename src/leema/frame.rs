@@ -9,76 +9,20 @@ use crate::leema::val::{Fref, Val};
 
 use std::fmt::{self, Debug};
 use std::rc::Rc;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 
-pub enum Parent
+/*
+pub enum Result
 {
-    Null,
-    Caller(Rc<Code>, Box<Frame>),
-    Fork(Sender<Val>),
-    Task,
-    Repl(Val),
-    Main(Val),
+    Parent(Rc<Code>, Frame),
+    Complete(Val),
 }
-
-impl Parent
-{
-    pub fn new_main() -> Parent
-    {
-        Parent::Main(Val::VOID)
-    }
-
-    pub fn new_fork(dst: Sender<Val>) -> Parent
-    {
-        Parent::Fork(dst)
-    }
-
-    pub fn set_result(&mut self, r: Val)
-    {
-        match self {
-            &mut Parent::Caller(_, ref mut pf) => {}
-            // &mut Parent::Fork(_, _) => {}
-            &mut Parent::Main(ref mut res) => {
-                *res = r;
-            }
-            &mut Parent::Repl(ref mut res) => {
-                *res = r;
-            }
-            &mut Parent::Fork(ref mut dst) => {
-                let send_result = dst.send(r.clone());
-                if send_result.is_err() {
-                    panic!("fail sending fork result: {}", r);
-                }
-            }
-            &mut Parent::Task => {}
-            &mut Parent::Null => {}
-        }
-    }
-}
-
-impl Debug for Parent
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        match self {
-            &Parent::Null => write!(f, "Parent::Null"),
-            &Parent::Caller(ref code, ref pf) => {
-                write!(f, "Parent::Caller({}, {:?})", code, pf)
-            }
-            &Parent::Repl(ref res) => write!(f, "Parent::Repl({:?})", res),
-            &Parent::Main(ref res) => write!(f, "Parent::Main({:?})", res),
-            &Parent::Fork(_) => write!(f, "Parent::Fork"),
-            &Parent::Task => write!(f, "Parent::Task"),
-        }
-    }
-}
+*/
 
 pub enum Event
 {
     Uneventful,
-    Call(Reg, i16, Fref, Struple2<Val>),
     PushCall(i16, i16),
     TailCall(Fref, Struple2<Val>),
     NewTask(Fref, Struple2<Val>),
@@ -101,13 +45,6 @@ impl fmt::Debug for Event
     {
         match self {
             &Event::Uneventful => write!(f, "Uneventful"),
-            &Event::Call(ref r, line, ref cfunc, ref cargs) => {
-                write!(
-                    f,
-                    "Event::Call({:?}@{}, {}, {:?})",
-                    r, line, cfunc, cargs
-                )
-            }
             &Event::PushCall(ref func, line) => {
                 write!(f, "Event::PushCall({} @{})", func, line)
             }
@@ -132,10 +69,9 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
-            (
-                &Event::Call(ref r1, line1, ref f1, ref a1),
-                &Event::Call(ref r2, line2, ref f2, ref a2),
-            ) => r1 == r2 && line1 == line2 && f1 == f2 && a1 == a2,
+            (&Event::PushCall(f1, line1), &Event::PushCall(f2, line2)) => {
+                f1 == f2 && line1 == line2
+            }
             (
                 &Event::NewTask(ref f1, ref a1),
                 &Event::NewTask(ref f2, ref a2),
@@ -193,9 +129,9 @@ impl FrameTrace
         })
     }
 
-    pub fn pop_call(self) -> Option<Arc<FrameTrace>>
+    pub fn pop_call(&self) -> Option<Arc<FrameTrace>>
     {
-        self.parent.take()
+        self.parent.as_ref().map(|t| t.clone())
     }
 
     pub fn propagate_down(
@@ -308,6 +244,7 @@ impl Frame
             }
         }
         */
+        let parent_trace = self.push_frame_trace(line);
         let stack = self.e.push_new_call(new_call);
         let mut parents = self.parents;
         parents.push(ParentFrame {
@@ -316,7 +253,7 @@ impl Frame
             pc: self.pc,
         });
         Ok(Frame {
-            trace: self.push_frame_trace(line),
+            trace: parent_trace,
             parents,
             e: stack,
             pc: 0,
@@ -334,18 +271,16 @@ impl Frame
         */
     }
 
-    pub fn pop_call(self) -> Option<(Rc<Code>, Frame)>
+    pub fn pop_call(&mut self) -> Option<Rc<Code>>
     {
         let parent = self.parents.pop()?;
-        let code = parent.code;
-        let f = Frame {
-            trace: self.trace.pop_call()?,
-            parents: self.parents,
-            e: parent.stack,
-            // move forward one, past the previous call
-            pc: self.pc + 1,
-        };
-        Some((code, f))
+        let parent_trace = self.trace.pop_call()?;
+
+        self.trace = parent_trace;
+        self.e = parent.stack;
+        // move forward one, past the previous call
+        self.pc = parent.pc + 1;
+        Some(parent.code)
     }
 
     pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>

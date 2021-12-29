@@ -53,11 +53,6 @@ impl fmt::Display for ModSym
 #[derive(PartialEq)]
 pub enum Op
 {
-    /// Call the function at .1
-    /// Return the result to .0
-    /// Source line at .2
-    ApplyFunc(Reg, Reg, u16),
-
     /// Call the function at .0 items up the stack
     /// Args are between .0 and HEAD
     ///     still not clear where self/closed goes
@@ -145,9 +140,6 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            &Op::ApplyFunc(ref dst, ref f, line) => {
-                Op::ApplyFunc(dst.clone(), f.clone(), line)
-            }
             &Op::PushCall(f, line) => Op::PushCall(f, line),
             &Op::Return => Op::Return,
             &Op::SetResult(ref src) => Op::SetResult(src.clone()),

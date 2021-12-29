@@ -59,7 +59,7 @@ impl Buffer
         (b, frame)
     }
 
-    pub fn take_result(&self) -> Val
+    pub fn take_result(&mut self) -> Val
     {
         self.data.swap_remove(0).v
     }
@@ -99,8 +99,8 @@ impl Buffer
 
 /// Stack frame representation
 /// sp/0: result
-/// 1: subject - module, method, closure, subject
-/// 2: function
+/// 1: function
+/// 2: subject - module, method, closure, subject
 /// 3..lp: args
 /// lp..sp: locals
 /// sp..: stack, calls
@@ -140,11 +140,10 @@ impl Ref
 
     /// does this need to return a Result? push doesn't return anything.
     /// looks like there's Vec::try_reserve() that will do it
-    pub fn stack_push(&mut self, v: Val) -> Lresult<()>
+    pub fn stack_push(&mut self, v: Val)
     {
         let stack_ref = unsafe { &mut *self.stack };
         stack_ref.data.push(StrupleItem::new_v(v));
-        Ok(())
     }
 
     pub fn stack_pop(&mut self) -> Lresult<Val>

@@ -1,7 +1,7 @@
 use crate::leema::code::Code;
 use crate::leema::failure::{Failure, Lresult};
 use crate::leema::fiber::Fiber;
-use crate::leema::frame::{Event, Frame, FrameTrace, Parent};
+use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::rsrc;
@@ -94,8 +94,20 @@ impl<'a> RustFuncContext<'a>
     ) -> Lresult<Event>
     {
         let start_pc = self.task.head.pc;
-        self.task.head.pc = return_pc;
-        Ok(Event::Call(Reg::stack(0), start_pc as i16, f, args))
+        // pc will be incremented by one upon return
+        self.task.head.pc = return_pc - 1;
+        // push result
+        self.task.head.e.stack_push(Val::VOID);
+        // push func
+        self.task.head.e.stack_push(Val::Func(f));
+        // push subject
+        self.task.head.e.stack_push(Val::VOID);
+        let argc = args.len() as i16;
+        for a in args {
+            // push the key too maybe?
+            self.task.head.e.stack_push(a.v);
+        }
+        Ok(Event::PushCall(argc, start_pc as i16))
     }
 
     pub fn new_task(&self, f: Fref, args: Struple2<Val>)
@@ -281,9 +293,6 @@ impl Worker
                 self.return_from_call(fbr);
                 Ok(Async::NotReady)
             }
-            Event::Call(dst, line, func, args) => {
-                unimplemented!();
-            }
             Event::PushCall(func, line) => {
                 vout!("push_call({} @{})\n", func, line);
                 fbr.head =
@@ -367,8 +376,7 @@ impl Worker
 
     pub fn return_from_call(&mut self, mut fbr: Fiber)
     {
-        if let Some((caller_code, parent)) = fbr.head.pop_call() {
-            fbr.head = parent;
+        if let Some(caller_code) = fbr.head.pop_call() {
             vout!("return to caller: {}()\n", fbr.head.function().f);
             self.push_fresh(ReadyFiber::Ready(fbr, caller_code));
             return;
@@ -389,7 +397,6 @@ impl Worker
         match msg {
             WorkerMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn2 {}\n", func);
-                let parent = Parent::new_fork(result_dst);
                 let (stack, e) =
                     stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
                 let root = Frame::new_root(e);
