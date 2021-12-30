@@ -245,33 +245,6 @@ impl Ref
                     "sp": ldisplay!(self.sp),
                 ))
             }
-            Reg::Stack(i) => {
-                let sf: FrameRef<'a> = self.stack_frame();
-                let v: Lresult<&'a Val> = FrameRef::<'a>::ireg_get(&sf, i);
-                match v {
-                    Ok(r) => Ok(r),
-                    Err(f) => {
-                        Err(f.with_context(vec![
-                            StrupleItem::new(Lstr::Sref("reg"), ldisplay!(r)),
-                            StrupleItem::new(
-                                Lstr::Sref("stack_size"),
-                                ldisplay!(self.stack_data().len()),
-                            ),
-                            StrupleItem::new(
-                                Lstr::Sref("sp"),
-                                ldisplay!(self.sp),
-                            ),
-                        ]))
-                    }
-                }
-                /*
-                Ok(ltry!(sf.ireg_get(i),
-                    "reg": ldisplay!(r),
-                    "stack_size": ldisplay!(self.stack_data().len()),
-                    "sp": ldisplay!(self.sp),
-                ))
-                */
-            }
             Reg::Top => {
                 eprintln!("unexpected get Reg::Top");
                 Ok(&self.stack_data().last().unwrap().v)
@@ -298,14 +271,6 @@ impl Ref
             Reg::Local(i) => {
                 Ok(ltry!(
                     self.local_frame_mut().ireg_set(i, v),
-                    "reg": ldisplay!(r),
-                    "stack_size": ldisplay!(self.stack_data().len()),
-                    "sp": ldisplay!(self.sp),
-                ))
-            }
-            Reg::Stack(i) => {
-                Ok(ltry!(
-                    self.stack_frame_mut().ireg_set(i, v),
                     "reg": ldisplay!(r),
                     "stack_size": ldisplay!(self.stack_data().len()),
                     "sp": ldisplay!(self.sp),

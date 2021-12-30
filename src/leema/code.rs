@@ -4,7 +4,7 @@ use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::{Reg, RegStack};
+use crate::leema::reg::Reg;
 use crate::leema::rsrc;
 use crate::leema::sendclone::SendClone;
 use crate::leema::struple::{Struple2, StrupleItem};
@@ -316,12 +316,6 @@ impl ast2::Op for LocalMax
                 let p = ireg.get_primary();
                 if p > self.local_max {
                     self.local_max = p;
-                }
-            }
-            Reg::Stack(ireg) => {
-                let p = ireg.get_primary();
-                if p > self.stack_max {
-                    self.stack_max = p;
                 }
             }
             _ => {}
@@ -686,7 +680,7 @@ pub fn make_str_ops(items: Vec<AstNode>) -> OpVec
 pub fn assign_registers(input: &mut AstNode) -> Lresult<()>
 {
     vout!("assign_registers({:?})\n", input);
-    Registration::assign_registers(input, RegStack::new())
+    Registration::assign_registers(input)
 }
 
 pub struct Registration {}
@@ -711,10 +705,9 @@ impl Registration
         node.dst = dst;
     }
 
-    fn assign_registers(node: &mut AstNode, mut stack: RegStack)
+    fn assign_registers(node: &mut AstNode)
         -> Lresult<()>
     {
-        stack.push_if_undecided(&mut node.dst);
         let first_dst = node.dst.clone();
 
         match &mut *node.node {
@@ -724,33 +717,29 @@ impl Registration
                     Self::set_dst_or_copy(item, node.dst);
                 }
                 for i in items.iter_mut() {
-                    Self::assign_registers(i, stack)?;
+                    Self::assign_registers(i)?;
                 }
             }
             Ast::Call(ref mut f, ref mut args) => {
-                stack.push_if_undecided(&mut f.dst);
                 for (i, a) in args.iter_mut().enumerate() {
                     Self::set_dst_or_copy(&mut a.v, f.dst.sub(i as i8));
-                    Self::assign_registers(&mut a.v, stack)?;
+                    Self::assign_registers(&mut a.v)?;
                 }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
                 let pval = Self::make_pattern_val(lhs)?;
                 *lhs.node = Ast::ConstVal(pval);
-                Self::assign_registers(rhs, stack)?;
+                Self::assign_registers(rhs)?;
             }
             Ast::Matchx(ref mut match_input, ref mut cases) => {
                 if let Some(ref mut mi) = match_input {
-                    stack.push_if_undecided(&mut mi.dst);
-                    Self::assign_registers(mi, stack)?;
+                    Self::assign_registers(mi)?;
                 }
-                let cond_dst = stack.push();
                 for case in cases.iter_mut() {
-                    case.cond.dst = cond_dst;
                     let pval = Self::make_pattern_val(&case.cond)?;
                     *case.cond.node = Ast::ConstVal(pval);
                     Self::set_dst_or_copy(&mut case.body, node.dst);
-                    Self::assign_registers(&mut case.body, stack)?;
+                    Self::assign_registers(&mut case.body)?;
                 }
             }
             Ast::Ifx(ref mut cases) => {
@@ -758,14 +747,14 @@ impl Registration
                     if *case.cond.node == Ast::VOID {
                         case.cond.dst = Reg::Void;
                     }
-                    Self::assign_registers(&mut case.cond, stack)?;
+                    Self::assign_registers(&mut case.cond)?;
                     Self::set_dst_or_copy(&mut case.body, node.dst);
-                    Self::assign_registers(&mut case.body, stack)?;
+                    Self::assign_registers(&mut case.body)?;
                 }
             }
             Ast::StrExpr(ref mut items) => {
                 for i in items.iter_mut() {
-                    Self::assign_registers(i, stack)?;
+                    Self::assign_registers(i)?;
                 }
             }
             Ast::Tuple(ref mut items) => {
@@ -774,14 +763,13 @@ impl Registration
                 // and copy it back to its original sub reg
                 let sub_dst = if node.dst.is_sub() {
                     let tmp = node.dst;
-                    node.dst = stack.push();
                     Some(tmp)
                 } else {
                     None
                 };
                 for (i, item) in items.iter_mut().enumerate() {
                     Self::set_dst_or_copy(&mut item.v, node.dst.sub(i as i8));
-                    Self::assign_registers(&mut item.v, stack)?;
+                    Self::assign_registers(&mut item.v)?;
                 }
                 if let Some(old_dst) = sub_dst {
                     *node = AstNode::new(Ast::Copy(mem::take(node)), node.loc);
@@ -791,11 +779,11 @@ impl Registration
             Ast::List(ref mut items) => {
                 // not really sure what's going on here or why
                 for i in items.iter_mut() {
-                    Self::assign_registers(&mut i.v, stack)?;
+                    Self::assign_registers(&mut i.v)?;
                 }
             }
             Ast::Op2(".", ref mut base, ref field) => {
-                Self::assign_registers(base, stack)?;
+                Self::assign_registers(base)?;
                 let field_idx = match &*field.node {
                     Ast::Id(idx_str) => {
                         idx_str.parse().map_err(|e| {
@@ -822,7 +810,7 @@ impl Registration
                 panic!("assign registers to op2? {:?} {} {:?}", a, op2, b);
             }
             Ast::CopyAndSet(ref mut src, ref mut fields) => {
-                Self::assign_registers(src, stack)?;
+                Self::assign_registers(src)?;
                 for (i, f) in fields.iter_mut().enumerate() {
                     Self::set_dst_or_copy(&mut f.v, node.dst.sub(i as i8));
                     // skip assigning the type,
@@ -837,7 +825,7 @@ impl Registration
                 }
             }
             Ast::Return(ref mut result) => {
-                Self::assign_registers(result, stack)?;
+                Self::assign_registers(result)?;
             }
             // nothing else to do
             Ast::Id(_) | Ast::ConstVal(_) => {}

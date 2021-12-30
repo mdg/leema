@@ -3,8 +3,6 @@ use crate::leema::val::Val;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::mem;
-use std::ops::{Deref, DerefMut};
 
 
 #[derive(PartialEq)]
@@ -91,7 +89,6 @@ pub enum Reg
 {
     Param(Ireg),
     Local(Ireg),
-    Stack(Ireg),
     /// Top of the stack
     Top,
     Lib,
@@ -106,7 +103,6 @@ impl Reg
         match self {
             &Reg::Param(ref r) => Reg::Param(r.sub(sub)),
             &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
-            &Reg::Stack(ref r) => Reg::Stack(r.sub(sub)),
             &Reg::Void => Reg::Void,
             _ => {
                 panic!("Can't make a sub reg for {:?}", self);
@@ -124,17 +120,11 @@ impl Reg
         Reg::Local(Ireg::Reg(p))
     }
 
-    pub fn stack(p: i8) -> Reg
-    {
-        Reg::Stack(Ireg::Reg(p))
-    }
-
     pub fn is_primary(&self) -> bool
     {
         match self {
             &Reg::Param(Ireg::Reg(_)) => true,
             &Reg::Local(Ireg::Reg(_)) => true,
-            &Reg::Stack(Ireg::Reg(_)) => true,
             &Reg::Top => true,
             _ => false,
         }
@@ -145,7 +135,6 @@ impl Reg
         match self {
             &Reg::Param(Ireg::Sub(_, _)) => true,
             &Reg::Local(Ireg::Sub(_, _)) => true,
-            &Reg::Stack(Ireg::Sub(_, _)) => true,
             _ => false,
         }
     }
@@ -155,7 +144,6 @@ impl Reg
         match self {
             &Reg::Param(ref r) => Reg::Param(r.next_sibling()),
             &Reg::Local(ref r) => Reg::Local(r.next_sibling()),
-            &Reg::Stack(ref r) => Reg::Stack(r.next_sibling()),
             _ => {
                 panic!("register has no sibling: {:?}", self);
             }
@@ -170,7 +158,6 @@ impl fmt::Display for Reg
         match self {
             &Reg::Param(ref r) => write!(f, "Param{}", r),
             &Reg::Local(ref r) => write!(f, "Local{}", r),
-            &Reg::Stack(ref r) => write!(f, "Stack{}", r),
             &Reg::Top => write!(f, "Reg::Top"),
             &Reg::Lib => write!(f, "Reg::Lib"),
             &Reg::Void => write!(f, "Reg::Void"),
@@ -248,94 +235,6 @@ impl RegTab
     }
 }
 
-
-/// RegStack pulls temporary registers from the table
-/// and puts them back when they're no longer used
-///
-/// root = inner_table
-/// (b, bnode) = root.push()
-/// (c, cnode) = bnode.push()
-/// use c.reg
-/// d = c.push()
-/// d.drop(|| {
-///     d.restore(c)
-/// })
-/// c.drop(|| {
-///     c.restore(b)
-/// })
-///
-/// pusher -> tab
-/// pushed(r) -> popper -> (pusher|tab)
-///           -> prev pushed
-#[derive(Clone)]
-#[derive(Copy)]
-pub struct RegStack
-{
-    current: i8,
-}
-
-impl RegStack
-{
-    pub fn new() -> RegStack
-    {
-        RegStack { current: 0 }
-    }
-
-    pub fn push(&mut self) -> Reg
-    {
-        self.current += 1;
-        self.top()
-    }
-
-    pub fn push_if_undecided(&mut self, dst: &mut Reg)
-    {
-        if *dst == Reg::Undecided {
-            *dst = self.push();
-        }
-    }
-
-    pub fn top(&self) -> Reg
-    {
-        Reg::stack(self.current)
-    }
-}
-
-pub struct RegStackRef<'r>(&'r mut RegStack, RegStack);
-
-impl<'r> RegStackRef<'r>
-{
-    pub fn new(rsr: &'r mut RegStack) -> RegStackRef<'r>
-    {
-        let orig = rsr.clone();
-        RegStackRef(rsr, orig)
-    }
-}
-
-impl<'r> Deref for RegStackRef<'r>
-{
-    type Target = RegStack;
-
-    fn deref(&self) -> &Self::Target
-    {
-        &self.0
-    }
-}
-
-impl<'r> DerefMut for RegStackRef<'r>
-{
-    fn deref_mut(&mut self) -> &mut Self::Target
-    {
-        &mut self.0
-    }
-}
-
-impl<'r> Drop for RegStackRef<'r>
-{
-    fn drop(&mut self)
-    {
-        mem::swap(self.0, &mut self.1);
-    }
-}
 
 #[cfg(test)]
 mod tests
