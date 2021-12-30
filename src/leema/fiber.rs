@@ -124,12 +124,13 @@ impl Fiber
             &Op::ReserveLocal(n, s) => {
                 self.head.e.reserve_local(n as usize);
                 self.head.e.reserve_stack(s as usize);
-                self.head.pc = self.head.pc + 1;
+                self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
             &Op::PushResult => {
                 let result = ltry!(self.head.e.stack_pop());
                 self.head.e.set_result(result);
+                self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
             &Op::SetResult(dst) => {
