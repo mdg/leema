@@ -293,18 +293,18 @@ impl Frame
 
     pub fn push_frame_trace(&self, line: i16) -> Arc<FrameTrace>
     {
-        FrameTrace::push_call(&self.trace, self.function(), line)
+        FrameTrace::push_call(&self.trace, self.function().unwrap(), line)
     }
 
-    pub fn module(&self) -> &ModKey
+    pub fn module(&self) -> Lresult<&ModKey>
     {
         // self.e.subject().module()
-        &self.function().m
+        Ok(&self.function()?.m)
     }
 
-    pub fn function(&self) -> &Fref
+    pub fn function(&self) -> Lresult<&Fref>
     {
-        self.e.fref().unwrap()
+        self.e.fref()
     }
 
     pub fn get_param(&self, p: i8) -> Lresult<&Val>

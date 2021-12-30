@@ -73,10 +73,14 @@ impl Buffer
     {
         // push result
         let result_index = self.data.len();
-        self.data.push(StrupleItem::new_v(Val::VOID));
+        self.data
+            .push(StrupleItem::new(Some(Lstr::Sref("result")), Val::VOID));
 
         // push func
         self.data.push(StrupleItem::new_v(Val::Func(f)));
+
+        // push subject
+        self.data.push(StrupleItem::new_v(Val::VOID));
 
         // push args
         let arg_0 = self.data.len();
@@ -129,6 +133,7 @@ impl Ref
         let new_sp = stack.data.len() - Self::BASE_STACK_SIZE - argc;
         let paramp = new_sp + Self::PARAM_INDEX;
         let localp = paramp + argc;
+        stack.data[new_sp].k = Some(Lstr::Sref("result"));
         Ref {
             stack: self.stack,
             sp: new_sp,

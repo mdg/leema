@@ -79,7 +79,8 @@ impl Fiber
             e = match self.execute_leema_op(ops) {
                 Ok(success) => success,
                 Err(f) => {
-                    return Err(f.lstr_loc(self.head.module().best_path(), 0));
+                    let m = ltry!(self.head.module());
+                    return Err(f.lstr_loc(m.best_path(), 0));
                 }
             };
         }
@@ -105,9 +106,6 @@ impl Fiber
             &Op::Jump(jmp) => self.execute_jump(jmp),
             &Op::JumpIfNot(jmp, reg) => self.execute_jump_if_not(jmp, reg),
             &Op::IfFailure(src, jmp) => self.execute_if_failure(src, jmp),
-            &Op::MatchPattern(ref dst, ref patt, ref input) => {
-                self.execute_match_pattern(*dst, patt, *input)
-            }
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
@@ -145,8 +143,8 @@ impl Fiber
         Ok(ltry!(
             result,
             "pc": lstrf!("{}", opc),
-            "mod": self.head.module().name.as_lstr().clone(),
-            "func": Lstr::Sref(self.head.function().f),
+            "mod": self.head.module().unwrap().name.as_lstr().clone(),
+            "func": Lstr::Sref(self.head.function().unwrap().f),
         ))
     }
 
@@ -492,7 +490,7 @@ impl Fiber
             &Val::Failure2(ref failure) => {
                 let new_trace = FrameTrace::propagate_down(
                     failure.trace.as_ref().unwrap(),
-                    self.head.function(),
+                    ltry!(self.head.function()),
                     line as i16,
                 );
                 Err(Failure::leema_new(

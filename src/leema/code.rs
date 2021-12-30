@@ -130,8 +130,6 @@ pub enum Op
     Jump(i16),
     JumpIfNot(i16, Reg),
     IfFailure(Reg, i16),
-    /// jump if no match, pattern reg, input reg
-    MatchPattern(Reg, Val, Reg),
 }
 
 unsafe impl marker::Send for Op {}
@@ -163,13 +161,6 @@ impl Clone for Op
             &Op::Label(j) => Op::Label(j),
             &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
             &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
-            &Op::MatchPattern(ref dst, ref patt, ref input) => {
-                Op::MatchPattern(
-                    dst.clone(),
-                    patt.clone_for_send(),
-                    input.clone(),
-                )
-            }
             &Op::PushReg(src) => Op::PushReg(src),
             &Op::PopReg(dst) => Op::PopReg(dst),
             &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
@@ -328,7 +319,8 @@ pub fn make_ops2(mut input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
     let (num_locals, num_stack) = LocalMax::num_locals(&mut input).unwrap();
-    let mut ops = make_sub_ops2(input);
+    let mut opm = OpMaker::new();
+    let mut ops = make_sub_ops2(input, &mut opm);
     if num_locals > 0 || num_stack > 0 {
         ops.ops
             .insert(0, Op::ReserveLocal(num_locals.into(), num_stack.into()));
@@ -338,14 +330,33 @@ pub fn make_ops2(mut input: AstNode) -> OpVec
     ops.ops
 }
 
-pub fn make_sub_ops2(input: AstNode) -> Oxpr
+struct OpMaker
+{
+    label: i16,
+}
+
+impl OpMaker
+{
+    pub fn new() -> OpMaker
+    {
+        OpMaker { label: -1 }
+    }
+
+    pub fn next_label(&mut self) -> i16
+    {
+        self.label += 1;
+        self.label
+    }
+}
+
+fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
 {
     let input_dst = input.dst;
     let ops = match *input.node {
         Ast::Block(lines) => {
             let mut oxprs = Vec::with_capacity(lines.len());
             for i in lines {
-                oxprs.push(make_sub_ops2(i));
+                oxprs.push(make_sub_ops2(i, opm));
             }
             let mut ops = Vec::with_capacity(oxprs.len());
             for mut i in oxprs {
@@ -354,9 +365,9 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             ops
         }
         Ast::ConstVal(v) => vec![Op::PushConst(v.clone())],
-        Ast::Call(f, args) => make_call_ops(f, args),
+        Ast::Call(f, args) => make_call_ops(f, args, opm),
         Ast::Copy(src) => {
-            let mut src_ops = make_sub_ops2(src);
+            let mut src_ops = make_sub_ops2(src, opm);
             src_ops.ops.push(Op::Copy(input_dst.clone(), src_ops.dst));
             src_ops.ops
         }
@@ -366,7 +377,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             } else {
                 panic!("let patterns should be ConstVal! {:?}", patt);
             };
-            let mut xops = make_sub_ops2(x);
+            let mut xops = make_sub_ops2(x, opm);
             /*
             let mut failops: Vec<(Op, i16)> = fails
                 .into_iter()
@@ -383,21 +394,21 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         }
         Ast::CopyAndSet(src, flds) => {
             let src_dst = src.dst.clone();
-            let mut cs_ops = make_sub_ops2(src);
+            let mut cs_ops = make_sub_ops2(src, opm);
             cs_ops.ops.push(Op::Copy(input.dst, src_dst));
             for f in flds.into_iter() {
-                let mut f_ops = make_sub_ops2(f.v);
+                let mut f_ops = make_sub_ops2(f.v, opm);
                 cs_ops.ops.append(&mut f_ops.ops);
             }
             cs_ops.ops
         }
-        Ast::List(items) => make_list_ops(items),
+        Ast::List(items) => make_list_ops(items, opm),
         Ast::Tuple(items) => {
             let newtup = Op::PushConst(Val::new_tuple(items.len()));
             let mut ops: Vec<Op> = vec![newtup];
             for (i, item) in items.into_iter().enumerate() {
                 let subdst = input_dst.sub(i as i8);
-                let mut iops = make_sub_ops2(item.v);
+                let mut iops = make_sub_ops2(item.v, opm);
                 // should be able to generalize this
                 if iops.dst != subdst {
                     iops.ops.push(Op::Copy(subdst, iops.dst));
@@ -407,18 +418,18 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
             }
             ops
         }
-        Ast::StrExpr(items) => make_str_ops(items),
-        Ast::Ifx(cases) => make_if_ops(cases),
-        Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases),
+        Ast::StrExpr(items) => make_str_ops(items, opm),
+        Ast::Ifx(cases) => make_if_ops(cases, opm),
+        Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases, opm),
         Ast::Wildcard => vec![Op::ConstVal(input_dst, Val::Bool(true))],
         Ast::Return(result) => {
-            let mut rops = make_sub_ops2(result);
+            let mut rops = make_sub_ops2(result, opm);
             rops.ops.push(Op::PushResult);
             rops.ops.push(Op::Return);
             rops.ops
         }
         Ast::Op2(".", base, _field) => {
-            let base_ops = make_sub_ops2(base);
+            let base_ops = make_sub_ops2(base, opm);
             base_ops.ops
         }
         Ast::Id(ref _id) => vec![],
@@ -443,7 +454,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
 /// 24: f
 /// 25: arg0
 /// 26: arg1
-pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
+fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
 {
     vout!("make_call_ops: {:?}\n", f);
 
@@ -454,7 +465,7 @@ pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
     call_ops.push(Op::PushConst(Val::VOID));
 
     // push the call
-    let mut fops = make_sub_ops2(f);
+    let mut fops = make_sub_ops2(f, opm);
     call_ops.append(&mut fops.ops);
 
     // push the subject
@@ -467,7 +478,7 @@ pub fn make_call_ops(f: AstNode, args: Xlist) -> OpVec
         .into_iter()
         .rev()
         .flat_map(|a| {
-            let iargops: Oxpr = make_sub_ops2(a.v);
+            let iargops: Oxpr = make_sub_ops2(a.v, opm);
             iargops.ops
         })
         .collect();
@@ -538,52 +549,39 @@ pub fn make_matchfailure_ops(
 }
 // */
 
-pub fn make_matchexpr_ops(x: AstNode, cases: Vec<Case>) -> OpVec
+fn make_matchexpr_ops(x: AstNode, cases: Vec<Case>, opm: &mut OpMaker)
+    -> OpVec
 {
     vout!("make_matchexpr_ops({:?},{:?})\n", x, cases);
 
-    let mut xops = make_sub_ops2(x);
-    let x_dst = xops.dst.clone();
+    let mut xops = make_sub_ops2(x, opm);
     // assume # cases is already verified > 0
-    let last_case = cases.len() - 1;
-    let mut case_ops: Vec<OpVec> = cases
+    let end_label = opm.next_label();
+    let case_ops: Vec<OpVec> = cases
         .into_iter()
-        .enumerate()
-        .map(|(i, case)| {
-            make_matchcase_ops(case, &x_dst, &x_dst, i == last_case)
-        })
+        .map(|case| make_matchcase_ops(case, end_label, opm))
         .collect();
     vout!("made matchcase_ops =\n{:?}\n", case_ops);
-
-    // add jumps after
-    case_ops.iter_mut().rev().fold(0 as i16, |after, case| {
-        if after > 0 {
-            case.push(Op::Jump(after + 1));
-        }
-        let case_ops_len = case.len() as i16;
-        after + case_ops_len
-    });
 
     for mut case in case_ops {
         xops.ops.append(&mut case);
     }
+    xops.ops.push(Op::Label(end_label));
     xops.ops
 }
 
-pub fn make_matchcase_ops(
+fn make_matchcase_ops(
     matchcase: Case,
-    xreg: &Reg,
-    _matchreg: &Reg,
-    last_case: bool,
+    end_label: i16,
+    opm: &mut OpMaker,
 ) -> OpVec
 {
-    let ifmatch_dst = matchcase.cond.dst;
     let patt_val = if let Ast::ConstVal(pv) = *matchcase.cond.node {
         pv
     } else {
         panic!("match patterns should be const vals! {:?}", matchcase.cond);
     };
-    let mut code_ops = make_sub_ops2(matchcase.body);
+    let mut code_ops = make_sub_ops2(matchcase.body, opm);
 
     if patt_val == Val::Wildcard {
         // wildcard in the not-last case would be a semantic failure
@@ -591,15 +589,12 @@ pub fn make_matchcase_ops(
         return code_ops.ops;
     }
 
-    let mut patt_ops: Vec<Op> =
-        vec![Op::MatchPattern(ifmatch_dst, patt_val, xreg.clone())];
-    let mut jump_len = code_ops.ops.len() as i16 + 1;
-    if !last_case {
-        jump_len += 1;
-    }
-    patt_ops.push(Op::JumpIfNot(jump_len, ifmatch_dst));
+    let case_label = opm.next_label();
+    let mut patt_ops: Vec<Op> = vec![Op::BranchMatch(case_label, patt_val)];
 
     patt_ops.append(&mut code_ops.ops);
+    patt_ops.push(Op::Jump(end_label));
+    patt_ops.push(Op::Label(case_label));
     patt_ops
 }
 
@@ -609,13 +604,13 @@ pub fn make_matchcase_ops(
 ///   eval cond b
 ///   jump_if_not(cond b, end of body b)
 ///   body c
-pub fn make_if_ops(cases: Vec<Case>) -> OpVec
+fn make_if_ops(cases: Vec<Case>, opm: &mut OpMaker) -> OpVec
 {
     let mut case_ops: Vec<(Oxpr, Oxpr)> = cases
         .into_iter()
         .map(|case| {
-            let cond_ops = make_sub_ops2(case.cond);
-            let body_ops = make_sub_ops2(case.body);
+            let cond_ops = make_sub_ops2(case.cond, opm);
+            let body_ops = make_sub_ops2(case.body, opm);
             (cond_ops, body_ops)
         })
         .collect();
@@ -654,23 +649,23 @@ pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
 }
 */
 
-pub fn make_list_ops(items: Xlist) -> OpVec
+fn make_list_ops(items: Xlist, opm: &mut OpMaker) -> OpVec
 {
     let mut ops = vec![Op::PushConst(Val::Nil)];
     for i in items.into_iter().rev() {
-        let mut listops = make_sub_ops2(i.v);
+        let mut listops = make_sub_ops2(i.v, opm);
         ops.append(&mut listops.ops);
         ops.push(Op::PopListCons);
     }
     ops
 }
 
-pub fn make_str_ops(items: Vec<AstNode>) -> OpVec
+fn make_str_ops(items: Vec<AstNode>, opm: &mut OpMaker) -> OpVec
 {
     let mut ops: Vec<Op> = Vec::with_capacity(items.len());
     ops.push(Op::PushConst(Val::empty_str()));
     for i in items {
-        let mut strops = make_sub_ops2(i);
+        let mut strops = make_sub_ops2(i, opm);
         ops.append(&mut strops.ops);
         ops.push(Op::PopStrCat);
     }
@@ -705,8 +700,7 @@ impl Registration
         node.dst = dst;
     }
 
-    fn assign_registers(node: &mut AstNode)
-        -> Lresult<()>
+    fn assign_registers(node: &mut AstNode) -> Lresult<()>
     {
         let first_dst = node.dst.clone();
 
@@ -720,9 +714,8 @@ impl Registration
                     Self::assign_registers(i)?;
                 }
             }
-            Ast::Call(ref mut f, ref mut args) => {
-                for (i, a) in args.iter_mut().enumerate() {
-                    Self::set_dst_or_copy(&mut a.v, f.dst.sub(i as i8));
+            Ast::Call(_, ref mut args) => {
+                for a in args.iter_mut() {
                     Self::assign_registers(&mut a.v)?;
                 }
             }
@@ -758,22 +751,8 @@ impl Registration
                 }
             }
             Ast::Tuple(ref mut items) => {
-                // subs can't go past 2 levels, so if the tuple itself
-                // is a sub, move it to a temp stacked reg, set the fields
-                // and copy it back to its original sub reg
-                let sub_dst = if node.dst.is_sub() {
-                    let tmp = node.dst;
-                    Some(tmp)
-                } else {
-                    None
-                };
-                for (i, item) in items.iter_mut().enumerate() {
-                    Self::set_dst_or_copy(&mut item.v, node.dst.sub(i as i8));
+                for item in items.iter_mut() {
                     Self::assign_registers(&mut item.v)?;
-                }
-                if let Some(old_dst) = sub_dst {
-                    *node = AstNode::new(Ast::Copy(mem::take(node)), node.loc);
-                    node.dst = old_dst;
                 }
             }
             Ast::List(ref mut items) => {

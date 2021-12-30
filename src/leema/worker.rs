@@ -207,7 +207,7 @@ impl Worker
         match self.pop_fresh() {
             Some(ReadyFiber::New(f)) => {
                 did_something = true;
-                self.load_code(f)?;
+                ltry!(self.load_code(f));
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
@@ -228,13 +228,13 @@ impl Worker
 
     fn load_code(&mut self, curf: Fiber) -> Lresult<()>
     {
-        let opt_code = self.find_code(curf.head.function());
+        let fref = ltry!(curf.head.function());
+        let opt_code = self.find_code(fref);
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
-            let args = Val::Tuple(vec![StrupleItem::new_v(Val::Func(
-                curf.head.function().clone(),
-            ))]);
+            let args =
+                Val::Tuple(vec![StrupleItem::new_v(Val::Func(fref.clone()))]);
             let msg = IoMsg::Iop {
                 worker_id: self.id,
                 fiber_id: curf.fiber_id,
@@ -299,13 +299,13 @@ impl Worker
                 vout!("push_call({} @{})\n", argc, line);
                 fbr.head =
                     fbr.head.push_call(code.clone(), argc, line).unwrap();
-                self.load_code(fbr)?;
+                ltry!(self.load_code(fbr));
                 Result::Ok(Async::NotReady)
             }
             Event::TailCall(func, args) => {
                 vout!("push_tailcall({}, {:?})\n", func, args);
                 fbr.push_tailcall(func, args);
-                self.load_code(fbr)?;
+                ltry!(self.load_code(fbr));
                 Result::Ok(Async::NotReady)
             }
             Event::NewTask(fref, callargs) => {
@@ -379,7 +379,7 @@ impl Worker
     pub fn return_from_call(&mut self, mut fbr: Fiber)
     {
         if let Some(caller_code) = fbr.head.pop_call() {
-            vout!("return to caller: {}()\n", fbr.head.function().f);
+            vout!("return to caller: {}()\n", fbr.head.function().unwrap().f);
             self.push_fresh(ReadyFiber::Ready(fbr, caller_code));
             return;
         }
@@ -481,7 +481,7 @@ impl Worker
         result: Option<Sender<Val>>,
     )
     {
-        vout!("spawn_fiber({})\n", frame.function().f);
+        vout!("spawn_fiber({})\n", frame.function().unwrap().f);
         let id = self.next_fiber_id;
         self.next_fiber_id += 1;
         let fib = Fiber::spawn(id, stack, frame, result);
