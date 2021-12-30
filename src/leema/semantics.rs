@@ -8,7 +8,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
-use crate::leema::struple::{self, Struple2, StrupleItem, StrupleKV};
+use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArg,
     TypeArgSlice, TypeArgs, TypeRef, Val,
@@ -222,7 +222,7 @@ impl AnonFuncDef
 
     pub fn call_object(&self) -> Lresult<AstNode>
     {
-        let fval = Val::Call(self.fref(), self.argvals()?);
+        let fval = Val::Func(self.fref());
         let cval = if true {
             AstNode::new_constval(fval, self.loc)
         } else {
@@ -279,16 +279,6 @@ impl AnonFuncDef
     pub fn func_type(&self) -> &Type
     {
         &self.func_type
-    }
-
-    pub fn argvals(&self) -> Lresult<Struple2<Val>>
-    {
-        let func_ref = self.func_type.try_func_ref()?;
-        Ok(func_ref
-            .args
-            .iter()
-            .map(|a| StrupleItem::new(Some(a.k.clone()), Val::VOID))
-            .collect())
     }
 }
 
@@ -378,7 +368,7 @@ impl<'p> ScopeCheck<'p>
         node.typ
             .localize_generics(&self.type_args, local_id.clone());
         match &mut *node.node {
-            Ast::ConstVal(Val::Call(fref, _)) => {
+            Ast::ConstVal(Val::Func(fref)) => {
                 fref.t.localize_generics(&self.type_args, local_id);
             }
             Ast::ConstVal(Val::Struct(t, _)) => {
@@ -942,7 +932,7 @@ impl<'p> ScopeCheck<'p>
                     return Ok(AstStep::Rewrite);
                 }
             }
-            Ast::ConstVal(Val::Call(fref, _args)) => {
+            Ast::ConstVal(Val::Func(fref)) => {
                 // for functions, if any types match function type args
                 // replace them w/ the concrete types
                 // if function defines any new type args, replace those
@@ -1696,7 +1686,7 @@ impl<'p> TypeCheck<'p>
             Ast::Call(ref mut callx, ref mut args) => {
                 match &mut *callx.node {
                     // handle a non-method call
-                    Ast::ConstVal(Val::Call(fref, _)) => {
+                    Ast::ConstVal(Val::Func(fref)) => {
                         steptry!(self.post_call(
                             &mut node.typ,
                             fref,
@@ -1745,8 +1735,7 @@ impl<'p> TypeCheck<'p>
                 ));
             }
             Ast::Generic(ref mut callx, ref mut args) => {
-                if let Ast::ConstVal(Val::Call(ref mut fref, _)) =
-                    &mut *callx.node
+                if let Ast::ConstVal(Val::Func(ref mut fref)) = &mut *callx.node
                 {
                     let typecall_t = ltry!(
                         self.apply_typecall(&mut fref.t, args),
@@ -1916,8 +1905,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             }
             Ast::Call(callx, args) if mode.is_pattern() => {
                 // what should this change to? struct val?
-                if let Ast::ConstVal(Val::Call(fref, _cargs)) = &mut *callx.node
-                {
+                if let Ast::ConstVal(Val::Func(fref)) = &mut *callx.node {
                     if fref.f == "__construct" {
                         if let Some(ftyp) = fref.t.func_ref_mut() {
                             let mut pargs = Vec::with_capacity(args.len());
@@ -2088,7 +2076,7 @@ impl<'l> ast2::Op for ResolveTypes<'l>
             }
             Ast::ConstVal(cv) => {
                 match cv {
-                    Val::Call(f, _args) => {
+                    Val::Func(f) => {
                         if f.t.contains_local() {
                             ltry!(f.t.replace_localvars(&self.infers));
                             return Ok(AstStep::Rewrite);

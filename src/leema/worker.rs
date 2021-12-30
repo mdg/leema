@@ -232,9 +232,8 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
-            let args = Val::Tuple(vec![StrupleItem::new_v(Val::Call(
+            let args = Val::Tuple(vec![StrupleItem::new_v(Val::Func(
                 curf.head.function().clone(),
-                vec![],
             ))]);
             let msg = IoMsg::Iop {
                 worker_id: self.id,

@@ -30,10 +30,12 @@ pub fn start(mut ctx: RustFuncContext) -> Lresult<Event>
     // let child_key = f.new_task_key();
     vout!("lib_task::start()\n");
     match ctx.get_param(0)? {
-        &Val::Call(ref fref, ref args) => {
-            ctx.new_task(fref.clone(), args.clone())
+        &Val::Func(ref fref) => {
+            // include the args somehow
+            ctx.new_task(fref.clone(), vec![])
         }
         not_func => {
+            // make this work for closures
             return Err(rustfail!(
                 "runtime_type_failure",
                 "start fork parameter is not a func: {:?}",
@@ -49,11 +51,12 @@ pub fn start_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("lib_task::start_fork()\n");
     let receiver: RunQueueReceiver = match ctx.take_param(0).unwrap() {
-        Val::Call(fref, args) => {
+        Val::Func(fref) => {
             let runq = ctx.clone_run_queue();
-            runq.spawn(fref, args)
+            runq.spawn(fref, vec![])
         }
         not_func => {
+            // make this work for closures
             panic!("start fork parameter is not a func: {:?}", not_func);
         }
     };

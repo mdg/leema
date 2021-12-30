@@ -13,12 +13,22 @@ use crate::leema::worker::RustFuncContext;
 pub fn init_main(ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let _prog = ctx.get_param(0)?;
-    let (mainf, main_args) = match ctx.get_param(1)? {
-        Val::Call(fref, args) => (fref.clone(), args.clone()),
+    let mainf = match ctx.get_param(1)? {
+        Val::Func(fref) => fref.clone(),
         unexpected => {
             return Err(rustfail!(
                 "runtime_failure",
                 "unexpected main call {:?}",
+                unexpected,
+            ));
+        }
+    };
+    let main_args = match ctx.get_param(2)? {
+        Val::Tuple(args) => args.clone(),
+        unexpected => {
+            return Err(rustfail!(
+                "runtime_failure",
+                "unexpected main args {:?}",
                 unexpected,
             ));
         }
@@ -254,7 +264,7 @@ pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
     vout!("load_code()\n");
     let mut prog: program::Lib = ctx.take_rsrc();
     let fref = match ctx.take_param(0).unwrap() {
-        Val::Call(fr, _) => fr,
+        Val::Func(fr) => fr,
         what => panic!("what is this? {:?}", what),
     };
     let rcode = prog.load_code(&fref).map(|c| (*c).clone());

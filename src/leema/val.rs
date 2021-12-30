@@ -94,18 +94,6 @@ pub struct FuncTypeRef<'a>
     pub closed_args: &'a TypeArgSlice,
 }
 
-impl<'a> FuncTypeRef<'a>
-{
-    pub fn call_args(&self) -> Struple2<Val>
-    {
-        self.args
-            .iter()
-            .chain(self.closed_args.iter())
-            .map(|a| StrupleItem::new(Some(a.k.clone()), Val::VOID))
-            .collect()
-    }
-}
-
 impl<'a> fmt::Display for FuncTypeRef<'a>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
@@ -1238,7 +1226,6 @@ pub enum Val
     // LibVal(Rc<dyn LibVal>),
     // LibRef(Arc<dyn LibRef>),
     Lib(Arc<dyn LibVal>),
-    Call(Fref, Struple2<Val>),
     Closure(Fref, Struple2<Val>, Fref, Struple2<Val>),
     ResourceRef(i64),
     // can Val::Future just be a Val::Lib?
@@ -1307,15 +1294,6 @@ impl Val
             res
         });
         Val::Tuple(items)
-    }
-
-    pub fn is_call(&self) -> bool
-    {
-        match self {
-            &Val::Call(_, _) => true,
-            &Val::Closure(_, _, _, _) => true,
-            _ => false,
-        }
     }
 
     pub fn is_list(&self) -> bool
@@ -1464,7 +1442,6 @@ impl Val
             &Val::Token(ref typ) => typ.clone(),
             &Val::Func(ref fref) => fref.t.clone(),
             &Val::Buffer(_) => Type::STR,
-            &Val::Call(ref fref, _) => fref.t.clone(),
             &Val::Closure(ref fref, _, _, _) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -1597,11 +1574,6 @@ impl Val
                 Val::EnumToken(typ.clone(), vname.clone())
             }
             &Val::Token(ref typ) => Val::Token(typ.clone()),
-            &Val::Call(ref f, ref args) => {
-                let m_fref = f.clone();
-                let m_args = struple::map_v(args, |a| a.map(op))?;
-                Val::Call(m_fref, m_args)
-            }
             &Val::Closure(ref f, ref args, ref true_f, ref closed) => {
                 let m_f = f.clone();
                 let m_true_f = true_f.clone();
@@ -1662,20 +1634,6 @@ impl Val
     }
 }
 
-impl From<&Fref> for Lresult<Val>
-{
-    fn from(f: &Fref) -> Lresult<Val>
-    {
-        let fref = ltry!(f.t.try_func_ref());
-        let args = fref
-            .args
-            .iter()
-            .map(|a| StrupleItem::new(Some(a.k.clone()), Val::VOID))
-            .collect();
-        Ok(Val::Call(f.clone(), args))
-    }
-}
-
 impl From<Error> for Val
 {
     fn from(_e: Error) -> Val
@@ -1715,11 +1673,6 @@ impl sendclone::SendClone for Val
             }
             &Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
             &Val::Func(ref fref) => Val::Func(fref.clone_for_send()),
-            &Val::Call(ref f, ref args) => {
-                let f2 = f.clone_for_send();
-                let args2 = args.clone_for_send();
-                Val::Call(f2, args2)
-            }
             &Val::Closure(ref f, ref args, ref truef, ref closed) => {
                 let f2 = f.clone_for_send();
                 let args2 = args.clone_for_send();
@@ -1791,9 +1744,6 @@ impl fmt::Display for Val
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Type(ref t) => write!(f, "{}", t),
-            Val::Call(ref fref, ref args) => {
-                write!(f, "{}.{}({:?}): {}", fref.m, fref.f, args, fref.t)
-            }
             Val::Closure(ref fref, ref args, ref _truef, ref closed) => {
                 write!(
                     f,
@@ -1852,14 +1802,6 @@ impl fmt::Debug for Val
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
-            Val::Call(ref fref, ref args) => {
-                write!(f, "(call {}.{}:", fref.m, fref.f)?;
-                if f.alternate() {
-                    write!(f, "{:#?} :: {:#?})", fref.t, args)
-                } else {
-                    write!(f, "{:?} :: {:?})", fref.t, args)
-                }
-            }
             Val::Closure(_, ref _args, ref true_f, ref closed_args) => {
                 write!(f, "(closure {}.{}:", true_f.m, true_f.f)?;
                 if f.alternate() {
@@ -1889,10 +1831,7 @@ impl reg::Iregistry for Val
             (_, &Val::Struct(_, ref items)) => {
                 ltry!(items.ireg_get(i))
             }
-            // Get for Functions & Closures
-            (_, &Val::Call(_, ref args)) => {
-                ltry!(args.ireg_get(i))
-            }
+            // Get for Closures
             (_, &Val::Closure(_, ref args, _, _)) => {
                 ltry!(args.ireg_get(i))
             }
@@ -1950,7 +1889,6 @@ impl reg::Iregistry for Val
                 ))
             }
             // set reg on Call & Closure
-            (_, &mut Val::Call(_, ref mut args)) => args.ireg_set(i, v),
             (_, &mut Val::Closure(_, ref mut args, _, _)) => {
                 args.ireg_set(i, v)
             }
@@ -2047,14 +1985,7 @@ impl PartialOrd for Val
             (&Val::Func(ref f1), &Val::Func(ref f2)) => {
                 PartialOrd::partial_cmp(&*f1, &*f2)
             }
-            // fref to fref comparison
-            (&Val::Call(ref f1, ref a1), &Val::Call(ref f2, ref a2)) => {
-                Some(
-                    PartialOrd::partial_cmp(f1, f2)
-                        .unwrap()
-                        .then_with(|| PartialOrd::partial_cmp(a1, a2).unwrap()),
-                )
-            }
+            // closure comparison
             (
                 &Val::Closure(ref f1, ref a1, _, ref c1),
                 &Val::Closure(ref f2, ref a2, _, ref c2),

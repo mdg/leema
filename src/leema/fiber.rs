@@ -48,9 +48,10 @@ impl Fiber
         (child, self.fiber_id)
     }
 
+    /// this seems wrong for stack based calls
     pub fn push_tailcall(&mut self, func: Fref, args: Struple2<Val>)
     {
-        let callv = Val::Call(func.clone(), vec![]);
+        let callv = Val::Func(func.clone());
         self.head.pc = 0;
         self.head.tail_call_args(callv, args);
         self.head.trace = self.head.push_frame_trace(0);
