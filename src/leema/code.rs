@@ -114,7 +114,7 @@ pub enum Op
 
     /// Return to the calling function
     Return,
-    SetResult(Reg),
+
     /// Reserve .0 registers for locals and .1 registers for stack
     /// Eventually get ride of .1
     ReserveLocal(i16, i16),
@@ -132,8 +132,6 @@ pub enum Op
     IfFailure(Reg, i16),
     /// jump if no match, pattern reg, input reg
     MatchPattern(Reg, Val, Reg),
-    ListCons(Reg, Reg, Reg),
-    StrCat(Reg, Reg),
 }
 
 unsafe impl marker::Send for Op {}
@@ -146,7 +144,6 @@ impl Clone for Op
         match self {
             &Op::PushCall { argc, line } => Op::PushCall { argc, line },
             &Op::Return => Op::Return,
-            &Op::SetResult(ref src) => Op::SetResult(src.clone()),
             &Op::PushResult => Op::PushResult,
             &Op::ReserveLocal(n, s) => Op::ReserveLocal(n, s),
             &Op::PropagateFailure(ref src, lineno) => {
@@ -178,12 +175,6 @@ impl Clone for Op
             &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
             &Op::PopListCons => Op::PopListCons,
             &Op::PopStrCat => Op::PopStrCat,
-            &Op::ListCons(ref dst, ref head, ref tail) => {
-                Op::ListCons(dst.clone(), head.clone(), tail.clone())
-            }
-            &Op::StrCat(ref dst, ref src) => {
-                Op::StrCat(dst.clone(), src.clone())
-            }
         }
     }
 }
@@ -428,7 +419,7 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         Ast::Wildcard => vec![Op::ConstVal(input_dst, Val::Bool(true))],
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result);
-            rops.ops.push(Op::SetResult(rops.dst.clone()));
+            rops.ops.push(Op::PushResult);
             rops.ops.push(Op::Return);
             rops.ops
         }
@@ -453,73 +444,6 @@ pub fn make_sub_ops2(input: AstNode) -> Oxpr
         dst: input_dst,
     }
 }
-
-/*
-pub fn make_sub_ops(input: &Ixpr) -> Oxpr
-{
-    match input.src {
-        Source::ConstVal(Val::FuncRef(ref cri, ref cvs, ref typ)) => {
-            let mut ops = Vec::with_capacity(cvs.0.len() + 1);
-            let dst = rt.dst().clone();
-            let blanks = Struple2(
-                cvs.0.iter().map(|cv| (cv.0.clone(), Val::VOID)).collect(),
-            );
-            ops.push((
-                Op::ConstVal(
-                    dst.clone(),
-                    Val::FuncRef(cri.clone(), blanks, typ.clone()),
-                ),
-                input.line,
-            ));
-            let skipped_args = match typ {
-                &Type::Func(ref ftype) => ftype.args.len(),
-                &Type::SpecialFunc(_, ref ftype) => ftype.args.len(),
-                &Type::GenericFunc(_, _) => {
-                    panic!("unexpected generic func {}: {}", cri, typ);
-                }
-                _ => {
-                    panic!("func type is not a func: {}", typ);
-                }
-            };
-            let mut i = skipped_args as i8;
-            for cv in cvs.0.iter().skip(skipped_args) {
-                if cv.0.is_none() {
-                    panic!("closed variable has no name for {}", cri);
-                }
-                let var_name = cv.0.as_ref().unwrap();
-                let var_src = rt.id(var_name);
-                ops.push((Op::Copy(dst.sub(i), var_src), input.line));
-                i += 1;
-            }
-            Oxpr { ops, dst }
-        }
-        Source::FieldAccess(_, ref fldname, None) => {
-            panic!("cannot access a field with no index: {}", fldname);
-        }
-        Source::FieldAccess(ref base, _, Some(fld_idx)) => {
-            let base_ops = make_sub_ops(rt, base);
-            Oxpr {
-                ops: base_ops.ops,
-                dst: base_ops.dst.sub(fld_idx),
-            }
-        }
-        Source::Cons(ref h, ref t) => {
-            let dst = rt.dst().clone();
-            rt.push_dst();
-            let mut hops = make_sub_ops(rt, h);
-            rt.push_dst();
-            let mut tops = make_sub_ops(rt, t);
-            rt.pop_dst();
-            rt.pop_dst();
-            hops.ops.append(&mut tops.ops);
-            hops.ops.push(
-                Op::ListCons(dst.clone(), hops.dst, tops.dst),
-            );
-            Oxpr { ops: hops.ops, dst }
-        }
-    }
-}
-*/
 
 /// 23: Void (result)
 /// 24: f

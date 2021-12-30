@@ -108,12 +108,8 @@ impl Fiber
             &Op::MatchPattern(ref dst, ref patt, ref input) => {
                 self.execute_match_pattern(*dst, patt, *input)
             }
-            &Op::ListCons(dst, head, tail) => {
-                self.execute_cons_list(dst, head, tail)
-            }
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
-            &Op::StrCat(dst, src) => self.execute_strcat(dst, src),
             &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
             &Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
@@ -129,20 +125,6 @@ impl Fiber
             }
             &Op::PushResult => {
                 let result = ltry!(self.head.e.stack_pop());
-                self.head.e.set_result(result);
-                self.head.pc += 1;
-                Ok(Event::Uneventful)
-            }
-            &Op::SetResult(dst) => {
-                if dst == Reg::Void {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "return void at {} in {:?}",
-                        self.head.pc,
-                        ops,
-                    ));
-                }
-                let result = ltry!(self.head.e.get_reg(dst)).clone();
                 self.head.e.set_result(result);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
@@ -171,34 +153,11 @@ impl Fiber
     pub fn execute_pop_str_cat(&mut self) -> Lresult<Event>
     {
         let result = {
-            let dst = ltry!(self.head.e.stack_pop());
             let src = ltry!(self.head.e.stack_pop());
+            let dst = ltry!(self.head.e.stack_pop());
             Val::Str(Lstr::from(format!("{}{}", dst, src)))
         };
         self.head.e.stack_push(result);
-        self.head.pc += 1;
-        Ok(Event::Uneventful)
-    }
-
-    pub fn execute_strcat(&mut self, dstreg: Reg, srcreg: Reg)
-        -> Lresult<Event>
-    {
-        let result = {
-            let dst = ltry!(self.head.e.get_reg(dstreg));
-            let src = ltry!(self.head.e.get_reg(srcreg));
-            match (dst, src) {
-                (&Val::Future(_), _) => {
-                    // oops, not ready to do this yet, let's bail and wait
-                    return Ok(Event::FutureWait(dstreg.clone()));
-                }
-                (_, &Val::Future(_)) => {
-                    // oops, not ready to do this yet, let's bail and wait
-                    return Ok(Event::FutureWait(srcreg.clone()));
-                }
-                _ => Val::Str(Lstr::from(format!("{}{}", dst, src))),
-            }
-        };
-        ltry!(self.head.e.set_reg(dstreg, result));
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
@@ -438,23 +397,6 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_cons_list(
-        &mut self,
-        dst: Reg,
-        head: Reg,
-        tail: Reg,
-    ) -> Lresult<Event>
-    {
-        let new_list = {
-            let headval = ltry!(self.head.e.get_reg(head)).clone();
-            let tailval = ltry!(self.head.e.get_reg(tail)).clone();
-            list::cons(headval, tailval)
-        };
-        ltry!(self.head.e.set_reg(dst, new_list));
-        self.head.pc += 1;
-        Ok(Event::Uneventful)
-    }
-
     pub fn execute_create_list(&mut self, dst: Reg) -> Lresult<Event>
     {
         ltry!(self.head.e.set_reg(dst, list::empty()));
@@ -582,7 +524,6 @@ mod tests
     use crate::leema::fiber::Fiber;
     use crate::leema::frame::{Event, Frame};
     use crate::leema::lstr::Lstr;
-    use crate::leema::reg::Reg;
     use crate::leema::stack;
     use crate::leema::val::{Fref, Val};
 
@@ -590,23 +531,18 @@ mod tests
     #[test]
     fn test_normal_strcat()
     {
-        let r1 = Reg::local(1);
-        let r2 = Reg::local(2);
         let callri = Fref::with_modules(From::from("foo"), "bar");
         let (stack, e) = stack::Buffer::new(100, callri.clone(), Vec::new());
         let mut frame = Frame::new_root(e);
         frame.e.reserve_local(10);
-        frame
-            .e
-            .set_reg(r1, Val::Str(Lstr::Sref("i like ")))
-            .unwrap();
-        frame
-            .e
-            .set_reg(r2, Val::Str(Lstr::Sref("burritos")))
-            .unwrap();
+        frame.e.stack_push(Val::Str(Lstr::Sref("i like ")));
+        frame.e.stack_push(Val::Str(Lstr::Sref("burritos")));
         let mut fib = Fiber::spawn(1, stack, frame, None);
 
-        let event = fib.execute_strcat(r1, r2).unwrap();
+        let event = fib.execute_pop_str_cat().unwrap();
         assert_eq!(Event::Uneventful, event);
+
+        let top = fib.head.e.stack_top().unwrap();
+        assert_eq!("i like burritos", top.str());
     }
 }
