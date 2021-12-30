@@ -193,9 +193,10 @@ impl Ref
             .resize(stack_ref.data.len() + num, StrupleItem::new_v(Val::VOID));
     }
 
-    pub fn pop_frame(self)
+    pub fn pop_frame(&mut self)
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };
+        // +1 for the function result
         stack.data.truncate(self.sp + 1);
     }
 

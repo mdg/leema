@@ -278,6 +278,9 @@ impl Frame
 
     pub fn pop_call(&mut self) -> Option<Rc<Code>>
     {
+        // pop the stack frame first
+        self.e.pop_frame();
+
         let parent = self.parents.pop()?;
         let parent_trace = self.trace.pop_call()?;
 
