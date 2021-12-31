@@ -11,6 +11,7 @@ use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
+use std::collections::HashMap;
 use std::fmt;
 use std::marker;
 use std::mem;
@@ -327,7 +328,7 @@ pub fn make_ops2(mut input: AstNode) -> OpVec
     }
     ops.ops.push(Op::PushResult);
     ops.ops.push(Op::Return);
-    ops.ops
+    set_jumps(ops.ops)
 }
 
 struct OpMaker
@@ -432,7 +433,9 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             let base_ops = make_sub_ops2(base, opm);
             base_ops.ops
         }
-        Ast::Id(ref _id) => vec![],
+        Ast::Id(ref _id) => {
+            vec![Op::PushReg(input_dst)]
+        }
 
         // invalid patterns
         Ast::Matchx(None, _) => {
@@ -670,6 +673,34 @@ fn make_str_ops(items: Vec<AstNode>, opm: &mut OpMaker) -> OpVec
         ops.push(Op::PopStrCat);
     }
     ops
+}
+
+fn set_jumps(ops: OpVec) -> OpVec
+{
+    let mut jumps = Vec::with_capacity(ops.len());
+    let mut label_loc = HashMap::with_capacity(ops.len());
+    for op in ops.into_iter() {
+        if let Op::Label(lbl) = op {
+            label_loc.insert(lbl, jumps.len() as i16);
+        } else {
+            jumps.push(op);
+        }
+    }
+
+    for (i, op) in jumps.iter_mut().enumerate() {
+        match op {
+            Op::Jump(ref mut lbl)
+            | Op::BranchIf(ref mut lbl)
+            | Op::BranchMatch(ref mut lbl, _) => {
+                let loc = label_loc.get(lbl).unwrap();
+                *lbl = *loc - (i as i16);
+            }
+            // ignore non-jumpy ops
+            _ => {}
+        }
+    }
+
+    jumps
 }
 
 pub fn assign_registers(input: &mut AstNode) -> Lresult<()>
