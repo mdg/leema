@@ -101,7 +101,6 @@ impl Fiber
                 self.execute_branch_match(jmp, patt)
             }
             &Op::BranchIf(jmp) => self.execute_branch_if(jmp),
-            &Op::ConstVal(ref dst, ref v) => self.execute_const_val(*dst, v),
             &Op::Copy(dst, src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
             &Op::IfFailure(src, jmp) => self.execute_if_failure(src, jmp),

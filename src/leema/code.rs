@@ -122,7 +122,7 @@ pub enum Op
     PropagateFailure(Reg, u16),
     /// Is this necessary? Just PushConst(VOID) isn't it?
     StackPush,
-    ConstVal(Reg, Val),
+
     // ConstructEnum(Reg, Type, Lstr, Struple2<Type>),
     // Construple(Reg, Type, Struple2<Type>),
     Copy(Reg, Reg),
@@ -149,9 +149,6 @@ impl Clone for Op
             }
             &Op::StackPush => Op::StackPush,
             &Op::PushConst(ref src) => Op::PushConst(src.clone_for_send()),
-            &Op::ConstVal(ref dst, ref src) => {
-                Op::ConstVal(dst.clone(), src.clone_for_send())
-            }
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
             &Op::BranchMatch(j, ref patt) => {
                 Op::BranchMatch(j, patt.clone_for_send())
@@ -420,7 +417,6 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
         Ast::StrExpr(items) => make_str_ops(items, opm),
         Ast::Ifx(cases) => make_if_ops(cases, opm),
         Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases, opm),
-        Ast::Wildcard => vec![Op::ConstVal(input_dst, Val::Bool(true))],
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result, opm);
             rops.ops.push(Op::PushResult);
@@ -436,6 +432,9 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
         }
 
         // invalid patterns
+        Ast::Wildcard => {
+            panic!("no code for a wildcard");
+        }
         Ast::Matchx(None, _) => {
             // None should have been replaced by the args
             // in an earlier phase?
@@ -501,11 +500,11 @@ pub fn make_construple_ops(
         Some(ref _ivar) => {
             // let var = ivar.clone();
             // Op::ConstructEnum(dst.clone(), typ.clone(), var, flds.clone())
-            Op::ConstVal(dst.clone(), Val::VOID)
+            Op::PushConst(Val::VOID)
         }
         None => {
             // Op::Construple(dst.clone(), typ.clone(), flds.clone()),
-            Op::ConstVal(dst.clone(), Val::VOID)
+            Op::PushConst(Val::VOID)
         }
     };
     let ops: Vec<Op> = vec![construct];
