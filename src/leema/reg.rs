@@ -91,7 +91,6 @@ pub enum Reg
     Local(Ireg),
     /// Top of the stack
     Top,
-    TopSub(i8),
     Lib,
     Void,
     Undecided,
@@ -104,7 +103,6 @@ impl Reg
         match self {
             &Reg::Param(ref r) => Reg::Param(r.sub(sub)),
             &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
-            &Reg::Top => Reg::TopSub(sub),
             &Reg::Void => Reg::Void,
             _ => {
                 panic!("Can't make a sub reg for {:?}", self);
@@ -137,7 +135,6 @@ impl Reg
         match self {
             &Reg::Param(Ireg::Sub(_, _)) => true,
             &Reg::Local(Ireg::Sub(_, _)) => true,
-            &Reg::TopSub(_) => true,
             _ => false,
         }
     }
@@ -147,7 +144,6 @@ impl Reg
         match self {
             &Reg::Param(ref r) => Reg::Param(r.next_sibling()),
             &Reg::Local(ref r) => Reg::Local(r.next_sibling()),
-            &Reg::TopSub(s) => Reg::TopSub(s + 1),
             _ => {
                 panic!("register has no sibling: {:?}", self);
             }
@@ -163,7 +159,6 @@ impl fmt::Display for Reg
             &Reg::Param(ref r) => write!(f, "Param{}", r),
             &Reg::Local(ref r) => write!(f, "Local{}", r),
             &Reg::Top => write!(f, "Reg::Top"),
-            &Reg::TopSub(s) => write!(f, "Reg::Top.{}", s),
             &Reg::Lib => write!(f, "Reg::Lib"),
             &Reg::Void => write!(f, "Reg::Void"),
             &Reg::Undecided => write!(f, "Reg::Undecided"),
