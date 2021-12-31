@@ -116,9 +116,8 @@ pub enum Op
     /// Return to the calling function
     Return,
 
-    /// Reserve .0 registers for locals and .1 registers for stack
-    /// Eventually get ride of .1
-    ReserveLocal(i16, i16),
+    /// Reserve .0 registers for locals
+    ReserveLocal(i16),
     PropagateFailure(Reg, u16),
     /// Is this necessary? Just PushConst(VOID) isn't it?
     StackPush,
@@ -143,7 +142,7 @@ impl Clone for Op
             &Op::PushCall { argc, line } => Op::PushCall { argc, line },
             &Op::Return => Op::Return,
             &Op::PushResult => Op::PushResult,
-            &Op::ReserveLocal(n, s) => Op::ReserveLocal(n, s),
+            &Op::ReserveLocal(n) => Op::ReserveLocal(n),
             &Op::PropagateFailure(ref src, lineno) => {
                 Op::PropagateFailure(src.clone(), lineno)
             }
@@ -270,16 +269,15 @@ impl Clone for Code
 struct LocalMax
 {
     local_max: i8,
-    stack_max: i8,
 }
 
 impl LocalMax
 {
-    pub fn num_locals(node: &mut AstNode) -> Lresult<(i8, i8)>
+    pub fn num_locals(node: &mut AstNode) -> Lresult<i8>
     {
         let mut max_local = LocalMax::default();
         ast2::walk_ref_mut(node, &mut max_local)?;
-        Ok((max_local.local_max + 1, max_local.stack_max + 1))
+        Ok(max_local.local_max + 1)
     }
 }
 
@@ -287,10 +285,7 @@ impl Default for LocalMax
 {
     fn default() -> LocalMax
     {
-        LocalMax {
-            local_max: -1,
-            stack_max: -1,
-        }
+        LocalMax { local_max: -1 }
     }
 }
 
@@ -314,12 +309,11 @@ impl ast2::Op for LocalMax
 pub fn make_ops2(mut input: AstNode) -> OpVec
 {
     vout!("make_ops2({:?})\n", input);
-    let (num_locals, num_stack) = LocalMax::num_locals(&mut input).unwrap();
+    let num_locals = LocalMax::num_locals(&mut input).unwrap();
     let mut opm = OpMaker::new();
     let mut ops = make_sub_ops2(input, &mut opm);
-    if num_locals > 0 || num_stack > 0 {
-        ops.ops
-            .insert(0, Op::ReserveLocal(num_locals.into(), num_stack.into()));
+    if num_locals > 0 {
+        ops.ops.insert(0, Op::ReserveLocal(num_locals.into()));
     }
     ops.ops.push(Op::PushResult);
     ops.ops.push(Op::Return);

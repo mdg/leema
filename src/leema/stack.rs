@@ -186,18 +186,6 @@ impl Ref
             .resize(self.stackp, StrupleItem::new_v(Val::VOID));
     }
 
-    pub fn reserve_stack(&mut self, num: usize)
-    {
-        if num == 0 {
-            eprintln!("cannot reserve_stack with 0 size");
-            return;
-        }
-        let stack_ref = unsafe { &mut *self.stack };
-        stack_ref
-            .data
-            .resize(stack_ref.data.len() + num, StrupleItem::new_v(Val::VOID));
-    }
-
     pub fn pop_frame(&mut self)
     {
         let stack: &mut Buffer = unsafe { &mut *self.stack };

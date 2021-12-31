@@ -113,9 +113,8 @@ impl Fiber
                 Ok(Event::Uneventful)
             }
             &Op::Return => Ok(Event::Success),
-            &Op::ReserveLocal(n, s) => {
+            &Op::ReserveLocal(n) => {
                 self.head.e.reserve_local(n as usize);
-                self.head.e.reserve_stack(s as usize);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
