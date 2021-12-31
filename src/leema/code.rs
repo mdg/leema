@@ -417,6 +417,7 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
         Ast::StrExpr(items) => make_str_ops(items, opm),
         Ast::Ifx(cases) => make_if_ops(cases, opm),
         Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases, opm),
+        Ast::Wildcard => vec![Op::PushConst(Val::Bool(true))],
         Ast::Return(result) => {
             let mut rops = make_sub_ops2(result, opm);
             rops.ops.push(Op::PushResult);
@@ -432,9 +433,6 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
         }
 
         // invalid patterns
-        Ast::Wildcard => {
-            panic!("no code for a wildcard");
-        }
         Ast::Matchx(None, _) => {
             // None should have been replaced by the args
             // in an earlier phase?
