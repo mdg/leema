@@ -104,7 +104,6 @@ impl Fiber
             &Op::ConstVal(ref dst, ref v) => self.execute_const_val(*dst, v),
             &Op::Copy(dst, src) => self.execute_copy(dst, src),
             &Op::Jump(jmp) => self.execute_jump(jmp),
-            &Op::JumpIfNot(jmp, reg) => self.execute_jump_if_not(jmp, reg),
             &Op::IfFailure(src, jmp) => self.execute_if_failure(src, jmp),
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),

@@ -39,17 +39,6 @@ impl fmt::Display for ModSym
     }
 }
 
-/// if
-/// |a -> b
-/// |-> false
-/// --
-/// PushReg(a)
-/// BranchIf(0) (pops)
-/// PushReg(b)
-/// Jump(1)
-/// Label(0)
-/// PushConst(false)
-/// Label(1)
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Op
@@ -99,6 +88,17 @@ pub enum Op
 
     /// Pop a register value off the stack
     /// Jump if it's not true
+    /// if
+    /// |a -> b
+    /// |-> false
+    /// --
+    /// PushReg(a)
+    /// BranchIf(0) (pops)
+    /// PushReg(b)
+    /// Jump(1)
+    /// Label(0)
+    /// PushConst(false)
+    /// Label(1)
     BranchIf(i16),
 
     /// Push a register value onto the stack
@@ -129,7 +129,6 @@ pub enum Op
     // Fork(Reg, Reg, Reg),
     /// Jump up or down in the function
     Jump(i16),
-    JumpIfNot(i16, Reg),
     IfFailure(Reg, i16),
 }
 
@@ -160,7 +159,6 @@ impl Clone for Op
             &Op::BranchIf(j) => Op::BranchIf(j),
             &Op::Jump(j) => Op::Jump(j),
             &Op::Label(j) => Op::Label(j),
-            &Op::JumpIfNot(j, ref tst) => Op::JumpIfNot(j, tst.clone()),
             &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::PushReg(src) => Op::PushReg(src),
             &Op::PopReg(dst) => Op::PopReg(dst),
@@ -608,36 +606,29 @@ fn make_matchcase_ops(
 ///   body c
 fn make_if_ops(cases: Vec<Case>, opm: &mut OpMaker) -> OpVec
 {
-    let mut case_ops: Vec<(Oxpr, Oxpr)> = cases
+    let end_label = opm.next_label();
+    let case_ops: Vec<(Oxpr, Oxpr)> = cases
         .into_iter()
         .map(|case| {
-            let cond_ops = make_sub_ops2(case.cond, opm);
-            let body_ops = make_sub_ops2(case.body, opm);
+            let case_label = opm.next_label();
+            let mut cond_ops = make_sub_ops2(case.cond, opm);
+            cond_ops.ops.push(Op::BranchIf(case_label));
+            let mut body_ops = make_sub_ops2(case.body, opm);
+            body_ops.ops.push(Op::Jump(end_label));
+            body_ops.ops.push(Op::Label(case_label));
             (cond_ops, body_ops)
         })
         .collect();
 
-    case_ops.iter_mut().rev().fold(0 as i16, |after, case| {
-        if after > 0 {
-            case.1.ops.push(Op::Jump(after + 1));
-        }
-        let body_ops_len = case.1.ops.len() as i16;
-        if case.0.dst != Reg::Void {
-            case.0
-                .ops
-                .push(Op::JumpIfNot(body_ops_len + 1, case.0.dst.clone()));
-        }
-        let cond_ops_len = case.0.ops.len() as i16;
-        after + cond_ops_len + body_ops_len
-    });
-
-    case_ops
+    let mut ops: OpVec = case_ops
         .into_iter()
         .flat_map(|mut case| {
             case.0.ops.append(&mut case.1.ops);
             case.0.ops
         })
-        .collect()
+        .collect();
+    ops.push(Op::Label(end_label));
+    ops
 }
 
 /*
