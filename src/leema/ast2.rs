@@ -234,7 +234,6 @@ pub enum Ast
     Call(AstNode, Xlist),
     Canonical(Canonical),
     ConstVal(Val),
-    Copy(AstNode),
     CopyAndSet(AstNode, Xlist),
     DataMember(Type, u8),
     DefConst(&'static str, AstNode),
