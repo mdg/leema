@@ -392,6 +392,7 @@ impl Worker
             let result = fbr.take_result();
             dst.send(result).expect("call result send failure");
         }
+        // else this is a result-less fiber, which is fine
     }
 
     pub fn process_msg(&mut self, msg: WorkerMsg) -> Lresult<()>

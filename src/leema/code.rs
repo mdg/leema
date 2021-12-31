@@ -479,7 +479,6 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     let argc = args.len() as i16;
     let mut argops: OpVec = args
         .into_iter()
-        .rev()
         .flat_map(|a| {
             let iargops: Oxpr = make_sub_ops2(a.v, opm);
             iargops.ops
