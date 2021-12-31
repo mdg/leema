@@ -39,3 +39,6 @@ reformat:
 
 release:
 	cargo build --bin leema --release
+
+clean:
+	cargo clean
