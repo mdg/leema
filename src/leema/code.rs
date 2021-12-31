@@ -356,10 +356,8 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
         }
         Ast::ConstVal(v) => vec![Op::PushConst(v.clone())],
         Ast::Call(f, args) => make_call_ops(f, args, opm),
-        Ast::Copy(src) => {
-            let mut src_ops = make_sub_ops2(src, opm);
-            src_ops.ops.push(Op::Copy(input_dst.clone(), src_ops.dst));
-            src_ops.ops
+        Ast::Copy(_src) => {
+            vec![]
         }
         Ast::Let(patt, _, x) => {
             let pval = if let Ast::ConstVal(pv) = *patt.node {
@@ -378,7 +376,11 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
                 })
                 .collect();
                 */
-            xops.ops.push(Op::PopMatch(pval));
+            if let Val::PatternVar(dst) = pval {
+                xops.ops.push(Op::PopReg(dst));
+            } else {
+                xops.ops.push(Op::PopMatch(pval));
+            }
             // xops.ops.append(&mut failops);
             xops.ops
         }
@@ -707,7 +709,6 @@ impl Registration
         }
         if node.dst != Reg::Undecided {
             // make the copy
-            *node = AstNode::new(Ast::Copy(mem::take(node)), node.loc);
         }
         node.dst = dst;
     }
@@ -743,7 +744,6 @@ impl Registration
                 for case in cases.iter_mut() {
                     let pval = Self::make_pattern_val(&case.cond)?;
                     *case.cond.node = Ast::ConstVal(pval);
-                    Self::set_dst_or_copy(&mut case.body, node.dst);
                     Self::assign_registers(&mut case.body)?;
                 }
             }
@@ -753,7 +753,6 @@ impl Registration
                         case.cond.dst = Reg::Void;
                     }
                     Self::assign_registers(&mut case.cond)?;
-                    Self::set_dst_or_copy(&mut case.body, node.dst);
                     Self::assign_registers(&mut case.body)?;
                 }
             }
@@ -947,7 +946,7 @@ mod tests
 
         assert_eq!(4, code.len());
         let x = vec![
-            Op::ReserveLocal(4, 0),
+            Op::ReserveLocal(4),
             Op::PushConst(Val::Int(9)),
             Op::PushResult,
             Op::Return,
