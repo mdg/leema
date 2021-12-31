@@ -165,6 +165,23 @@ impl Ref
         })
     }
 
+    pub fn popn(&mut self, n: usize) -> Lresult<Struple2<Val>>
+    {
+        if self.stack_frame().data.len() < n {
+            return Err(lfail!(
+                failure::Mode::RuntimeLeemaFailure,
+                "stack popn underflow",
+                "n": ldisplay!(n),
+                "stack_size": ldisplay!(self.stack_frame().data.len()),
+                "module": self.fref()?.m.name.as_lstr().clone(),
+                "function": Lstr::Sref(self.fref()?.f),
+            ));
+        }
+        let stack_ref = &mut unsafe { &mut *self.stack }.data;
+        let start = stack_ref.len() - n;
+        Ok(stack_ref.drain(start..).collect())
+    }
+
     pub fn stack_top(&mut self) -> Lresult<&Val>
     {
         let stack_ref = unsafe { &mut *self.stack };
@@ -471,6 +488,8 @@ impl<'a> FrameRefMut<'a>
                     "cannot set invalid register",
                     "frame": Lstr::Sref(self.name),
                     "range": ldebug!(self.range),
+                    "reg_index": ldisplay!(r.get_primary()),
+                    "val": ldebug!(v),
                 ))
             }
         }

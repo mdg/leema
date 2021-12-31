@@ -59,6 +59,9 @@ pub enum Op
     /// Push a register value onto the stack
     PushReg(Reg),
 
+    /// Pop N elements off the stack and put them in a new tuple
+    PushTuple(i8),
+
     /// Pop a register off the stack and move it to a local
     PopReg(Reg),
 
@@ -160,6 +163,7 @@ impl Clone for Op
             &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
             &Op::PopListCons => Op::PopListCons,
             &Op::PopStrCat => Op::PopStrCat,
+            &Op::PushTuple(n) => Op::PushTuple(n),
         }
     }
 }
@@ -391,22 +395,8 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             cs_ops.ops
         }
         Ast::List(items) => make_list_ops(items, opm),
-        Ast::Tuple(items) => {
-            let newtup = Op::PushConst(Val::new_tuple(items.len()));
-            let mut ops: Vec<Op> = vec![newtup];
-            for (i, item) in items.into_iter().enumerate() {
-                let subdst = input_dst.sub(i as i8);
-                let mut iops = make_sub_ops2(item.v, opm);
-                // should be able to generalize this
-                if iops.dst != subdst {
-                    iops.ops.push(Op::Copy(subdst, iops.dst));
-                }
-                ops.append(&mut iops.ops);
-                // ops.push((Op::Copy(input_dst.clone(), iops.dst), i.1.line));
-            }
-            ops
-        }
         Ast::StrExpr(items) => make_str_ops(items, opm),
+        Ast::Tuple(items) => make_tuple_ops(items, opm),
         Ast::Ifx(cases) => make_if_ops(cases, opm),
         Ast::Matchx(Some(x), cases) => make_matchexpr_ops(x, cases, opm),
         Ast::Wildcard => vec![Op::PushConst(Val::Bool(true))],
@@ -630,6 +620,20 @@ pub fn make_fork_ops(dst: &Reg, f: &Ixpr, args: &Ixpr) -> Oxpr
     ops
 }
 */
+
+/// Make the ops to construct a new tuple
+/// Later optimize this for a constant tuple to just be a PushConst
+fn make_tuple_ops(items: Xlist, opm: &mut OpMaker) -> OpVec
+{
+    let mut ops: Vec<Op> = vec![];
+    let num_items = items.len();
+    for item in items.into_iter() {
+        let mut iops = make_sub_ops2(item.v, opm);
+        ops.append(&mut iops.ops);
+    }
+    ops.push(Op::PushTuple(num_items as i8));
+    ops
+}
 
 fn make_list_ops(items: Xlist, opm: &mut OpMaker) -> OpVec
 {

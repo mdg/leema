@@ -106,6 +106,7 @@ impl Fiber
             &Op::IfFailure(src, jmp) => self.execute_if_failure(src, jmp),
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
+            &Op::PushTuple(n) => self.execute_push_tuple(n),
             &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
             &Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
@@ -377,6 +378,14 @@ impl Fiber
 
         ltry!(self.head.e.set_reg(reg, construple));
         self.head.pc = self.head.pc + 1;
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_push_tuple(&mut self, n: i8) -> Lresult<Event>
+    {
+        let items: Struple2<Val> = ltry!(self.head.e.popn(n as usize));
+        self.head.e.stack_push(Val::Tuple(items));
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
