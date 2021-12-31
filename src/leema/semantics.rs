@@ -1758,11 +1758,6 @@ impl<'p> TypeCheck<'p>
                 // converts to strings right now
                 node.typ = Type::STR.clone();
             }
-            Ast::Copy(ref src) => {
-                // this is a weird hacky thing just to pass through
-                // any types to the children
-                node.typ = src.typ.clone();
-            }
             Ast::Ifx(ref mut cases) => {
                 // all if cases should be boolean
                 for case in cases.iter_mut() {

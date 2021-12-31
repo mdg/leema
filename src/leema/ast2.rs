@@ -234,7 +234,6 @@ pub enum Ast
     Call(AstNode, Xlist),
     Canonical(Canonical),
     ConstVal(Val),
-    Copy(AstNode),
     CopyAndSet(AstNode, Xlist),
     DataMember(Type, u8),
     DefConst(&'static str, AstNode),
@@ -358,7 +357,6 @@ impl Ast
             Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
             Ast::Canonical(c) => write!(f, "Canonical {:?}", c),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
-            Ast::Copy(src) => write!(f, "Copy {:?}", src),
             Ast::CopyAndSet(src, flds) => {
                 write!(f, "(CopyAndSet {:?} {:?})", src, flds)
             }
@@ -842,9 +840,6 @@ impl Walker
             | Ast::Type(_)
             | Ast::Wildcard => {
                 // nowhere else to go
-            }
-            Ast::Copy(src) => {
-                steptry!(self.walk(src, op));
             }
             Ast::FuncType(result, args) => {
                 steptry!(self.walk(result, op));

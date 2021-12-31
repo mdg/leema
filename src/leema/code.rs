@@ -14,7 +14,6 @@ use crate::leema::worker::RustFuncContext;
 use std::collections::HashMap;
 use std::fmt;
 use std::marker;
-use std::mem;
 
 
 const CODEFAIL: &'static str = "codegen_failure";
@@ -356,9 +355,6 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
         }
         Ast::ConstVal(v) => vec![Op::PushConst(v.clone())],
         Ast::Call(f, args) => make_call_ops(f, args, opm),
-        Ast::Copy(_src) => {
-            vec![]
-        }
         Ast::Let(patt, _, x) => {
             let pval = if let Ast::ConstVal(pv) = *patt.node {
                 pv
@@ -715,8 +711,6 @@ impl Registration
 
     fn assign_registers(node: &mut AstNode) -> Lresult<()>
     {
-        let first_dst = node.dst.clone();
-
         match &mut *node.node {
             Ast::Block(ref mut items) => {
                 // copy the block's dst to the last item in the block
@@ -808,12 +802,6 @@ impl Registration
                     // f.v.typ = copied.typ.clone();
                 }
             }
-            Ast::Copy(ref mut src) => {
-                // flatten the copy if unnecessary
-                if node.dst == src.dst {
-                    *node = mem::take(src);
-                }
-            }
             Ast::Return(ref mut result) => {
                 Self::assign_registers(result)?;
             }
@@ -841,14 +829,6 @@ impl Registration
             Ast::Type(t) => {
                 panic!("assigning a register to a type? {:?}", t);
             }
-        }
-
-        // if the dst reg has changed, insert a copy node
-        if node.dst != first_dst && first_dst != Reg::Void {
-            let mut copy_node = AstNode::void();
-            copy_node.dst = first_dst;
-            mem::swap(node, &mut copy_node);
-            node.node = Box::new(Ast::Copy(copy_node));
         }
         Ok(())
     }
