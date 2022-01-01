@@ -1226,13 +1226,17 @@ pub enum Val
     // LibVal(Rc<dyn LibVal>),
     // LibRef(Arc<dyn LibRef>),
     Lib(Arc<dyn LibVal>),
+    /// Can Closure be made a regular struct?
     Closure(Fref, Struple2<Val>, Fref, Struple2<Val>),
     ResourceRef(i64),
     // can Val::Future just be a Val::Lib?
     Future(Arc<Mutex<Receiver<Val>>>),
 
     // Special language implementation values
+    /// Pattern or if case Wildcard
     Wildcard,
+
+    /// Register for assigning in a pattern
     Reg(Reg),
 }
 
