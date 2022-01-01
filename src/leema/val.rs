@@ -1233,7 +1233,7 @@ pub enum Val
 
     // Special language implementation values
     Wildcard,
-    PatternVar(Reg),
+    Reg(Reg),
 }
 
 const NIL: Val = Val::Nil;
@@ -1418,7 +1418,7 @@ impl Val
             &Val::Failure2(_) => Type::FAILURE,
             &Val::Type(_) => Type::KIND,
             &Val::Wildcard => Type::UNKNOWN,
-            &Val::PatternVar(_) => Type::UNKNOWN,
+            &Val::Reg(_) => Type::UNKNOWN,
             &Val::Map(_) => lmap::map_type(),
             &Val::Tuple(ref items) if items.len() == 1 => {
                 items.get(0).unwrap().v.get_type()
@@ -1471,7 +1471,7 @@ impl Val
     {
         match (patt, input) {
             (&Val::Wildcard, _) => true,
-            (&Val::PatternVar(ref dst), _) => {
+            (&Val::Reg(ref dst), _) => {
                 // should put something in assigns vector here
                 assigns.push((dst.clone(), input.clone()));
                 true
@@ -1535,7 +1535,7 @@ impl Val
                     && Val::_pattern_match_list(assigns, pt, it)
             }
             (&Val::Wildcard, _) => true,
-            (&Val::PatternVar(ref dst), _) => {
+            (&Val::Reg(ref dst), _) => {
                 assigns.push((dst.clone(), input.clone()));
                 true
             }
@@ -1612,7 +1612,7 @@ impl Val
                 write!(f, "")
             }
             &Val::Wildcard => write!(f, ";_"),
-            &Val::PatternVar(_) => write!(f, ";{:?}", l),
+            &Val::Reg(_) => write!(f, ";{:?}", l),
             _ => {
                 panic!("Not a list: {:?}", l);
             }
@@ -1688,7 +1688,7 @@ impl sendclone::SendClone for Val
             // &Val::Lib(LibVal),
             &Val::Future(ref f) => Val::Future(f.clone()),
             &Val::Wildcard => Val::Wildcard,
-            &Val::PatternVar(ref r) => Val::PatternVar(r.clone()),
+            &Val::Reg(ref r) => Val::Reg(r.clone()),
             &Val::Buffer(ref b) => Val::Buffer(b.clone()),
             &Val::Lib(ref l) => Val::Lib(l.clone()),
             &Val::Map(_) => {
@@ -1752,7 +1752,7 @@ impl fmt::Display for Val
                 )
             }
             Val::Future(_) => write!(f, "Future"),
-            Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
+            Val::Reg(ref r) => write!(f, "reg:{:?}", r),
             Val::Wildcard => write!(f, "_"),
         }
     }
@@ -1811,7 +1811,7 @@ impl fmt::Debug for Val
                 }
             }
             Val::Future(_) => write!(f, "Future"),
-            Val::PatternVar(ref r) => write!(f, "pvar:{:?}", r),
+            Val::Reg(ref r) => write!(f, "reg:{:?}", r),
             Val::Wildcard => write!(f, "_Wildcard"),
         }
     }
@@ -2428,7 +2428,7 @@ mod tests
     #[test]
     fn test_pattern_match_list_cons_wildcard_head()
     {
-        let patt = list::cons(Val::Wildcard, Val::PatternVar(Reg::local(1)));
+        let patt = list::cons(Val::Wildcard, Val::Reg(Reg::local(1)));
         let input = list::from3(Val::Int(1), Val::Int(2), Val::Int(3));
         let pmatch = Val::pattern_match(&patt, &input);
         assert!(pmatch.is_some());
@@ -2437,7 +2437,7 @@ mod tests
     #[test]
     fn test_pattern_match_list_cons_wildcard_tail()
     {
-        let patt = list::cons(Val::PatternVar(Reg::local(1)), Val::Wildcard);
+        let patt = list::cons(Val::Reg(Reg::local(1)), Val::Wildcard);
         let input = list::from3(Val::Int(1), Val::Int(2), Val::Int(3));
         let pmatch = Val::pattern_match(&patt, &input);
         assert!(pmatch.is_some());

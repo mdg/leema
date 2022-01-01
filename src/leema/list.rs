@@ -63,7 +63,7 @@ pub fn cons(head: Val, tail: Val) -> Val
         Val::Cons(_, _) => Val::Cons(Box::new(head), Arc::new(tail)),
         Val::Nil => Val::Cons(Box::new(head), Arc::new(Val::Nil)),
         Val::Wildcard => Val::Cons(Box::new(head), Arc::new(tail)),
-        Val::PatternVar(_) => Val::Cons(Box::new(head), Arc::new(tail)),
+        Val::Reg(_) => Val::Cons(Box::new(head), Arc::new(tail)),
         _ => {
             panic!("Can't cons to a not list {:?}", tail);
         }

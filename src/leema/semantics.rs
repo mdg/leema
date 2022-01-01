@@ -779,7 +779,7 @@ impl<'p> ScopeCheck<'p>
                     };
                     node.typ = Type::local(type_var);
                 }
-                *node.node = Ast::ConstVal(Val::PatternVar(node.dst));
+                *node.node = Ast::ConstVal(Val::Reg(node.dst));
             }
             Ast::Id(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);

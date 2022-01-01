@@ -376,7 +376,7 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
                 })
                 .collect();
                 */
-            if let Val::PatternVar(dst) = pval {
+            if let Val::Reg(dst) = pval {
                 xops.ops.push(Op::PopReg(dst));
             } else {
                 xops.ops.push(Op::PopMatch(pval));
@@ -844,7 +844,7 @@ impl Registration
                 if node.dst == Reg::Undecided {
                     panic!("unexpected undecided pattern reg: {}", id);
                 }
-                Val::PatternVar(node.dst)
+                Val::Reg(node.dst)
             }
             Ast::Tuple(ref items) => {
                 let tval: Lresult<Struple2<Val>> = items
