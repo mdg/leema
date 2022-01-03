@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Lresult};
 use crate::leema::frame::Event;
 use crate::leema::list;
 use crate::leema::lmap::{Lmap, LmapNode};
@@ -113,11 +113,22 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
         if !fref.is_generic() {
-            panic!("not a generic");
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "not a generic",
+                "func": ldebug!(fref),
+            ));
         }
-        let tparam = fref.t.first_arg()?;
+        // make this an Lresult
+        let tparam = &fref.t.first().ok_or_else(|| {
+            lfail!(
+                failure::Mode::TypeFailure,
+                "no type arguments",
+                "func": ldebug!(fref),
+            )
+        })?.v;
 
-        match tparam.v.path_str() {
+        match tparam.path_str() {
             Type::PATH_BOOL => {
                 let b = serde_json::from_str(text).unwrap();
                 Val::Bool(b)
