@@ -204,6 +204,7 @@ impl Type
     /// Canonical path for the func type
     pub const PATH_FN: &'static str = "/core/Fn";
     pub const PATH_FAILURE: &'static str = "/core/Failure";
+    pub const PATH_FREF: &'static str = "/core/Fref";
     pub const PATH_HASHTAG: &'static str = "/core/#";
     pub const PATH_KIND: &'static str = "/core/Kind";
     /// Canonical path for the list type
@@ -221,6 +222,7 @@ impl Type
     // core types
     pub const BOOL: Type = Type::named(Type::PATH_BOOL);
     pub const FAILURE: Type = Type::named(Type::PATH_FAILURE);
+    pub const FREF: Type = Type::named(Type::PATH_FREF);
     pub const HASHTAG: Type = Type::named(Type::PATH_HASHTAG);
     pub const INT: Type = Type::named(Type::PATH_INT);
     pub const KIND: Type = Type::named(Type::PATH_KIND);
@@ -759,7 +761,7 @@ impl Type
                 &ft.type_args
             };
             for a in ft.args.iter_mut() {
-                a.v.localize_generics(inner_args, local_id);
+                a.v.localize_generics(inner_args, local_id.clone());
             }
             ft.result.localize_generics(inner_args, local_id);
         } else {
@@ -1111,7 +1113,12 @@ impl Fref
 {
     pub fn new(m: ModKey, f: &'static str, t: Type) -> Fref
     {
-        Fref { m, f, t }
+        let targs = if let Some(ftref) = t.func_ref() {
+            ftref.type_args.to_vec()
+        } else {
+            vec![]
+        };
+        Fref { m, f, t: targs }
     }
 
     pub fn with_modules(m: ModKey, f: &'static str) -> Fref
@@ -1462,7 +1469,7 @@ impl Val
             &Val::EnumStruct(ref typ, _, _) => typ.clone(),
             &Val::EnumToken(ref typ, _) => typ.clone(),
             &Val::Token(ref typ) => typ.clone(),
-            &Val::Func(ref fref) => fref.t.clone(),
+            &Val::Func(_) => Type::FREF,
             &Val::Buffer(_) => Type::STR,
             &Val::Closure(ref fref, _, _, _) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),

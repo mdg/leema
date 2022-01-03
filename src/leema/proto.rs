@@ -1041,6 +1041,7 @@ impl ProtoModule
             .and_then(|node| {
                 match &*node.node {
                     Ast::ConstVal(Val::Type(typeval)) => Some(typeval),
+                    Ast::ConstVal(Val::Func(_)) => Some(&node.typ),
                     _ => None,
                 }
             })

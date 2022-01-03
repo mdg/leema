@@ -1558,7 +1558,16 @@ impl<'p> TypeCheck<'p>
         // actually better might be to stop having
         // the args in the Val::Call const? <--
 
-        *call_typ =
+        // get call type from proto
+        let proto = ltry!(self.lib.path_proto(&fref.m.name));
+        let mut ftyp = proto.find_type(fref.f).ok_or_else(|| {
+            lfail!(
+                failure::Mode::StaticLeemaFailure,
+                "unknown type",
+                "function": ldebug!(fref),
+            )
+        })?.clone();
+        *result_typ =
             ltry!(self.applied_call_type(&mut ftyp, args).map_err(|f| {
                 f.add_context(lstrf!("for function: {}", fref,))
                     .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
@@ -1736,7 +1745,7 @@ impl<'p> TypeCheck<'p>
                 if let Ast::ConstVal(Val::Func(ref mut fref)) = &mut *callx.node
                 {
                     let typecall_t = ltry!(
-                        self.apply_typecall(&mut fref, args),
+                        self.apply_typecall(fref, args),
                         "module": fref.m.name.to_lstr(),
                         "function": Lstr::Sref(fref.f),
                         "file": self.local_mod.key.best_path(),
@@ -2190,6 +2199,13 @@ impl Semantics
     pub fn compile_call(lib: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
+        if f.contains_open() {
+            return Err(lfail!(
+                failure::Mode::TypeFailure,
+                "cannot compile open generic function",
+                "function": ldebug!(f),
+            ));
+        }
 
         let (modname, body) = lib.take_func(&f)?;
         if *body.node == Ast::BLOCK_ABSTRACT {
@@ -2206,22 +2222,8 @@ impl Semantics
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
 
-        let func_typ = if f.t == Type::UNKNOWN {
-            &func_ref.typ
-        } else if func_ref.typ.is_generic() {
-            &f.t
-        } else {
-            &func_ref.typ
-        };
-        if func_typ.contains_open() {
-            return Err(lfail!(
-                failure::Mode::TypeFailure,
-                "cannot compile open generic function",
-                "function": ldebug!(f),
-                "type": ldisplay!(func_typ),
-                "found_type": ldisplay!(func_ref.typ),
-            ));
-        }
+        let func_typ = proto.find_type(&f.f).unwrap();
+
         if func_typ.contains_local() {
             return Err(lfail!(
                 failure::Mode::TypeFailure,
@@ -2439,9 +2441,9 @@ mod tests
         };
 
         let prog = core_program(&[("/foo", "".to_string())]);
-        let mut fref = Fref::with_modules(From::from("/foo"), "main");
-        fref.t = Type::f(Type::VOID, vec![]);
-        let ftyp_ref = fref.t.func_ref().unwrap();
+        let fref = Fref::with_modules(From::from("/foo"), "main");
+        let ftyp = Type::f(Type::VOID, vec![]);
+        let ftyp_ref = ftyp.func_ref().unwrap();
 
         let proto = ProtoModule::new(fref.m.clone(), "").unwrap();
         let mut scopecheck =
