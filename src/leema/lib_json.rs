@@ -81,23 +81,21 @@ pub fn decode(mut ctx: RustFuncContext) -> Lresult<Event>
     match ctx.pc() {
         0 => {
             let fref = ctx.current_fref();
-            if fref.t.is_open() {
-                panic!("generic is open: {}", fref);
-            }
-            let funcref = fref.t.try_func_ref()?;
-            if funcref.type_args.is_empty() {
+            if fref.t.is_empty() {
                 panic!("function is not generic: {}", fref);
             }
+            if fref.contains_open() {
+                panic!("generic is open: {}", fref);
+            }
 
-            let json_type = funcref.type_args.first().unwrap().v.clone();
-            let json_type2 = json_type.clone();
-            let jtval = Val::Type(json_type);
+            let json_type = fref.t.first().unwrap().v.clone();
+            let jtval = Val::Type(json_type.clone());
             ctx.new_call(
                 DECODE_WITH_ARGS,
                 Fref {
                     m: ModKey::from("core"),
                     f: "type_fields",
-                    t: json_type2,
+                    t: vec![StrupleItem::new(Lstr::Sref("T"), json_type)],
                 },
                 vec![StrupleItem::new_v(jtval)],
             )
@@ -114,7 +112,7 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
         let fref = ctx.current_fref();
         // previous typechecking should assure that the type param is
         // there and that there will be exactly 1
-        if !fref.t.is_generic() {
+        if !fref.is_generic() {
             panic!("not a generic");
         }
         let tparam = fref.t.first_arg()?;

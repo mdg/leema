@@ -369,7 +369,7 @@ impl<'p> ScopeCheck<'p>
             .localize_generics(&self.type_args, local_id.clone());
         match &mut *node.node {
             Ast::ConstVal(Val::Func(fref)) => {
-                fref.t.localize_generics(&self.type_args, local_id);
+                fref.localize_generics(&self.type_args, local_id);
             }
             Ast::ConstVal(Val::Struct(t, _)) => {
                 t.localize_generics(&self.type_args, local_id);
@@ -944,7 +944,8 @@ impl<'p> ScopeCheck<'p>
                         fref.f,
                         self.localized_id(&node.loc),
                     );
-                    fref.t.localize_generics(&self.type_args, local_id);
+                    fref.localize_generics(&self.type_args, local_id);
+                    // look this up the proto
                     node.typ = fref.t.clone();
                     // does this really need a rewrite?
                     return Ok(AstStep::Rewrite);
@@ -1403,23 +1404,21 @@ impl<'p> TypeCheck<'p>
     /// What does apply_typecall do?
     pub fn apply_typecall(
         &mut self,
-        calltype: &mut Type,
+        fref: &mut Fref,
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let fref = calltype.try_func_ref_mut()?;
-
-        if args.len() != fref.type_args.len() {
+        if args.len() != fref.t.len() {
             return Err(lfail!(
                 failure::Mode::TypeFailure,
                 "wrong number of type args",
-                "expected_num": ldisplay!(fref.type_args.len()),
+                "expected_num": ldisplay!(fref.t.len()),
                 "found_num": ldisplay!(args.len()),
-                "expected": ldebug!(fref.type_args),
+                "expected": ldebug!(fref.t),
                 "found": ldebug!(args),
             ));
         }
-        for a in fref.type_args.iter_mut().zip(args.iter_mut()) {
+        for a in fref.t.iter_mut().zip(args.iter_mut()) {
             let next_type = match &*a.1.v.node {
                 Ast::ConstVal(Val::Type(t)) => t,
                 Ast::Type(t) => t,
@@ -1441,10 +1440,10 @@ impl<'p> TypeCheck<'p>
             };
             a.0.v = ltry!(self.match_type(&a.0.v, next_type));
         }
+
+        let calltype = Type::UNKNOWN;
         calltype.close_openvars();
-        let t = ltry!(self.inferred_type(&calltype));
-        *calltype = t;
-        Ok(calltype.clone())
+        Ok(ltry!(self.inferred_type(&calltype)))
     }
 
     pub fn applied_call_type(
@@ -1537,19 +1536,18 @@ impl<'p> TypeCheck<'p>
 
     fn post_call(
         &mut self,
+        result_typ: &mut Type,
         call_typ: &mut Type,
         fref: &mut Fref,
         args: &mut Xlist,
         loc: Loc,
     ) -> Lresult<AstStep>
     {
-        if fref.t.contains_open() {
+        if fref.contains_open() {
             return Err(lfail!(
                 failure::Mode::TypeFailure,
                 "unexpected open type variable",
-                "type": ldisplay!(fref.t),
-                "module": fref.m.name.as_lstr().clone(),
-                "function": Lstr::Sref(fref.f),
+                "func": ldebug!(fref),
                 "file": self.local_mod.key.best_path(),
                 "line": ldisplay!(loc.lineno),
             ));
@@ -1558,10 +1556,10 @@ impl<'p> TypeCheck<'p>
         // an optimization here might be to iterate over
         // ast args and initialize any constants
         // actually better might be to stop having
-        // the args in the Val::Call const?
+        // the args in the Val::Call const? <--
 
         *call_typ =
-            ltry!(self.applied_call_type(&mut fref.t, args).map_err(|f| {
+            ltry!(self.applied_call_type(&mut ftyp, args).map_err(|f| {
                 f.add_context(lstrf!("for function: {}", fref,))
                     .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
             }));
@@ -1689,11 +1687,11 @@ impl<'p> TypeCheck<'p>
                     Ast::ConstVal(Val::Func(fref)) => {
                         steptry!(self.post_call(
                             &mut node.typ,
+                            &mut callx.typ,
                             fref,
                             args,
                             node.loc
                         ));
-                        callx.typ = ltry!(self.inferred_type(&fref.t));
                     }
                     // handle a method call
                     Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
@@ -1738,7 +1736,7 @@ impl<'p> TypeCheck<'p>
                 if let Ast::ConstVal(Val::Func(ref mut fref)) = &mut *callx.node
                 {
                     let typecall_t = ltry!(
-                        self.apply_typecall(&mut fref.t, args),
+                        self.apply_typecall(&mut fref, args),
                         "module": fref.m.name.to_lstr(),
                         "function": Lstr::Sref(fref.f),
                         "file": self.local_mod.key.best_path(),
@@ -1902,6 +1900,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 // what should this change to? struct val?
                 if let Ast::ConstVal(Val::Func(fref)) = &mut *callx.node {
                     if fref.f == "__construct" {
+                        /*
                         if let Some(ftyp) = fref.t.func_ref_mut() {
                             let mut pargs = Vec::with_capacity(args.len());
                             let mut targs = Vec::with_capacity(args.len());
@@ -1949,11 +1948,10 @@ impl<'p> ast2::Op for TypeCheck<'p>
                             return Err(lfail!(
                                 failure::Mode::TypeFailure,
                                 "expected function type",
-                                "module": fref.m.name.to_lstr(),
-                                "function": Lstr::Sref(fref.f),
-                                "type": ldisplay!(fref.t),
+                                "function": ldebug!(fref),
                             ));
                         }
+                        */
                     } else {
                         return Err(lfail!(
                             failure::Mode::TypeFailure,
@@ -2072,8 +2070,8 @@ impl<'l> ast2::Op for ResolveTypes<'l>
             Ast::ConstVal(cv) => {
                 match cv {
                     Val::Func(f) => {
-                        if f.t.contains_local() {
-                            ltry!(f.t.replace_localvars(&self.infers));
+                        if f.contains_local() {
+                            ltry!(f.replace_localvars(&self.infers));
                             return Ok(AstStep::Rewrite);
                         }
                     }
@@ -2219,10 +2217,8 @@ impl Semantics
             return Err(lfail!(
                 failure::Mode::TypeFailure,
                 "cannot compile open generic function",
-                "module": f.m.name.as_lstr().clone(),
-                "function": Lstr::Sref(f.f),
+                "function": ldebug!(f),
                 "type": ldisplay!(func_typ),
-                "called_type": ldisplay!(f.t),
                 "found_type": ldisplay!(func_ref.typ),
             ));
         }
@@ -2230,10 +2226,8 @@ impl Semantics
             return Err(lfail!(
                 failure::Mode::TypeFailure,
                 "cannot compile func with local variable",
-                "module": f.m.name.as_lstr().clone(),
-                "function": Lstr::Sref(f.f),
+                "function": ldebug!(f),
                 "type": ldisplay!(func_typ),
-                "called_type": ldisplay!(f.t),
                 "found_type": ldisplay!(func_ref.typ),
             ));
         }

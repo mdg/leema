@@ -4,7 +4,7 @@ use crate::leema::frame::FrameTrace;
 use crate::leema::list;
 use crate::leema::lmap::{self, LmapNode};
 use crate::leema::lstr::Lstr;
-use crate::leema::module::{ModKey, ModTyp};
+use crate::leema::module::ModKey;
 use crate::leema::msg;
 use crate::leema::reg::{self, Ireg, Reg};
 use crate::leema::sendclone;
@@ -759,7 +759,7 @@ impl Type
                 &ft.type_args
             };
             for a in ft.args.iter_mut() {
-                a.v.localize_generics(inner_args, local_id.clone());
+                a.v.localize_generics(inner_args, local_id);
             }
             ft.result.localize_generics(inner_args, local_id);
         } else {
@@ -1104,7 +1104,7 @@ pub struct Fref
 {
     pub m: ModKey,
     pub f: &'static str,
-    pub t: Type,
+    pub t: TypeArgs,
 }
 
 impl Fref
@@ -1119,24 +1119,42 @@ impl Fref
         Fref {
             m,
             f,
-            t: Type::UNKNOWN,
+            t: vec![],
         }
     }
 
-    pub fn is_method(&self) -> bool
+    pub fn is_generic(&self) -> bool
     {
-        match self.m.mtyp {
-            ModTyp::Data | ModTyp::Trait | ModTyp::TraitData | ModTyp::Impl => {
-                if let Some(frt) = self.t.func_ref() {
-                    if let Some(first) = frt.args.first() {
-                        return first.k.as_str() == "self"
-                            && first.v.path == self.m.name;
-                    }
-                }
-            }
-            _ => {}
+        !self.t.is_empty()
+    }
+
+    pub fn contains_open(&self) -> bool
+    {
+        self.t.iter().any(|t| t.v.contains_open())
+    }
+
+    pub fn contains_local(&self) -> bool
+    {
+        self.t.iter().any(|t| t.v.contains_local())
+    }
+
+    pub fn localize_generics(
+        &mut self,
+        type_args: &TypeArgSlice,
+        local_id: String,
+    )
+    {
+        for t in self.t.iter_mut() {
+            t.v.localize_generics(type_args, local_id.clone());
         }
-        false
+    }
+
+    pub fn replace_localvars(&mut self, locals: &LocalTypeVars) -> Lresult<()>
+    {
+        for t in self.t.iter_mut() {
+            t.v.replace_localvars(locals)?;
+        }
+        Ok(())
     }
 }
 
@@ -1153,7 +1171,7 @@ impl fmt::Display for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({}.{}: {})", self.m.name, self.f, self.t)
+        write!(f, "({}.{}: {:?})", self.m.name, self.f, self.t)
     }
 }
 
@@ -1751,7 +1769,7 @@ impl fmt::Display for Val
             Val::Closure(ref fref, ref args, ref _truef, ref closed) => {
                 write!(
                     f,
-                    "({}.{}:({}) {:?} {:?})",
+                    "({}.{}:({:?}) {:?} {:?})",
                     fref.m, fref.f, fref.t, args, closed
                 )
             }
