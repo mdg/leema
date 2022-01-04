@@ -1551,7 +1551,17 @@ impl ProtoLib
     {
         let mtyp = f.m.mtyp;
         if mtyp == ModTyp::Impl || mtyp == ModTyp::Trait {
-            let ftyp = f.t.func_ref().unwrap();
+            let t = {
+                let proto = ltry!(self.path_proto(&f.m.name));
+                proto.find_type(f.f).map(|t| t.clone()).ok_or_else(|| {
+                    lfail!(
+                        failure::Mode::StaticLeemaFailure,
+                        "type not found",
+                        "func": ldebug!(f),
+                    )
+                })?
+            };
+            let ftyp = t.func_ref().unwrap();
             let self_arg = ftyp.args.first().unwrap();
             if self_arg.k.as_str() != "self" {
                 return Err(rustfail!(
