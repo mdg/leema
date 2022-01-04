@@ -1111,6 +1111,7 @@ pub struct Fref
 
 impl Fref
 {
+    /// eventually make this take just TypeArgs
     pub fn new(m: ModKey, f: &'static str, t: Type) -> Fref
     {
         let targs = if let Some(ftref) = t.func_ref() {
@@ -1251,8 +1252,6 @@ pub enum Val
     // LibVal(Rc<dyn LibVal>),
     // LibRef(Arc<dyn LibRef>),
     Lib(Arc<dyn LibVal>),
-    /// Can Closure be made a regular struct?
-    Closure(Fref, Struple2<Val>, Fref, Struple2<Val>),
     ResourceRef(i64),
     // can Val::Future just be a Val::Lib?
     Future(Arc<Mutex<Receiver<Val>>>),
@@ -1471,7 +1470,6 @@ impl Val
             &Val::Token(ref typ) => typ.clone(),
             &Val::Func(_) => Type::FREF,
             &Val::Buffer(_) => Type::STR,
-            &Val::Closure(ref fref, _, _, _) => fref.t.clone(),
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
@@ -1603,13 +1601,6 @@ impl Val
                 Val::EnumToken(typ.clone(), vname.clone())
             }
             &Val::Token(ref typ) => Val::Token(typ.clone()),
-            &Val::Closure(ref f, ref args, ref true_f, ref closed) => {
-                let m_f = f.clone();
-                let m_true_f = true_f.clone();
-                let m_args = struple::map_v(args, |a| a.map(op))?;
-                let m_closed = struple::map_v(closed, |a| a.map(op))?;
-                Val::Closure(m_f, m_args, m_true_f, m_closed)
-            }
             &Val::Failure2(ref failure) => {
                 let m_tag = failure.tag.map(op)?;
                 let m_msg = failure.msg.map(op)?;
@@ -1702,13 +1693,6 @@ impl sendclone::SendClone for Val
             }
             &Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
             &Val::Func(ref fref) => Val::Func(fref.clone_for_send()),
-            &Val::Closure(ref f, ref args, ref truef, ref closed) => {
-                let f2 = f.clone_for_send();
-                let args2 = args.clone_for_send();
-                let truef2 = truef.clone_for_send();
-                let closed2 = closed.clone_for_send();
-                Val::Closure(f2, args2, truef2, closed2)
-            }
             &Val::Failure2(ref f) => {
                 Val::Failure2(Box::new(f.clone_for_send()))
             }
@@ -1773,13 +1757,6 @@ impl fmt::Display for Val
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", **fail),
             Val::Type(ref t) => write!(f, "{}", t),
-            Val::Closure(ref fref, ref args, ref _truef, ref closed) => {
-                write!(
-                    f,
-                    "({}.{}:({:?}) {:?} {:?})",
-                    fref.m, fref.f, fref.t, args, closed
-                )
-            }
             Val::Future(_) => write!(f, "Future"),
             Val::Reg(ref r) => write!(f, "reg:{:?}", r),
             Val::Wildcard => write!(f, "_"),
@@ -1831,14 +1808,6 @@ impl fmt::Debug for Val
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),
             Val::Failure2(ref fail) => write!(f, "Failure({:?})", fail),
             Val::Type(ref t) => write!(f, "TypeVal({:?})", t),
-            Val::Closure(_, ref _args, ref true_f, ref closed_args) => {
-                write!(f, "(closure {}.{}:", true_f.m, true_f.f)?;
-                if f.alternate() {
-                    write!(f, "{:#?} :: {:#?})", true_f.t, closed_args)
-                } else {
-                    write!(f, "{:?} :: {:?})", true_f.t, closed_args)
-                }
-            }
             Val::Future(_) => write!(f, "Future"),
             Val::Reg(ref r) => write!(f, "reg:{:?}", r),
             Val::Wildcard => write!(f, "_Wildcard"),
@@ -1859,10 +1828,6 @@ impl reg::Iregistry for Val
             // get reg on struct
             (_, &Val::Struct(_, ref items)) => {
                 ltry!(items.ireg_get(i))
-            }
-            // Get for Closures
-            (_, &Val::Closure(_, ref args, _, _)) => {
-                ltry!(args.ireg_get(i))
             }
             // Failures
             (Ireg::Reg(0), &Val::Failure2(ref failure)) => &failure.tag,
@@ -1916,10 +1881,6 @@ impl reg::Iregistry for Val
                     "cannot set reg on empty list: {}",
                     i,
                 ))
-            }
-            // set reg on Call & Closure
-            (_, &mut Val::Closure(_, ref mut args, _, _)) => {
-                args.ireg_set(i, v)
             }
             // values that can't act as registries
             (_, dst) => {
@@ -2013,18 +1974,6 @@ impl PartialOrd for Val
             // func to func comparison
             (&Val::Func(ref f1), &Val::Func(ref f2)) => {
                 PartialOrd::partial_cmp(&*f1, &*f2)
-            }
-            // closure comparison
-            (
-                &Val::Closure(ref f1, ref a1, _, ref c1),
-                &Val::Closure(ref f2, ref a2, _, ref c2),
-            ) => {
-                Some(
-                    PartialOrd::partial_cmp(f1, f2)
-                        .unwrap()
-                        .then_with(|| PartialOrd::partial_cmp(a1, a2).unwrap())
-                        .then_with(|| PartialOrd::partial_cmp(c1, c2).unwrap()),
-                )
             }
             (&Val::ResourceRef(rra), &Val::ResourceRef(rrb)) => {
                 PartialOrd::partial_cmp(&rra, &rrb)
