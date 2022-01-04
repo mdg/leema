@@ -945,8 +945,8 @@ impl<'p> ScopeCheck<'p>
                         self.localized_id(&node.loc),
                     );
                     fref.localize_generics(&self.type_args, local_id);
-                    // look this up the proto
-                    node.typ = fref.t.clone();
+                    // look this up in the proto
+                    node.typ = ltry!(self.lib.func_type(fref)).clone();
                     // does this really need a rewrite?
                     return Ok(AstStep::Rewrite);
                 }
@@ -1441,7 +1441,7 @@ impl<'p> TypeCheck<'p>
             a.0.v = ltry!(self.match_type(&a.0.v, next_type));
         }
 
-        let calltype = Type::UNKNOWN;
+        let mut calltype = ltry!(self.lib.func_type(fref)).clone();
         calltype.close_openvars();
         Ok(ltry!(self.inferred_type(&calltype)))
     }
@@ -1559,14 +1559,7 @@ impl<'p> TypeCheck<'p>
         // the args in the Val::Call const? <--
 
         // get call type from proto
-        let proto = ltry!(self.lib.path_proto(&fref.m.name));
-        let mut ftyp = proto.find_type(fref.f).ok_or_else(|| {
-            lfail!(
-                failure::Mode::StaticLeemaFailure,
-                "unknown type",
-                "function": ldebug!(fref),
-            )
-        })?.clone();
+        let mut ftyp = ltry!(self.lib.func_type(fref)).clone();
         *result_typ =
             ltry!(self.applied_call_type(&mut ftyp, args).map_err(|f| {
                 f.add_context(lstrf!("for function: {}", fref,))
@@ -2222,7 +2215,7 @@ impl Semantics
             rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
         })?;
 
-        let func_typ = proto.find_type(&f.f).unwrap();
+        let func_typ = lib.func_type(&f).unwrap();
 
         if func_typ.contains_local() {
             return Err(lfail!(

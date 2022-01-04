@@ -1545,6 +1545,19 @@ impl ProtoLib
         })
     }
 
+    /// get the type for a function
+    pub fn func_type(&self, f: &Fref) -> Lresult<&Type>
+    {
+        let proto = ltry!(self.path_proto(&f.m.name));
+        proto.find_type(f.f).ok_or_else(|| {
+            lfail!(
+                failure::Mode::StaticLeemaFailure,
+                "function type not found",
+                "func": ldebug!(f),
+            )
+        })
+    }
+
     /// take the type and source for the given func
     /// seems like first parameter isn't used, could optimize by removing it
     pub fn take_func(&mut self, f: &Fref) -> Lresult<(Canonical, AstNode)>
