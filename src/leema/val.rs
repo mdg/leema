@@ -1124,11 +1124,7 @@ impl Fref
 
     pub fn with_modules(m: ModKey, f: &'static str) -> Fref
     {
-        Fref {
-            m,
-            f,
-            t: vec![],
-        }
+        Fref { m, f, t: vec![] }
     }
 
     pub fn is_generic(&self) -> bool

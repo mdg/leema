@@ -120,13 +120,17 @@ fn decode_with_args(mut ctx: RustFuncContext) -> Lresult<Event>
             ));
         }
         // make this an Lresult
-        let tparam = &fref.t.first().ok_or_else(|| {
-            lfail!(
-                failure::Mode::TypeFailure,
-                "no type arguments",
-                "func": ldebug!(fref),
-            )
-        })?.v;
+        let tparam = &fref
+            .t
+            .first()
+            .ok_or_else(|| {
+                lfail!(
+                    failure::Mode::TypeFailure,
+                    "no type arguments",
+                    "func": ldebug!(fref),
+                )
+            })?
+            .v;
 
         match tparam.path_str() {
             Type::PATH_BOOL => {
