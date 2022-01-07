@@ -400,6 +400,9 @@ impl Type
         Self::generic_1(Type::PATH_OPTION, inner)
     }
 
+    /// Generic type. Default the inner type to T if none is provided
+    /// Does this need to be a typecall?
+    /// Maybe more complex types need to be?
     pub fn generic_1(path: &'static str, inner: Option<Type>) -> Type
     {
         let arg = match inner {
@@ -436,10 +439,7 @@ impl Type
     pub fn typecall(result: Type, mut args: TypeArgs) -> Type
     {
         args.insert(0, StrupleItem::new(Lstr::Sref("result"), result));
-        Type::t(
-            Type::PATH_TYPECALL,
-            args,
-        )
+        Type::t(Type::PATH_TYPECALL, args)
     }
 
     /**
@@ -734,7 +734,44 @@ impl Type
         }
     }
 
-    // replace an open variable in this type with the new type
+    /// replace any open type variables that are already closed
+    pub fn close_generics(&mut self, type_args: &TypeArgSlice)
+    {
+        if self.path.as_str() == Self::PATH_OPENVAR {
+            if let Some(open) = self.args.first() {
+                if let Some(found) = struple::find(type_args, &open.k) {
+                    *self = found.clone();
+                }
+            } else {
+                // else this is an invalid openvar (bad)
+                panic!("invalid open type variable");
+            }
+        } else if let Some(ft) = self.func_ref_mut() {
+            let inner_args = if ft.type_args.is_empty() {
+                type_args
+            } else {
+                for a in ft.type_args.iter_mut() {
+                    if a.v.is_open() {
+                        // do this at all?
+                        a.v.close_generics(type_args);
+                    }
+                    // else, dunno why this would be, but don't localize
+                    // anything if it's not open
+                }
+                &ft.type_args
+            };
+            for a in ft.args.iter_mut() {
+                a.v.close_generics(inner_args);
+            }
+            ft.result.close_generics(inner_args);
+        } else {
+            for a in self.args.iter_mut() {
+                a.v.close_generics(type_args);
+            }
+        }
+    }
+
+    /// replace an open variable in this type with the new type
     pub fn localize_generics(
         &mut self,
         type_args: &TypeArgSlice,
@@ -749,7 +786,10 @@ impl Type
                     *self = Self::local(lstrf!("{}-{}", local_id, open.k));
                 }
                 return;
-            } // else this is an invalid openvar (bad)
+            } else {
+                // else this is an invalid openvar (bad)
+                panic!("invalid open type variable");
+            }
         }
         if let Some(ft) = self.func_ref_mut() {
             let inner_args = if ft.type_args.is_empty() {

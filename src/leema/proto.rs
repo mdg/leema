@@ -1548,16 +1548,21 @@ impl ProtoLib
     }
 
     /// get the type for a function
-    pub fn func_type(&self, f: &Fref) -> Lresult<&Type>
+    pub fn func_type(&self, f: &Fref) -> Lresult<Type>
     {
         let proto = ltry!(self.path_proto(&f.m.name));
-        proto.find_type(f.f).ok_or_else(|| {
-            lfail!(
-                failure::Mode::StaticLeemaFailure,
-                "function type not found",
-                "func": ldebug!(f),
-            )
-        })
+        let mut ft = proto
+            .find_type(f.f)
+            .ok_or_else(|| {
+                lfail!(
+                    failure::Mode::StaticLeemaFailure,
+                    "function type not found",
+                    "func": ldebug!(f),
+                )
+            })?
+            .clone();
+        ft.close_generics(&f.t);
+        Ok(ft)
     }
 
     /// take the type and source for the given func

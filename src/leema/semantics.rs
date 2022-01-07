@@ -369,7 +369,8 @@ impl<'p> ScopeCheck<'p>
             .localize_generics(&self.type_args, local_id.clone());
         match &mut *node.node {
             Ast::ConstVal(Val::Func(fref)) => {
-                fref.localize_generics(&self.type_args, local_id);
+                fref.localize_generics(&self.type_args, local_id.clone());
+                node.typ.localize_generics(&self.type_args, local_id);
             }
             Ast::ConstVal(Val::Struct(t, _)) => {
                 t.localize_generics(&self.type_args, local_id);
@@ -944,9 +945,10 @@ impl<'p> ScopeCheck<'p>
                         fref.f,
                         self.localized_id(&node.loc),
                     );
-                    fref.localize_generics(&self.type_args, local_id);
+                    fref.localize_generics(&self.type_args, local_id.clone());
                     // look this up in the proto
                     node.typ = ltry!(self.lib.func_type(fref)).clone();
+                    node.typ.localize_generics(&fref.t, local_id);
                     // does this really need a rewrite?
                     return Ok(AstStep::Rewrite);
                 }
@@ -1537,7 +1539,7 @@ impl<'p> TypeCheck<'p>
     fn post_call(
         &mut self,
         result_typ: &mut Type,
-        call_typ: &mut Type,
+        _call_typ: &mut Type,
         fref: &mut Fref,
         args: &mut Xlist,
         loc: Loc,
@@ -1898,7 +1900,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     "line": ldisplay!(node.loc.lineno),
                 ));
             }
-            Ast::Call(callx, args) if mode.is_pattern() => {
+            Ast::Call(callx, _args) if mode.is_pattern() => {
                 // what should this change to? struct val?
                 if let Ast::ConstVal(Val::Func(fref)) = &mut *callx.node {
                     if fref.f == "__construct" {
