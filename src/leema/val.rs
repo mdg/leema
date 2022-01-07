@@ -254,6 +254,8 @@ impl Type
     pub const PATH_LOCAL: &'static str = "/leema/Local";
     /// identifies an open type variable
     pub const PATH_OPENVAR: &'static str = "/leema/Open";
+    /// identifies an open type call
+    pub const PATH_TYPECALL: &'static str = "/leema/TypeCall";
     /// identifies an unknown type
     pub const PATH_UNKNOWN: &'static str = "/leema/Unknown";
 
@@ -434,6 +436,20 @@ impl Type
                 k: var,
                 v: Type::VOID,
             }],
+        )
+    }
+
+    /// Create a generic typecall
+    pub fn typecall(result: Type, opens: &[Lstr]) -> Type
+    {
+        let mut args = Vec::with_capacity(opens.len() + 1);
+        args.push(StrupleItem::new(Lstr::Sref("result"), result));
+        for o in opens.iter() {
+            args.push(StrupleItem::new(o.clone(), Type::VOID));
+        }
+        Type::t(
+            Type::PATH_TYPECALL,
+            args,
         )
     }
 
