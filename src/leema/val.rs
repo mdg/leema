@@ -311,20 +311,13 @@ impl Type
     pub fn generic_f(type_args: TypeArgs, result: Type, args: TypeArgs)
         -> Type
     {
-        let type_argst = Type::t(Type::PATH_FN_TYPEARGS, type_args);
-        let argst = Type::t(Type::PATH_FN_ARGS, args);
-        Type::t(
-            Type::PATH_FN,
-            vec![
-                StrupleItem::new(Type::FNKEY_TYPEARGS, type_argst),
-                StrupleItem::new(Type::FNKEY_RESULT, result),
-                StrupleItem::new(Type::FNKEY_ARGS, argst),
-                // no closed vals
-            ],
-        )
+        let ftyp = Type::f(result, args);
+        Type::typecall(ftyp, type_args)
     }
 
     /// Construct a closure type. This may not be necessary
+    /// replace this w/ a regular closure struct
+    ///
     /// all type args
     /// closed var tuple
     /// call result
@@ -440,13 +433,9 @@ impl Type
     }
 
     /// Create a generic typecall
-    pub fn typecall(result: Type, opens: &[Lstr]) -> Type
+    pub fn typecall(result: Type, mut args: TypeArgs) -> Type
     {
-        let mut args = Vec::with_capacity(opens.len() + 1);
-        args.push(StrupleItem::new(Lstr::Sref("result"), result));
-        for o in opens.iter() {
-            args.push(StrupleItem::new(o.clone(), Type::VOID));
-        }
+        args.insert(0, StrupleItem::new(Lstr::Sref("result"), result));
         Type::t(
             Type::PATH_TYPECALL,
             args,

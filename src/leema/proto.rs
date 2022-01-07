@@ -831,6 +831,7 @@ impl ProtoModule
     ) -> Lresult<(&'static str, Type)>
     {
         let loc = name.loc;
+        let num_opens = opens.len();
 
         let id = match *name.node {
             Ast::Id(name_id) => name_id,
@@ -844,7 +845,8 @@ impl ProtoModule
                         } else if let Ast::Id(v) = *a.v.node {
                             Lstr::Sref(v)
                         } else {
-                            Type::unwrap_name(&None, i)
+                            // don't duplicate generated names
+                            Type::unwrap_name(&None, num_opens + i)
                         };
                         let key = var.clone();
                         Ok(StrupleItem::new(key, Type::open(var)))
@@ -873,7 +875,7 @@ impl ProtoModule
 
         ltry!(self.refute_redefines_default(id, loc));
         let ftyp = ltry!(
-            self.ast_to_ftype(&result, &args, &opens),
+            self.ast_to_ftype(&result, &args, opens),
             "file": self.key.best_path(),
             "line": lstrf!("{}", name.loc.lineno),
             "func": Lstr::Sref(id),
@@ -1197,11 +1199,11 @@ impl ProtoModule
         &self,
         result: &AstNode,
         args: &Xlist,
-        opens: &TypeArgSlice,
+        opens: TypeArgs,
     ) -> Lresult<Type>
     {
         let arg_types = ltry!(self.xlist_to_types(args, &opens));
-        let result_type = ltry!(self.ast_to_type(&result, opens));
+        let result_type = ltry!(self.ast_to_type(&result, &opens));
         if opens.is_empty() {
             Ok(Type::f(result_type, arg_types))
         } else {
