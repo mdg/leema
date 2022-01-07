@@ -91,7 +91,6 @@ pub struct FuncTypeRef<'a>
     pub type_args: &'a TypeArgSlice,
     pub result: &'a Type,
     pub args: &'a TypeArgSlice,
-    pub closed_args: &'a TypeArgSlice,
 }
 
 impl<'a> fmt::Display for FuncTypeRef<'a>
@@ -142,9 +141,6 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
                 writeln!(f, "")?;
             }
         }
-        if !self.closed_args.is_empty() {
-            write!(f, " {:?}", self.closed_args)?;
-        }
         if !self.type_args.is_empty() {
             write!(f, ")")?;
             for ta in self.type_args.iter() {
@@ -171,7 +167,6 @@ pub struct FuncTypeRefMut<'a>
     pub type_args: &'a mut TypeArgSlice,
     pub result: &'a mut Type,
     pub args: &'a mut TypeArgSlice,
-    pub closed_args: Option<&'a mut TypeArgSlice>,
 }
 
 #[derive(Debug)]
@@ -242,14 +237,6 @@ impl Type
     /// Type assigned to -RUST- code blocks
     /// gets special treatment by the type checker to match any type
     const PATH_BLOCK_RUST: &'static str = "/leema/BlockRust";
-    /// function args
-    const PATH_FN_ARGS: &'static str = "/leema/FnArgs";
-    /// closed arguments for a closure
-    const PATH_FN_CLOSEDARGS: &'static str = "/leema/FnClosedArgs";
-    /// return value of a function
-    const PATH_FN_RESULT: Type = leema_type!(FnResult);
-    /// type arguments for a generic function
-    const PATH_FN_TYPEARGS: &'static str = "/leema/FnTypeArgs";
     /// identifies a locally defined type variable
     pub const PATH_LOCAL: &'static str = "/leema/Local";
     /// identifies an open type variable
@@ -263,12 +250,8 @@ impl Type
     /// Initial type to indicate the type checker doesn't know
     pub const UNKNOWN: Type = Type::named(Type::PATH_UNKNOWN);
 
-    // function struple key names
-    pub const FNKEY_FN: Lstr = Lstr::Sref("fn");
-    pub const FNKEY_ARGS: Lstr = Lstr::Sref("args");
-    pub const FNKEY_CLOSED: Lstr = Lstr::Sref("closed");
+    /// function struple key names
     pub const FNKEY_RESULT: Lstr = Lstr::Sref("result");
-    pub const FNKEY_TYPEARGS: Lstr = Lstr::Sref("typeargs");
 
     /// Create a type w/ the given path name and no type arguments
     pub const fn new(path: Canonical, args: TypeArgs) -> Type
@@ -294,18 +277,10 @@ impl Type
         }
     }
 
-    pub fn f(result: Type, args: TypeArgs) -> Type
+    pub fn f(result: Type, mut args: TypeArgs) -> Type
     {
-        let argst = Type::t(Type::PATH_FN_ARGS, args);
-        Type::t(
-            Type::PATH_FN,
-            vec![
-                StrupleItem::new(Type::FNKEY_TYPEARGS, Type::VOID),
-                StrupleItem::new(Type::FNKEY_RESULT, result),
-                StrupleItem::new(Type::FNKEY_ARGS, argst),
-                // no closed vals
-            ],
-        )
+        args.insert(0, StrupleItem::new(Self::FNKEY_RESULT, result));
+        Type::t(Type::PATH_FN, args)
     }
 
     pub fn generic_f(type_args: TypeArgs, result: Type, args: TypeArgs)
@@ -313,50 +288,6 @@ impl Type
     {
         let ftyp = Type::f(result, args);
         Type::typecall(ftyp, type_args)
-    }
-
-    /// Construct a closure type. This may not be necessary
-    /// replace this w/ a regular closure struct
-    ///
-    /// all type args
-    /// closed var tuple
-    /// call result
-    /// call args
-    pub fn closure(
-        type_args: TypeArgs,
-        result: Type,
-        args: TypeArgs,
-        closed: TypeArgs,
-    ) -> Type
-    {
-        let type_argst = Type::t(Type::PATH_FN_TYPEARGS, type_args);
-        let argst = Type::t(Type::PATH_FN_ARGS, args);
-        let closed_argst = Type::tuple(closed);
-        Type::t(
-            Type::PATH_CLOSURE,
-            vec![
-                StrupleItem::new(Type::FNKEY_TYPEARGS, type_argst),
-                StrupleItem::new(Type::FNKEY_RESULT, result),
-                StrupleItem::new(Type::FNKEY_ARGS, argst),
-                StrupleItem::new(Type::FNKEY_CLOSED, closed_argst),
-            ],
-        )
-    }
-
-    /// Construct a closure type. This may not be necessary
-    /// base function type
-    /// closed tuple type
-    /// closed args type + base func
-    pub fn closure1(inner: Type, closed: TypeArgs) -> Type
-    {
-        let closed_argst = Type::t(Type::PATH_FN_CLOSEDARGS, closed);
-        Type::t(
-            Type::PATH_CLOSURE,
-            vec![
-                StrupleItem::new(Type::FNKEY_FN, inner),
-                StrupleItem::new(Type::FNKEY_CLOSED, closed_argst),
-            ],
-        )
     }
 
     /// Construct the type of a closure implementation function
@@ -557,13 +488,23 @@ impl Type
     pub fn func_ref<'a>(&'a self) -> Option<FuncTypeRef<'a>>
     {
         match self.type_ref() {
-            TypeRef(Type::PATH_FN, [gen, result, args]) => {
+            TypeRef(Type::PATH_FN, args) => {
+                let result = &args.first()?.v;
                 Some(FuncTypeRef {
                     path: Type::PATH_FN,
-                    type_args: gen.v.type_ref().1,
-                    result: &result.v,
-                    args: args.v.type_ref().1,
-                    closed_args: &[],
+                    type_args: &[],
+                    result: result,
+                    args: &args[1..],
+                })
+            }
+            TypeRef(Type::PATH_TYPECALL, args) => {
+                let result = &args.first()?.v;
+                let inner = result.func_ref()?;
+                Some(FuncTypeRef {
+                    path: Type::PATH_FN,
+                    type_args: &args[1..],
+                    result: &inner.result,
+                    args: &inner.args,
                 })
             }
             TypeRef(Type::PATH_CLOSURE, [f, _closed]) => {
@@ -573,7 +514,6 @@ impl Type
                     type_args: &f_func_ref.type_args,
                     result: &f_func_ref.result,
                     args: &f_func_ref.args,
-                    closed_args: &[],
                 })
             }
             _ => None,
@@ -589,7 +529,6 @@ impl Type
                     type_args: &mut gen.v.args,
                     result: &mut result.v,
                     args: args.v.type_ref_mut().1,
-                    closed_args: None,
                 })
             }
             _ => None,
@@ -1335,20 +1274,6 @@ impl Val
         }
         Val::Tuple(t)
     }
-
-    /*
-    pub fn void_closure(f: Fref, closed_args: TypeArgs) -> Lresult<Val>
-    {
-        let mut args = Vec::with_capacity(1 + closed_args.len());
-        args.push(StrupleItem::new(None, Val::VOID));
-        for a in closed_args.iter() {
-            args.push(StrupleItem::new(Some(a.k.clone()), Val::VOID))
-        }
-        let closure_t = Type::closure(f.t.clone(), closed_args);
-        args[0].v = ltry!(Lresult::<Val>::from(&f));
-        Ok(Val::Struct(closure_t, args))
-    }
-    */
 
     pub fn tuple_from_list(l: &Val) -> Val
     {
