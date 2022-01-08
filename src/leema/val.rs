@@ -1952,8 +1952,8 @@ mod tests
         let a = Lstr::Sref("A");
         let b = Lstr::Sref("B");
         let init_type_args = vec![
-            StrupleItem::new(a.clone(), Type::UNKNOWN),
-            StrupleItem::new(b.clone(), Type::UNKNOWN),
+            StrupleItem::new(a.clone(), Type::open(a.clone())),
+            StrupleItem::new(b.clone(), Type::open(b.clone())),
         ];
         let init = Type::generic_f(
             init_type_args,
@@ -1964,7 +1964,7 @@ mod tests
         let expected = Type::generic_f(
             vec![
                 StrupleItem::new(a.clone(), Type::INT),
-                StrupleItem::new(b.clone(), Type::UNKNOWN),
+                StrupleItem::new(b.clone(), Type::open(b.clone())),
             ],
             Type::INT,
             vec![StrupleItem::new(Lstr::Sref("x"), Type::open(b.clone()))],
@@ -1976,19 +1976,21 @@ mod tests
     #[test]
     fn replace_openvar_struct()
     {
+        let a = Lstr::Sref("A");
+        let b = Lstr::Sref("B");
         let init = Type::t(
             "/app/Test",
             vec![
-                StrupleItem::new(Lstr::Sref("A"), Type::UNKNOWN),
-                StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
+                StrupleItem::new(a.clone(), Type::open(a.clone())),
+                StrupleItem::new(b.clone(), Type::open(b.clone())),
             ],
         );
         let mut actual = init.clone();
         let expected = Type::t(
             "/app/Test",
             vec![
-                StrupleItem::new(Lstr::Sref("A"), Type::INT),
-                StrupleItem::new(Lstr::Sref("B"), Type::UNKNOWN),
+                StrupleItem::new(a.clone(), Type::INT),
+                StrupleItem::new(b.clone(), Type::open(b.clone())),
             ],
         );
         actual.replace_openvar("A", &Type::INT);
@@ -2002,8 +2004,8 @@ mod tests
         let b = Lstr::Sref("B");
         let mut actual = Type::generic_f(
             vec![
-                StrupleItem::new(a.clone(), Type::UNKNOWN),
-                StrupleItem::new(b.clone(), Type::UNKNOWN),
+                StrupleItem::new(a.clone(), Type::open(a.clone())),
+                StrupleItem::new(b.clone(), Type::open(b.clone())),
             ],
             Type::list(Type::open(a.clone())),
             vec![
@@ -2027,7 +2029,7 @@ mod tests
         let expected = Type::generic_f(
             vec![
                 StrupleItem::new(a.clone(), Type::INT),
-                StrupleItem::new(b.clone(), Type::UNKNOWN),
+                StrupleItem::new(b.clone(), Type::open(b.clone())),
             ],
             Type::list(Type::INT),
             vec![
