@@ -33,7 +33,6 @@ struct Args
     flag_mod: Option<String>,
     flag_tokens: bool,
     flag_ast: bool,
-    flag_preface: bool,
     flag_proto: bool,
     flag_semantics: bool,
     flag_registers: bool,
@@ -54,7 +53,6 @@ Options:
      --typecheck   Typecheck the script
      --tokens      Show the tokens in this module for debugging
      --ast         Show the ast for the module
-     --preface     Show the preface for the module
      --proto       Show the proto mod for the module
      --semantics   Semantically analyze the module
      --registers   Assign registers to the AST
@@ -162,7 +160,7 @@ fn real_main() -> Lresult<()>
         None
     } else if args.flag_code {
         let mut prog = program::Lib::new(inter);
-        let code = prog.load_code(&fref);
+        let code = ltry!(prog.load_code(&fref));
         println!("code: {:?}", code);
         None
     } else if args.flag_repl {
