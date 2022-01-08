@@ -8,7 +8,7 @@ use crate::leema::Lstr;
 pub struct LocalizeGenerics
 {
     current_local: String,
-    next_local_id: u32,
+    next_local_index: u32,
 }
 
 impl LocalizeGenerics
@@ -17,24 +17,31 @@ impl LocalizeGenerics
     {
         LocalizeGenerics {
             current_local: String::new(),
-            next_local_id: 0,
+            next_local_index: 0,
         }
     }
 
     fn localized_id(&mut self, loc: Loc) -> &str
     {
-        let local_id = self.next_local_id;
-        self.next_local_id += 1;
-        self.current_local = format!("{}@{}", local_id, loc.lineno);
+        let local_index = self.next_local_index;
+        self.next_local_index += 1;
+        self.current_local = format!("{}@{}", local_index, loc.lineno);
         &self.current_local
     }
 
     fn localize_type(&mut self, t: &mut Type, loc: Loc)
     {
-        if !t.contains_open() && *t != Type::UNKNOWN {
+        if !t.contains_open() {
             return;
         }
         t.localize_generics(self.localized_id(loc));
+    }
+
+    fn next_local_typevar(&mut self) -> Type
+    {
+        let local_index = self.next_local_index;
+        self.next_local_index += 1;
+        Type::local(lstrf!("local-{}", local_index))
     }
 }
 
@@ -42,6 +49,7 @@ impl ast2::Op for LocalizeGenerics
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
+        self.localize_type(&mut node.typ, node.loc);
         match &mut *node.node {
             Ast::Type(t) => {
                 self.localize_type(t, node.loc);
@@ -107,7 +115,15 @@ impl ast2::Op for LocalizeGenerics
             }
             _ => {}
         }
-        self.localize_type(&mut node.typ, node.loc);
+        Ok(AstStep::Ok)
+    }
+
+    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    {
+        // clean up any leftover unknown types
+        if node.typ == Type::UNKNOWN {
+            node.typ = self.next_local_typevar();
+        }
         Ok(AstStep::Ok)
     }
 }

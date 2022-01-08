@@ -965,21 +965,7 @@ impl<'p> ast2::Op for ScopeCheck<'p>
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
-        steptry!(self.pre_scope(node, mode));
-        // make sure that all open types have been converted
-        // to concrete types or local type vars
-        if node.typ.contains_open() {
-            Err(lfail!(
-                failure::Mode::TypeFailure,
-                "expression contains unexpected open generic type variable",
-                "type": ldisplay!(node.typ),
-                "node": ldebug!(node.node),
-                "file": self.local_mod.key.best_path(),
-                "line": ldisplay!(node.loc.lineno),
-            ))
-        } else {
-            Ok(AstStep::Ok)
-        }
+        self.pre_scope(node, mode)
     }
 
     fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
@@ -1054,7 +1040,6 @@ struct TypeCheck<'p>
     vartypes: HashMap<&'static str, Type>,
     infers: HashMap<Lstr, Type>,
     calls: Vec<Fref>,
-    next_local_index: u32,
 }
 
 impl<'p> TypeCheck<'p>
@@ -1072,7 +1057,6 @@ impl<'p> TypeCheck<'p>
             vartypes: HashMap::new(),
             infers: HashMap::new(),
             calls: vec![],
-            next_local_index: 0,
         };
 
         for arg in ftyp.args.iter() {
@@ -1424,13 +1408,6 @@ impl<'p> TypeCheck<'p>
         Ok(prev_typ.unwrap())
     }
 
-    fn next_local_typevar(&mut self) -> Type
-    {
-        let local_index = self.next_local_index;
-        self.next_local_index += 1;
-        Type::local(lstrf!("local-{}", local_index))
-    }
-
     fn post_call(
         &mut self,
         result_typ: &mut Type,
@@ -1756,20 +1733,19 @@ impl<'p> ast2::Op for TypeCheck<'p>
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
+        // make sure that all open types have been converted
+        // to concrete types or local type vars
         if node.typ.contains_open() {
             return Err(lfail!(
                 failure::Mode::TypeFailure,
                 "unexpected open type variable",
                 "node": ldebug!(&node.node),
-                "open": ldisplay!(&node.typ),
-                "module": self.local_mod.key.name.to_lstr(),
+                "type": ldisplay!(&node.typ),
+                "file": self.local_mod.key.best_path(),
                 "line": ldisplay!(node.loc.lineno),
             ));
         }
         match &mut *node.node {
-            Ast::Id("_") if node.typ == Type::UNKNOWN => {
-                node.typ = self.next_local_typevar();
-            }
             Ast::Id(id) => {
                 // mode == value
                 // if the type is known, assign it to this variable
@@ -2687,7 +2663,10 @@ mod tests
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::from(("/foo", "main"));
-        prog.read_semantics(&fref).unwrap();
+        if let Err(fail) = prog.read_semantics(&fref) {
+            println!("test failure: {:#?}", fail);
+            panic!("test failure");
+        }
     }
 
     #[test]
