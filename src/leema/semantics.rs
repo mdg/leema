@@ -291,7 +291,6 @@ struct ScopeCheck<'p>
     anons: StrupleKV<&'static str, AstNode>,
     ftyp: &'p FuncTypeRef<'p>,
     type_args: &'p TypeArgSlice,
-    next_local_id: u32,
 }
 
 impl<'p> ScopeCheck<'p>
@@ -320,7 +319,6 @@ impl<'p> ScopeCheck<'p>
             anons: vec![],
             ftyp,
             type_args: &ftyp.type_args,
-            next_local_id: 0,
         })
     }
 
@@ -344,21 +342,6 @@ impl<'p> ScopeCheck<'p>
             anons: vec![],
             ftyp,
             type_args: &ftyp.type_args,
-            next_local_id: self.next_local_id + 1,
-        }
-    }
-
-    fn localized_id(&mut self, loc: &Loc) -> String
-    {
-        let local_id = self.next_local_id;
-        self.next_local_id += 1;
-        format!("{}@{}", local_id, loc.lineno)
-    }
-
-    fn localize_node(&mut self, node: &mut AstNode)
-    {
-        if !node.typ.contains_open() {
-            return;
         }
     }
 
@@ -442,7 +425,7 @@ impl<'p> ScopeCheck<'p>
     ) -> Lresult<AnonFuncDef>
     {
         // totally hacky to make this a static str. need to figure this out.
-        let name = format!("anon_fn_{}", self.localized_id(&loc));
+        let name = format!("anon_fn_{}_{}", loc.lineno, loc.column);
         let name = Interloader::static_str(name);
 
         AnonFuncDef::new(&self.local_mod, name, func_type, body, loc)
@@ -451,8 +434,7 @@ impl<'p> ScopeCheck<'p>
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
     {
         let name = anon_f.name;
-        let mut def_func_node = anon_f.into_def_func_node()?;
-        self.localize_node(&mut def_func_node);
+        let def_func_node = anon_f.into_def_func_node()?;
         self.anons.push(StrupleItem::new(name, def_func_node));
         Ok(())
     }
@@ -719,14 +701,6 @@ impl<'p> ScopeCheck<'p>
                     "file": self.local_mod.key.best_path(),
                     "line": ldisplay!(node.loc.lineno),
                 );
-                if node.typ == Type::UNKNOWN {
-                    let type_var = if *id == "_" {
-                        lstrf!("_{}", self.localized_id(&node.loc))
-                    } else {
-                        Lstr::Sref(id)
-                    };
-                    node.typ = Type::local(type_var);
-                }
                 *node.node = Ast::ConstVal(Val::Reg(node.dst));
             }
             Ast::Id(id) if mode == AstMode::Type => {
@@ -881,30 +855,7 @@ impl<'p> ScopeCheck<'p>
                 }
             }
             Ast::ConstVal(Val::Func(fref)) => {
-                // for functions, if any types match function type args
-                // replace them w/ the concrete types
-                // if function defines any new type args, replace those
-                // parameter types with local variabls
-                if node.typ.contains_open() {
-                    let local_id = format!(
-                        "{}.{}-{}",
-                        fref.m.name,
-                        fref.f,
-                        self.localized_id(&node.loc),
-                    );
-                    fref.localize_generics(&local_id);
-                    // look this up in the proto
-                    node.typ = ltry!(self.lib.func_type(fref)).clone();
-                    node.typ.localize_generics(&local_id);
-                    // does this really need a rewrite?
-                    return Ok(AstStep::Rewrite);
-                }
-            }
-            Ast::ConstVal(Val::Type(t)) => {
-                if t.contains_open() {
-                    let local_id = self.localized_id(&node.loc);
-                    t.localize_generics(&local_id);
-                }
+                node.typ = ltry!(self.lib.func_type(fref)).clone();
             }
             Ast::ConstVal(Val::Str(escaped)) => {
                 // escaped strings
@@ -1001,8 +952,7 @@ impl<'p> ScopeCheck<'p>
                         c,
                     ));
                 }
-                let mut cons = optcons.unwrap().clone();
-                self.localize_node(&mut cons);
+                let cons = optcons.unwrap().clone();
                 x.replace(*cons.node, cons.typ);
                 return Ok(AstStep::Rewrite);
             }
@@ -1018,7 +968,6 @@ impl<'p> ast2::Op for ScopeCheck<'p>
         steptry!(self.pre_scope(node, mode));
         // make sure that all open types have been converted
         // to concrete types or local type vars
-        self.localize_node(node);
         if node.typ.contains_open() {
             Err(lfail!(
                 failure::Mode::TypeFailure,
