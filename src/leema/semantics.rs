@@ -8,7 +8,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
-use crate::leema::semantic::closed_vars::ClosedVars;
+use crate::leema::semantic::{ClosedVars, LocalizeGenerics};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArg,
@@ -359,59 +359,6 @@ impl<'p> ScopeCheck<'p>
     {
         if !node.typ.contains_open() {
             return;
-        }
-        let local_id = self.localized_id(&node.loc);
-        self.localize_node_with_id(node, &local_id)
-    }
-
-    fn localize_node_with_id(&mut self, node: &mut AstNode, local_id: &str)
-    {
-        node.typ.localize_generics(local_id);
-        match &mut *node.node {
-            Ast::ConstVal(Val::Func(fref)) => {
-                fref.localize_generics(local_id.clone());
-                node.typ.localize_generics(local_id);
-            }
-            Ast::ConstVal(Val::Struct(t, _)) => {
-                t.localize_generics(local_id);
-            }
-            Ast::ConstVal(Val::EnumStruct(t, _, _)) => {
-                t.localize_generics(local_id);
-            }
-            Ast::ConstVal(Val::EnumToken(t, _)) => {
-                t.localize_generics(local_id);
-            }
-            Ast::ConstVal(Val::Token(t)) => {
-                t.localize_generics(local_id);
-            }
-            Ast::Generic(base, type_args) => {
-                for ta in type_args.iter_mut() {
-                    self.localize_node_with_id(&mut ta.v, local_id.clone());
-                }
-                self.localize_node_with_id(base, local_id);
-            }
-            Ast::Call(callx, args) => {
-                for ta in args.iter_mut() {
-                    self.localize_node_with_id(&mut ta.v, local_id.clone());
-                }
-                self.localize_node_with_id(callx, local_id);
-            }
-            Ast::Tuple(items) => {
-                for i in items.iter_mut() {
-                    self.localize_node_with_id(&mut i.v, local_id.clone());
-                }
-            }
-            Ast::Op2(_, ref mut a, ref mut b) => {
-                self.localize_node_with_id(a, local_id.clone());
-                self.localize_node_with_id(b, local_id.clone());
-            }
-            Ast::Type(t) => {
-                t.localize_generics(local_id);
-            }
-            Ast::Id(_id) => {
-                // shouldn't have to localize ids
-            }
-            _ => {} // not a val that needs to be localized
         }
     }
 
@@ -2244,6 +2191,7 @@ impl Semantics
             })
             .collect();
 
+        // replace closed generics from this function's definition
         let closed_body: AstNode;
         if f.is_generic() {
             let mut closed_vars = ClosedVars::new(&f.t);
@@ -2278,10 +2226,19 @@ impl Semantics
             (result, scope_check.anons)
         };
 
+        // replace imported generics w/ local vars
+        let mut localizer = LocalizeGenerics::new();
+        let localized_body = ltry!(
+            ast2::walk(scoped, &mut localizer),
+            "module": modname.as_lstr().clone(),
+            "function": Lstr::Sref(f.f),
+            "type": ldebug!(ftyp),
+        );
+
         // type check and remove unnecessary code
         let mut type_check = TypeCheck::new(lib, proto, &ftyp)?;
         let mut result = ltry!(
-            ast2::walk(scoped, &mut type_check),
+            ast2::walk(localized_body, &mut type_check),
             "module": modname.as_lstr().clone(),
             "function": Lstr::Sref(f.f),
             "type": ldebug!(ftyp),
@@ -2302,6 +2259,12 @@ impl Semantics
 
         for an in anons.iter_mut() {
             if let Ast::DefFunc(_name, _args, _result, body) = &mut *an.v.node {
+                // localize generics in the anons too
+                ltry!(
+                    ast2::walk_ref_mut(body, &mut localizer),
+                    "f": ldebug!(f),
+                );
+
                 let anon_ftyp = an.v.typ.func_ref().unwrap();
                 ltry!(type_check.add_anon_func_args(&anon_ftyp));
                 ltry!(

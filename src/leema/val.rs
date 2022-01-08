@@ -111,11 +111,7 @@ impl<'a> fmt::Display for FuncTypeRef<'a>
         if !self.type_args.is_empty() {
             write!(f, ")")?;
             for ta in self.type_args.iter() {
-                if ta.v.is_open() {
-                    write!(f, " {}", ta.k)?;
-                } else {
-                    write!(f, " {}", ta.v)?;
-                }
+                write!(f, " {}", ta.v)?;
             }
             write!(f, ">")?;
         }
@@ -144,10 +140,7 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
         if !self.type_args.is_empty() {
             write!(f, ")")?;
             for ta in self.type_args.iter() {
-                write!(f, " {}", ta.k)?;
-                if !ta.v.is_open() {
-                    write!(f, ":{:?}", ta.v)?;
-                }
+                write!(f, " {}:{:?}", ta.k, ta.v)?;
             }
             write!(f, ">")?;
         }
@@ -372,22 +365,6 @@ impl Type
         Type::t(Type::PATH_TYPECALL, args)
     }
 
-    /**
-     * Get the typename including the module
-     */
-    pub fn full_typename(&self) -> Lstr
-    {
-        if self.args.is_empty() {
-            self.path.to_lstr()
-        } else if self.is_local() {
-            Lstr::from(format!("local:{}", self.path))
-        } else if self.is_open() {
-            Lstr::from(format!("open:{}", self.path))
-        } else {
-            lstrf!("{}", self)
-        }
-    }
-
     pub fn method_type(&self) -> Lresult<Type>
     {
         let fref = self.try_func_ref()?;
@@ -446,19 +423,15 @@ impl Type
         self.is_local() || self.args.iter().any(|a| a.v.contains_local())
     }
 
-    pub fn is_open(&self) -> bool
-    {
-        self.path.as_str() == Type::PATH_OPENVAR
-    }
-
     pub fn contains_open(&self) -> bool
     {
-        self.is_open() || self.args.iter().any(|a| a.v.contains_open())
+        self.path.as_str() == Type::PATH_OPENVAR
+            || self.args.iter().any(|a| a.v.contains_open())
     }
 
     pub fn is_closed(&self) -> bool
     {
-        !self.is_open()
+        !self.contains_open()
     }
 
     pub fn is_failure(&self) -> bool
@@ -660,7 +633,7 @@ impl Type
     /// return an Err if it is open
     pub fn clone_closed(&self) -> Lresult<Type>
     {
-        if self.is_open() {
+        if self.contains_open() {
             Err(rustfail!("leema_failure", "unexpected open type: {}", self,))
         } else {
             Ok(self.clone())
@@ -852,9 +825,6 @@ impl fmt::Display for Type
         } else if self.is_local() {
             let first = self.first_arg().unwrap();
             write!(f, "local:{}", first.k)
-        } else if self.is_open() {
-            let first = self.first_arg().unwrap();
-            write!(f, "{}", first.k)
         } else {
             match self.path.as_str() {
                 Type::PATH_TUPLE => {
@@ -868,6 +838,10 @@ impl fmt::Display for Type
                     write!(f, "[")?;
                     write!(f, "{}", self.args.first().unwrap().v)?;
                     write!(f, "]")
+                }
+                Type::PATH_OPENVAR => {
+                    let first = self.first_arg().unwrap();
+                    write!(f, "{}", first.k)
                 }
                 _ => {
                     if self.args.is_empty() {
@@ -892,9 +866,6 @@ impl fmt::Debug for Type
         if self.is_local() {
             let first = self.first_arg().unwrap();
             write!(f, "local:{}", first.k)
-        } else if self.is_open() {
-            let first = self.first_arg().unwrap();
-            write!(f, "open:{}", first.k)
         } else if let Some(ft) = self.func_ref() {
             if f.alternate() {
                 write!(f, "{:#?}", ft)
@@ -917,6 +888,10 @@ impl fmt::Debug for Type
                     write!(f, "[")?;
                     write!(f, "{:?}", self.args.first().unwrap().v)?;
                     write!(f, "]")
+                }
+                Type::PATH_OPENVAR => {
+                    let first = self.first_arg().unwrap();
+                    write!(f, "(open {})", first.k)
                 }
                 _ => {
                     if self.args.is_empty() {
