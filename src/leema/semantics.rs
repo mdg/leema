@@ -8,6 +8,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
+use crate::leema::semantic::closed_vars::ClosedVars;
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArg,
@@ -360,29 +361,28 @@ impl<'p> ScopeCheck<'p>
             return;
         }
         let local_id = self.localized_id(&node.loc);
-        self.localize_node_with_id(node, local_id)
+        self.localize_node_with_id(node, &local_id)
     }
 
-    fn localize_node_with_id(&mut self, node: &mut AstNode, local_id: String)
+    fn localize_node_with_id(&mut self, node: &mut AstNode, local_id: &str)
     {
-        node.typ
-            .localize_generics(&self.type_args, local_id.clone());
+        node.typ.localize_generics(local_id);
         match &mut *node.node {
             Ast::ConstVal(Val::Func(fref)) => {
-                fref.localize_generics(&self.type_args, local_id.clone());
-                node.typ.localize_generics(&self.type_args, local_id);
+                fref.localize_generics(local_id.clone());
+                node.typ.localize_generics(local_id);
             }
             Ast::ConstVal(Val::Struct(t, _)) => {
-                t.localize_generics(&self.type_args, local_id);
+                t.localize_generics(local_id);
             }
             Ast::ConstVal(Val::EnumStruct(t, _, _)) => {
-                t.localize_generics(&self.type_args, local_id);
+                t.localize_generics(local_id);
             }
             Ast::ConstVal(Val::EnumToken(t, _)) => {
-                t.localize_generics(&self.type_args, local_id);
+                t.localize_generics(local_id);
             }
             Ast::ConstVal(Val::Token(t)) => {
-                t.localize_generics(&self.type_args, local_id);
+                t.localize_generics(local_id);
             }
             Ast::Generic(base, type_args) => {
                 for ta in type_args.iter_mut() {
@@ -406,7 +406,7 @@ impl<'p> ScopeCheck<'p>
                 self.localize_node_with_id(b, local_id.clone());
             }
             Ast::Type(t) => {
-                t.localize_generics(&self.type_args, local_id);
+                t.localize_generics(local_id);
             }
             Ast::Id(_id) => {
                 // shouldn't have to localize ids
@@ -945,10 +945,10 @@ impl<'p> ScopeCheck<'p>
                         fref.f,
                         self.localized_id(&node.loc),
                     );
-                    fref.localize_generics(&self.type_args, local_id.clone());
+                    fref.localize_generics(&local_id);
                     // look this up in the proto
                     node.typ = ltry!(self.lib.func_type(fref)).clone();
-                    node.typ.localize_generics(&fref.t, local_id);
+                    node.typ.localize_generics(&local_id);
                     // does this really need a rewrite?
                     return Ok(AstStep::Rewrite);
                 }
@@ -956,7 +956,7 @@ impl<'p> ScopeCheck<'p>
             Ast::ConstVal(Val::Type(t)) => {
                 if t.contains_open() {
                     let local_id = self.localized_id(&node.loc);
-                    t.localize_generics(&self.type_args, local_id);
+                    t.localize_generics(&local_id);
                 }
             }
             Ast::ConstVal(Val::Str(escaped)) => {
@@ -1443,8 +1443,7 @@ impl<'p> TypeCheck<'p>
             a.0.v = ltry!(self.match_type(&a.0.v, next_type));
         }
 
-        let mut calltype = ltry!(self.lib.func_type(fref)).clone();
-        calltype.close_openvars();
+        let calltype = ltry!(self.lib.func_type(fref)).clone();
         Ok(ltry!(self.inferred_type(&calltype)))
     }
 
@@ -2245,11 +2244,24 @@ impl Semantics
             })
             .collect();
 
+        let closed_body: AstNode;
+        if f.is_generic() {
+            let mut closed_vars = ClosedVars::new(&f.t);
+            closed_body = ltry!(
+                ast2::walk(body, &mut closed_vars),
+                "module": modname.as_lstr().clone(),
+                "function": Lstr::Sref(f.f),
+                "type": ldebug!(ftyp),
+            );
+        } else {
+            closed_body = body;
+        }
+
         // check scope and apply macros
         let (scoped, mut anons) = {
             let mut scope_check = ScopeCheck::new(lib, proto, &ftyp)?;
             let result = ltry!(
-                ast2::walk(body, &mut scope_check),
+                ast2::walk(closed_body, &mut scope_check),
                 "module": modname.as_lstr().clone(),
                 "function": Lstr::Sref(f.f),
                 "type": ldebug!(ftyp),

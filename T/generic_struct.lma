@@ -1,10 +1,23 @@
 
-struple Taco[T]
+datatype <Taco T> ::
 .filling: T
 .qty: Int
 --
 
-func main() >>
+impl <Taco T> ::
+
+    func <map U>:<Taco U> :: self f:(U :: T) ->
+        T:Str
+        U:Int
+    --
+
+--
+
+<Taco.map T U>
+<<Taco T>.map U>
+t.map(f)
+
+func main >>
     let chk := Taco(#chicken, 1)
     let beans := Taco("beans", 2)
     print("chicken: $chk\n")

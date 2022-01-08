@@ -29,6 +29,7 @@ pub mod program;
 pub mod proto;
 pub mod reg;
 pub mod rsrc;
+pub mod semantic;
 pub mod semantics;
 pub mod sendclone;
 pub mod stack;

@@ -164,7 +164,6 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
 pub struct FuncTypeRefMut<'a>
 {
     pub path: &'a str,
-    pub type_args: &'a mut TypeArgSlice,
     pub result: &'a mut Type,
     pub args: &'a mut TypeArgSlice,
 }
@@ -523,12 +522,21 @@ impl Type
     pub fn func_ref_mut<'a>(&'a mut self) -> Option<FuncTypeRefMut<'a>>
     {
         match self.type_ref_mut() {
-            TypeRefMut(Type::PATH_FN, [gen, result, args]) => {
+            TypeRefMut(Type::PATH_FN, args) => {
+                let (result, args) = args.split_at_mut(1);
                 Some(FuncTypeRefMut {
                     path: Type::PATH_FN,
-                    type_args: &mut gen.v.args,
-                    result: &mut result.v,
-                    args: args.v.type_ref_mut().1,
+                    result: &mut result.first_mut()?.v,
+                    args,
+                })
+            }
+            TypeRefMut(Type::PATH_TYPECALL, args) => {
+                let result = &mut args.first_mut()?.v;
+                let inner = result.func_ref_mut()?;
+                Some(FuncTypeRefMut {
+                    path: Type::PATH_FN,
+                    result: inner.result,
+                    args: inner.args,
                 })
             }
             _ => None,
@@ -615,23 +623,9 @@ impl Type
 
     pub fn try_generic_ref_mut<'a>(&'a mut self) -> Lresult<TypeRefMut<'a>>
     {
-        {
-            // sketchy: working around a borrow checker limitation
-            // that for some reason keeps this from working. cast self
-            // to a pointer, then back to a reference and use the reference
-            // instead to avoid double borrow errors
-            // Explained in this rust user forum thread:
-            // https://users.rust-lang.org/t/solved-borrow-doesnt-drop-returning-this-value-requires-that/24182/6
-            let ft = unsafe { &mut (*(self as *mut Type)) };
-
-            let opt_func_ref = ft.func_ref_mut();
-            if opt_func_ref.is_some() {
-                let f = opt_func_ref.unwrap();
-                return Ok(TypeRefMut(f.path, f.type_args));
-            }
-        }
-
-        if self.is_generic() {
+        if self.path.as_str() == Self::PATH_TYPECALL {
+            Ok(TypeRefMut(self.path.as_str(), &mut self.args[1..]))
+        } else if !self.args.is_empty() {
             Ok(self.type_ref_mut())
         } else {
             Err(rustfail!("leema_failure", "type is not generic: {}", self,))
@@ -683,26 +677,8 @@ impl Type
                 }
             } else {
                 // else this is an invalid openvar (bad)
-                panic!("invalid open type variable");
+                panic!("invalid open type variable {:?}", self);
             }
-        } else if let Some(ft) = self.func_ref_mut() {
-            let inner_args = if ft.type_args.is_empty() {
-                type_args
-            } else {
-                for a in ft.type_args.iter_mut() {
-                    if a.v.is_open() {
-                        // do this at all?
-                        a.v.close_generics(type_args);
-                    }
-                    // else, dunno why this would be, but don't localize
-                    // anything if it's not open
-                }
-                &ft.type_args
-            };
-            for a in ft.args.iter_mut() {
-                a.v.close_generics(inner_args);
-            }
-            ft.result.close_generics(inner_args);
         } else {
             for a in self.args.iter_mut() {
                 a.v.close_generics(type_args);
@@ -710,47 +686,19 @@ impl Type
         }
     }
 
-    /// replace an open variable in this type with the new type
-    pub fn localize_generics(
-        &mut self,
-        type_args: &TypeArgSlice,
-        mut local_id: String,
-    )
+    /// replace any open variable in this type with the new type
+    pub fn localize_generics(&mut self, local_id: &str)
     {
         if self.path.as_str() == Self::PATH_OPENVAR {
             if let Some(open) = self.args.first() {
-                if let Some(found) = struple::find(type_args, &open.k) {
-                    *self = found.clone();
-                } else {
-                    *self = Self::local(lstrf!("{}-{}", local_id, open.k));
-                }
-                return;
+                *self = Self::local(lstrf!("{}-{}", local_id, open.k));
             } else {
                 // else this is an invalid openvar (bad)
                 panic!("invalid open type variable");
             }
-        }
-        if let Some(ft) = self.func_ref_mut() {
-            let inner_args = if ft.type_args.is_empty() {
-                type_args
-            } else {
-                local_id = format!("{}.sub", local_id);
-                for a in ft.type_args.iter_mut() {
-                    if a.v.is_open() {
-                        a.v.localize_generics(&[], local_id.clone());
-                    }
-                    // else, dunno why this would be, but don't localize
-                    // anything if it's not open
-                }
-                &ft.type_args
-            };
-            for a in ft.args.iter_mut() {
-                a.v.localize_generics(inner_args, local_id.clone());
-            }
-            ft.result.localize_generics(inner_args, local_id);
         } else {
             for a in self.args.iter_mut() {
-                a.v.localize_generics(type_args, local_id.clone());
+                a.v.localize_generics(local_id);
             }
         }
     }
@@ -770,41 +718,10 @@ impl Type
                     return;
                 }
             } // else this is bad
-        }
-        if let Some(ft) = self.func_ref_mut() {
-            for a in ft.type_args.iter_mut() {
-                if a.k == *id {
-                    a.v = new_type.clone();
-                }
-            }
-            ft.result.replace_openvar(id, new_type);
-            for a in ft.args.iter_mut() {
-                a.v.replace_openvar(id, new_type);
-            }
         } else {
-            for a in self.args.iter_mut() {
-                if a.k == *id {
-                    a.v = new_type.clone();
-                } else {
-                    a.v.replace_openvar(id, new_type);
-                }
-            }
-        }
-    }
-
-    pub fn close_openvars(&mut self)
-    {
-        if let Some(ft) = self.func_ref_mut() {
-            for ta in ft.type_args.iter() {
-                // can't close open vars
-                if ta.v.is_open() {
-                    continue;
-                }
-                ft.result.replace_openvar(ta.k.as_str(), &ta.v);
-                for a in ft.args.iter_mut() {
-                    a.v.replace_openvar(ta.k.as_str(), &ta.v);
-                }
-            }
+            self.args.iter_mut().for_each(|a| {
+                a.v.replace_openvar(id, new_type);
+            })
         }
     }
 
@@ -1126,14 +1043,10 @@ impl Fref
         self.t.iter().any(|t| t.v.contains_local())
     }
 
-    pub fn localize_generics(
-        &mut self,
-        type_args: &TypeArgSlice,
-        local_id: String,
-    )
+    pub fn localize_generics(&mut self, local_id: &str)
     {
         for t in self.t.iter_mut() {
-            t.v.localize_generics(type_args, local_id.clone());
+            t.v.localize_generics(local_id);
         }
     }
 
