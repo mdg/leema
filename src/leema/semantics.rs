@@ -701,6 +701,7 @@ impl<'p> ScopeCheck<'p>
                     "file": self.local_mod.key.best_path(),
                     "line": ldisplay!(node.loc.lineno),
                 );
+                node.typ = Type::local(Lstr::Sref(id));
                 *node.node = Ast::ConstVal(Val::Reg(node.dst));
             }
             Ast::Id(id) if mode == AstMode::Type => {
@@ -1900,17 +1901,17 @@ impl<'l> fmt::Debug for TypeCheck<'l>
 /// Resolve any unresolved type variables
 struct ResolveTypes<'l>
 {
-    key: ModKey,
+    func: &'l Fref,
     infers: &'l LocalTypeVars,
     pub calls: HashSet<Fref>,
 }
 
 impl<'l> ResolveTypes<'l>
 {
-    pub fn new(key: ModKey, infers: &'l LocalTypeVars) -> ResolveTypes
+    pub fn new(f: &'l Fref, infers: &'l LocalTypeVars) -> ResolveTypes<'l>
     {
         ResolveTypes {
-            key,
+            func: f,
             infers,
             calls: HashSet::new(),
         }
@@ -1977,7 +1978,8 @@ impl<'l> ast2::Op for ResolveTypes<'l>
                     node.typ.replace_localvars(&self.infers),
                     "node": ldebug!(other),
                     "type": ldisplay!(node.typ),
-                    "file": self.key.best_path(),
+                    "file": self.func.m.best_path(),
+                    "func": ldisplay!(self.func),
                     "line": ldisplay!(node.loc.lineno),
                 );
                 Ok(AstStep::Rewrite)
@@ -2208,8 +2210,7 @@ impl Semantics
             }
         }
 
-        let mut resolver =
-            ResolveTypes::new(proto.key.clone(), &type_check.infers);
+        let mut resolver = ResolveTypes::new(&f, &type_check.infers);
         let mut remove_extra = RemoveExtraCode;
         let mut resolve_pipe =
             ast2::Pipeline::new(vec![&mut remove_extra, &mut resolver]);

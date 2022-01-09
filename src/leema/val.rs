@@ -353,7 +353,7 @@ impl Type
             Type::PATH_OPENVAR,
             vec![StrupleItem {
                 k: var,
-                v: Type::VOID,
+                v: Type::UNKNOWN,
             }],
         )
     }
