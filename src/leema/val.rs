@@ -643,6 +643,59 @@ impl Type
         }
     }
 
+    /// apply the closed type parameters to a type call
+    pub fn apply_typecall(&self, type_args: &TypeArgSlice) -> Lresult<Type>
+    {
+        match self.path.as_str() {
+            Type::PATH_TYPECALL => {
+                let (out, args) = self.args.split_at(1);
+                if args.len() != type_args.len() {
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "function type arg mismatch",
+                        "type": ldebug!(self),
+                        "args": ldebug!(type_args),
+                    ));
+                }
+                let mut result = out.first().ok_or_else(|| {
+                    lfail!(
+                        failure::Mode::StaticLeemaFailure,
+                        "empty type args for generic function",
+                        "type": ldebug!(self),
+                        "args": ldebug!(type_args),
+                    )
+                })?.v.clone();
+                for (k, v) in args.iter().zip(type_args.iter()) {
+                    // args.push(StrupleItem::new(k.k.clone(), v.v.clone()));
+                    result.replace_openvar(&k.k, &v.v);
+                }
+                Ok(result)
+            }
+            Type::PATH_FN => {
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "cannot apply types to non-generic function",
+                    "type": ldebug!(self),
+                    "args": ldebug!(type_args),
+                ));
+            }
+            _ => {
+                if self.args.len() != type_args.len() {
+                    return Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "type arg mismatch",
+                        "type": ldebug!(self),
+                        "args": ldebug!(type_args),
+                    ));
+                }
+                let args = self.args.iter().zip(type_args.iter()).map(|p| {
+                    StrupleItem::new(p.0.k.clone(), p.1.v.clone())
+                }).collect();
+                Ok(Type{ path: self.path.clone(), args })
+            }
+        }
+    }
+
     /// replace any open type variables that are already closed
     pub fn close_generics(&mut self, type_args: &TypeArgSlice)
     {
