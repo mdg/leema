@@ -2064,33 +2064,37 @@ impl Semantics
         &self.src.typ
     }
 
-    pub fn compile_call(lib: &mut ProtoLib, f: &Fref) -> Lresult<Semantics>
+    pub fn compile_call(lib: &mut ProtoLib, fp: &Fref) -> Lresult<Semantics>
     {
         let mut sem = Semantics::new();
-        if f.contains_open() {
+        if fp.contains_open() {
             return Err(lfail!(
                 failure::Mode::TypeFailure,
                 "cannot compile open generic function",
-                "function": ldebug!(f),
+                "function": ldebug!(fp),
             ));
         }
 
-        let (modname, body) = lib.take_func(&f)?;
+        let (modname, body) = lib.take_func(&fp)?;
         if *body.node == Ast::BLOCK_ABSTRACT {
             return Err(rustfail!(
                 "compile_failure",
                 "cannot execute abstract function: {}.{}",
                 modname,
-                f.f,
+                fp.f,
             ));
         }
         let proto = lib.path_proto(&modname)?;
 
-        let func_ref = proto.find_method(&f.f).ok_or_else(|| {
-            rustfail!(SEMFAIL, "cannot find func ref for {}", f,)
+        let func_ref = proto.find_method(&fp.f).ok_or_else(|| {
+            rustfail!(SEMFAIL, "cannot find func ref for {}", fp,)
         })?;
 
-        let func_typ = lib.func_type(&f).unwrap();
+        let (func_typ, f) = {
+            let mut f = fp.clone();
+            let t = lib.func_type_closed(&mut f).unwrap();
+            (t, f)
+        };
 
         if func_typ.contains_local() {
             return Err(lfail!(

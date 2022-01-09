@@ -1547,22 +1547,54 @@ impl ProtoLib
         })
     }
 
-    /// get the type for a function
+    /// get the type for a function, leave any generics open
     pub fn func_type(&self, f: &Fref) -> Lresult<Type>
     {
         let proto = ltry!(self.path_proto(&f.m.name));
-        let mut ft = proto
+        proto
             .find_type(f.f)
+            .map(|t| t.clone())
             .ok_or_else(|| {
                 lfail!(
                     failure::Mode::StaticLeemaFailure,
                     "function type not found",
                     "func": ldebug!(f),
                 )
-            })?
-            .clone();
-        ft.close_generics(&f.t);
-        Ok(ft)
+            })
+    }
+
+    /// get the type for a function and close any generics
+    /// using the types in f. Return f w/ full closed type def
+    pub fn func_type_closed(&self, f: &mut Fref) -> Lresult<Type>
+    {
+        if f.contains_open() {
+            return Err(lfail!(
+                failure::Mode::StaticLeemaFailure,
+                "cannot close function with open types",
+                "func": ldebug!(f),
+            ));
+        }
+        let mut t = ltry!(self.func_type(f));
+        if f.is_generic() {
+            let tref = ltry!(t.try_generic_ref_mut());
+            if f.t.len() != tref.1.len() {
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "type arg mismatch",
+                    "func": ldebug!(f),
+                    "type": ldebug!(t),
+                ));
+            }
+            // copy the type names into fref args
+            for (fa, ta) in f.t.iter_mut().zip(tref.1.iter()) {
+                fa.k = ta.k.clone();
+            }
+            // now replace the opens within the type
+            for fa in &f.t {
+                t.replace_openvar(&fa.k, &fa.v);
+            }
+        }
+        Ok(t)
     }
 
     /// take the type and source for the given func

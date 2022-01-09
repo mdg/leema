@@ -102,7 +102,7 @@ impl<'a> fmt::Display for FuncTypeRef<'a>
         if !self.type_args.is_empty() {
             write!(f, "<(")?;
         }
-        write!(f, "{} ::", self.result)?;
+        write!(f, "({} ::", self.result)?;
         for a in self.args.iter() {
             if a.v.is_func() {
                 write!(f, " ({})", a.v)?;
@@ -110,6 +110,7 @@ impl<'a> fmt::Display for FuncTypeRef<'a>
                 write!(f, " {}", a.v)?;
             }
         }
+        write!(f, ")")?;
         if !self.type_args.is_empty() {
             write!(f, ")")?;
             for ta in self.type_args.iter() {
@@ -690,7 +691,6 @@ impl Type
             if let Some(open) = self.args.first() {
                 if open.k == *id {
                     *self = new_type.clone();
-                    return;
                 }
             } // else this is bad
         } else {
