@@ -657,14 +657,18 @@ impl Type
                         "args": ldebug!(type_args),
                     ));
                 }
-                let mut result = out.first().ok_or_else(|| {
-                    lfail!(
-                        failure::Mode::StaticLeemaFailure,
-                        "empty type args for generic function",
-                        "type": ldebug!(self),
-                        "args": ldebug!(type_args),
-                    )
-                })?.v.clone();
+                let mut result = out
+                    .first()
+                    .ok_or_else(|| {
+                        lfail!(
+                            failure::Mode::StaticLeemaFailure,
+                            "empty type args for generic function",
+                            "type": ldebug!(self),
+                            "args": ldebug!(type_args),
+                        )
+                    })?
+                    .v
+                    .clone();
                 for (k, v) in args.iter().zip(type_args.iter()) {
                     // args.push(StrupleItem::new(k.k.clone(), v.v.clone()));
                     result.replace_openvar(&k.k, &v.v);
@@ -688,10 +692,16 @@ impl Type
                         "args": ldebug!(type_args),
                     ));
                 }
-                let args = self.args.iter().zip(type_args.iter()).map(|p| {
-                    StrupleItem::new(p.0.k.clone(), p.1.v.clone())
-                }).collect();
-                Ok(Type{ path: self.path.clone(), args })
+                let args = self
+                    .args
+                    .iter()
+                    .zip(type_args.iter())
+                    .map(|p| StrupleItem::new(p.0.k.clone(), p.1.v.clone()))
+                    .collect();
+                Ok(Type {
+                    path: self.path.clone(),
+                    args,
+                })
             }
         }
     }
@@ -1203,6 +1213,19 @@ const NIL: Val = Val::Nil;
 pub const FALSE: Val = Val::Bool(false);
 pub const TRUE: Val = Val::Bool(true);
 
+pub trait Op
+{
+    fn pre_ref(&mut self, _val: &Val) -> Lresult<()>
+    {
+        Ok(())
+    }
+
+    fn pre_ref_mut(&mut self, _val: &mut Val) -> Lresult<()>
+    {
+        Ok(())
+    }
+}
+
 impl Val
 {
     pub const FALSE: Val = Val::EnumToken(Type::BOOL, Lstr::Sref("False"));
@@ -1535,6 +1558,39 @@ impl Val
             _ => self.clone(),
         };
         Ok(m_result)
+    }
+
+    pub fn walk_ref(&self, op: &mut dyn Op) -> Lresult<()>
+    {
+        ltry!(op.pre_ref(self));
+
+        match self {
+            &Val::Cons(ref head, ref tail) => {
+                ltry!(head.walk_ref(op));
+                ltry!(tail.walk_ref(op));
+            }
+            &Val::Tuple(ref flds) => {
+                for f in flds {
+                    ltry!(f.v.walk_ref(op));
+                }
+            }
+            &Val::Struct(_, ref flds) => {
+                for f in flds {
+                    ltry!(f.v.walk_ref(op));
+                }
+            }
+            &Val::EnumStruct(_, _, ref flds) => {
+                for f in flds {
+                    ltry!(f.v.walk_ref(op));
+                }
+            }
+            &Val::Failure2(ref failure) => {
+                ltry!(failure.tag.walk_ref(op));
+                ltry!(failure.msg.walk_ref(op));
+            }
+            _ => {}
+        }
+        Ok(())
     }
 
     fn fmt_list(f: &mut fmt::Formatter, l: &Val, dbg: bool) -> fmt::Result

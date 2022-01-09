@@ -1551,16 +1551,13 @@ impl ProtoLib
     pub fn func_type(&self, f: &Fref) -> Lresult<Type>
     {
         let proto = ltry!(self.path_proto(&f.m.name));
-        proto
-            .find_type(f.f)
-            .map(|t| t.clone())
-            .ok_or_else(|| {
-                lfail!(
-                    failure::Mode::StaticLeemaFailure,
-                    "function type not found",
-                    "func": ldebug!(f),
-                )
-            })
+        proto.find_type(f.f).map(|t| t.clone()).ok_or_else(|| {
+            lfail!(
+                failure::Mode::StaticLeemaFailure,
+                "function type not found",
+                "func": ldebug!(f),
+            )
+        })
     }
 
     /// get the type for a function and close any generics

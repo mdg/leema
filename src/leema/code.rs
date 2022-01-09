@@ -4,11 +4,11 @@ use crate::leema::fiber;
 use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::Reg;
+use crate::leema::reg::{Ireg, Reg};
 use crate::leema::rsrc;
 use crate::leema::sendclone::SendClone;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{Type, Val};
+use crate::leema::val::{self, Type, Val};
 use crate::leema::worker::RustFuncContext;
 
 use std::collections::HashMap;
@@ -282,6 +282,14 @@ impl LocalMax
         ast2::walk_ref_mut(node, &mut max_local)?;
         Ok(max_local.local_max + 1)
     }
+
+    pub fn check_max(&mut self, i: Ireg)
+    {
+        let p = i.get_primary();
+        if p > self.local_max {
+            self.local_max = p;
+        }
+    }
 }
 
 impl Default for LocalMax
@@ -298,14 +306,28 @@ impl ast2::Op for LocalMax
     {
         match node.dst {
             Reg::Local(ireg) => {
-                let p = ireg.get_primary();
-                if p > self.local_max {
-                    self.local_max = p;
-                }
+                self.check_max(ireg);
             }
             _ => {}
         }
+        if let Ast::ConstVal(v) = &*node.node {
+            ltry!(v.walk_ref(self));
+        }
         Ok(ast2::AstStep::Ok)
+    }
+}
+
+impl val::Op for LocalMax
+{
+    fn pre_ref(&mut self, v: &Val) -> Lresult<()>
+    {
+        match v {
+            Val::Reg(Reg::Local(ireg)) => {
+                self.check_max(*ireg);
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }
 
