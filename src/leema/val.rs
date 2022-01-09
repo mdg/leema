@@ -74,6 +74,8 @@ pub enum FuncType2
     Main, // or Control?
 }
 
+/// Probably switch this to be StrupleItem<Option<Lstr>, Type>
+/// so it matches Val and don't have to generate unnamed nonsense above
 pub type TypeArg = StrupleItem<Lstr, Type>;
 pub type TypeArgs = StrupleKV<Lstr, Type>;
 pub type TypeArgSlice = [StrupleItem<Lstr, Type>];
@@ -1047,7 +1049,19 @@ impl fmt::Display for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({}.{}: {:?})", self.m.name, self.f, self.t)
+        if self.t.is_empty() {
+            write!(f, "{}.{}", self.m.name, self.f)
+        } else {
+            write!(f, "<{}.{}", self.m.name, self.f)?;
+            for t in &self.t {
+                if t.v == Type::UNKNOWN {
+                    write!(f, " {}", t.k)?;
+                } else {
+                    write!(f, " {}", t.v)?;
+                }
+            }
+            write!(f, ">")
+        }
     }
 }
 
