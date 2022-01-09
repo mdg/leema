@@ -190,6 +190,20 @@ impl Ref
         })
     }
 
+    /// get a mutable reference to the top item on the stack
+    pub fn stack_top_mut(&mut self) -> Lresult<&mut Val>
+    {
+        self.stack_data_mut()
+            .last_mut()
+            .map(|i| &mut i.v)
+            .ok_or_else(|| {
+                lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "stack top mut underflow"
+                )
+            })
+    }
+
     pub fn reserve_local(&mut self, num: usize)
     {
         if num == 0 {
@@ -311,6 +325,11 @@ impl Ref
     pub fn stack_data(&self) -> &Struple2Slice<Val>
     {
         &unsafe { &*self.stack }.data
+    }
+
+    fn stack_data_mut(&self) -> &mut Struple2Slice<Val>
+    {
+        &mut unsafe { &mut *self.stack }.data
     }
 
     pub fn func_val<'a>(&'a self) -> &'a Val

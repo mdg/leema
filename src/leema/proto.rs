@@ -1614,6 +1614,37 @@ impl ProtoLib
             Ok((name, ltry!(proto.take_func(&f))))
         }
     }
+
+    /// get the field type and index for a struct field
+    /// maybe have a _closed version of this that closes the type
+    /// if it's generic based on t.args
+    pub fn data_member(&self, t: &Type, fld: &Lstr) -> Lresult<(&Type, i8)>
+    {
+        let proto = ltry!(self.path_proto(&t.path));
+        proto
+            .find_modelem(fld)
+            .ok_or_else(|| {
+                lfail!(
+                    failure::Mode::StaticLeemaFailure,
+                    "struct field not found",
+                    "type": ldisplay!(t),
+                    "field": fld.clone(),
+                )
+            })
+            .and_then(|e| {
+                if let Ast::DataMember(fld_type, fld_idx) = &*e.node {
+                    Ok((fld_type, *fld_idx as i8))
+                } else {
+                    Err(lfail!(
+                        failure::Mode::TypeFailure,
+                        "not a data member",
+                        "type": ldisplay!(t),
+                        "field": fld.clone(),
+                        "node": ldebug!(*e.node),
+                    ))
+                }
+            })
+    }
 }
 
 

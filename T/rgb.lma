@@ -19,4 +19,6 @@ func main ->
     print("blue: ${c.blue}\n")
     let hex_g := HEX_GREEN
     print("hex green is: $hex_g\n")
+    let reddish := c(red: 120, blue: 10)
+    print("orange is: $reddish\n")
 --

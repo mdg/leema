@@ -62,6 +62,9 @@ pub enum Op
     /// Pop N elements off the stack and put them in a new tuple
     PushTuple(i8),
 
+    /// Pop a field into Nth field of object at top of stack
+    PopField(i8),
+
     /// Pop a register off the stack and move it to a local
     PopReg(Reg),
 
@@ -160,6 +163,7 @@ impl Clone for Op
             &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::PushReg(src) => Op::PushReg(src),
             &Op::PopReg(dst) => Op::PopReg(dst),
+            &Op::PopField(fld) => Op::PopField(fld),
             &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
             &Op::PopListCons => Op::PopListCons,
             &Op::PopStrCat => Op::PopStrCat,
@@ -407,11 +411,25 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             xops.ops
         }
         Ast::CopyAndSet(src, flds) => {
-            let src_dst = src.dst.clone();
+            // should leave src on top of the stack
             let mut cs_ops = make_sub_ops2(src, opm);
-            cs_ops.ops.push(Op::Copy(input.dst, src_dst));
+            // push each field to the stack and pop it into the field of src
             for f in flds.into_iter() {
+                let fld_idx = if let Reg::Param(reg) = f.v.dst {
+                    reg.get_primary()
+                } else {
+                    // this function should return an Lresult
+                    Lresult::<()>::Err(lfail!(
+                        failure::Mode::StaticLeemaFailure,
+                        "expected param reg",
+                        "reg": ldebug!(f.v.dst),
+                        "line": ldebug!(input.loc),
+                    ))
+                    .unwrap();
+                    panic!("failure");
+                };
                 let mut f_ops = make_sub_ops2(f.v, opm);
+                f_ops.ops.push(Op::PopField(fld_idx));
                 cs_ops.ops.append(&mut f_ops.ops);
             }
             cs_ops.ops
@@ -819,14 +837,8 @@ impl Registration
             Ast::Op2(op2, ref mut a, ref mut b) => {
                 panic!("assign registers to op2? {:?} {} {:?}", a, op2, b);
             }
-            Ast::CopyAndSet(ref mut src, ref mut fields) => {
+            Ast::CopyAndSet(ref mut src, ref mut _fields) => {
                 Self::assign_registers(src)?;
-                for (i, f) in fields.iter_mut().enumerate() {
-                    Self::set_dst_or_copy(&mut f.v, node.dst.sub(i as i8));
-                    // skip assigning the type,
-                    // probably don' care about it anymore
-                    // f.v.typ = copied.typ.clone();
-                }
             }
             Ast::Return(ref mut result) => {
                 Self::assign_registers(result)?;

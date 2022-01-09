@@ -8,6 +8,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
+use crate::leema::reg::Reg;
 use crate::leema::semantic::{ClosedVars, LocalizeGenerics};
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{
@@ -1560,7 +1561,19 @@ impl<'p> TypeCheck<'p>
             Ast::Call(ref mut callx, ref mut args) if callx.typ.is_user() => {
                 let copy_typ = callx.typ.clone();
                 let base = mem::take(callx);
-                let args_copy = mem::take(args);
+                let mut args_copy = mem::take(args);
+                for (i, a) in &mut args_copy.iter_mut().enumerate() {
+                    if let Some(fld_name) = &a.k {
+                        let (fld_typ, fld_idx) = ltry!(self
+                            .lib
+                            .data_member(&copy_typ, &Lstr::Sref(fld_name)));
+                        a.v.dst = Reg::param(fld_idx);
+                        // is this necessary?
+                        a.v.typ = fld_typ.clone();
+                    } else {
+                        a.v.dst = Reg::param(i as i8);
+                    }
+                }
                 return Ok(AstStep::Replace(
                     // should this be CopyIfNecessary instead?
                     // or maybe just Set and rely on Rc::make_mut?

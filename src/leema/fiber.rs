@@ -4,7 +4,7 @@ use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
 use crate::leema::lstr::Lstr;
-use crate::leema::reg::Reg;
+use crate::leema::reg::{Ireg, Iregistry, Reg};
 use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, Type, Val};
@@ -107,6 +107,7 @@ impl Fiber
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::PushTuple(n) => self.execute_push_tuple(n),
+            &Op::PopField(fld_idx) => self.execute_pop_field(fld_idx),
             &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
             &Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
@@ -214,6 +215,17 @@ impl Fiber
     {
         let v = ltry!(self.head.e.get_reg(src)).clone();
         self.head.e.stack_push(v);
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
+    }
+
+    pub fn execute_pop_field(&mut self, fld: i8) -> Lresult<Event>
+    {
+        let v = ltry!(self.head.e.stack_pop());
+        {
+            let dst = ltry!(self.head.e.stack_top_mut());
+            ltry!(dst.ireg_set(Ireg::Reg(fld), v));
+        }
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }
