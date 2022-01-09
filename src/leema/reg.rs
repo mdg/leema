@@ -92,6 +92,7 @@ pub enum Reg
     /// Top of the stack
     Top,
     Lib,
+    /// Maybe call it Reg::Null, like /dev/null?
     Void,
     Undecided,
 }

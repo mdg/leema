@@ -49,7 +49,6 @@ impl ast2::Op for LocalizeGenerics
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
-        self.localize_type(&mut node.typ, node.loc);
         match &mut *node.node {
             Ast::Type(t) => {
                 self.localize_type(t, node.loc);
@@ -120,9 +119,18 @@ impl ast2::Op for LocalizeGenerics
 
     fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
-        // clean up any leftover unknown types
-        if node.typ == Type::UNKNOWN {
-            node.typ = self.next_local_typevar();
+        match &*node.node {
+            Ast::Call(_callx, _args) => {}
+            _ => {
+                // clean up any leftover unknown types
+                self.localize_type(&mut node.typ, node.loc);
+                if node.typ == Type::UNKNOWN {
+                    node.typ = self.next_local_typevar();
+                }
+            }
+        }
+        if node.typ.contains_open() {
+            panic!("open node: {:#?}", *node);
         }
         Ok(AstStep::Ok)
     }

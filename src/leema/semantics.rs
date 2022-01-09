@@ -1121,10 +1121,20 @@ impl<'p> TypeCheck<'p>
     pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
     {
         if t0.contains_open() {
-            panic!("unexpected open type variable: {:?}", t0);
+            return Err(lfail!(
+                failure::Mode::StaticLeemaFailure,
+                "unexpected open type variable",
+                "type": ldisplay!(t0),
+                "file": self.local_mod.key.best_path(),
+            ));
         }
         if t1.contains_open() {
-            panic!("unexpected open type variable: {:?}", t1);
+            return Err(lfail!(
+                failure::Mode::StaticLeemaFailure,
+                "unexpected open type variable",
+                "type": ldisplay!(t1),
+                "file": self.local_mod.key.best_path(),
+            ));
         }
         match (t0.path_str(), t1.path_str()) {
             // open var cases should not happen
@@ -1324,7 +1334,7 @@ impl<'p> TypeCheck<'p>
             a.0.v = ltry!(self.match_type(&a.0.v, next_type));
         }
 
-        let calltype = ltry!(self.lib.func_type(fref)).clone();
+        let calltype = ltry!(self.lib.func_type_closed(fref)).clone();
         Ok(ltry!(self.inferred_type(&calltype)))
     }
 
@@ -1434,12 +1444,12 @@ impl<'p> TypeCheck<'p>
         // the args in the Val::Call const? <--
 
         // get call type from proto
-        let mut ftyp = ltry!(self.lib.func_type(fref)).clone();
-        *result_typ =
-            ltry!(self.applied_call_type(&mut ftyp, args).map_err(|f| {
-                f.add_context(lstrf!("for function: {}", fref,))
-                    .lstr_loc(self.local_mod.key.best_path(), loc.lineno as u32)
-            }));
+        let mut ftyp = ltry!(self.lib.func_type_closed(fref)).clone();
+        *result_typ = ltry!(self.applied_call_type(&mut ftyp, args),
+            "function": ldisplay!(fref),
+            "file": self.local_mod.key.best_path(),
+            "line": ldisplay!(loc.lineno),
+        );
         self.calls.push(fref.clone());
         /*
         error message for some other scenario, maybe unnecessary
