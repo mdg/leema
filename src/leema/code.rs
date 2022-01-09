@@ -62,8 +62,11 @@ pub enum Op
     /// Pop N elements off the stack and put them in a new tuple
     PushTuple(i8),
 
-    /// Pop a field into Nth field of object at top of stack
-    PopField(i8),
+    /// Pop a struct off the stack and push one of its fields onto stack
+    PushField(i8),
+
+    /// Pop stack top into Nth field of object at top of stack
+    PopIntoField(i8),
 
     /// Pop a register off the stack and move it to a local
     PopReg(Reg),
@@ -163,7 +166,8 @@ impl Clone for Op
             &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
             &Op::PushReg(src) => Op::PushReg(src),
             &Op::PopReg(dst) => Op::PopReg(dst),
-            &Op::PopField(fld) => Op::PopField(fld),
+            &Op::PopIntoField(fld) => Op::PopIntoField(fld),
+            &Op::PushField(fld) => Op::PushField(fld),
             &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
             &Op::PopListCons => Op::PopListCons,
             &Op::PopStrCat => Op::PopStrCat,
@@ -429,7 +433,7 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
                     panic!("failure");
                 };
                 let mut f_ops = make_sub_ops2(f.v, opm);
-                f_ops.ops.push(Op::PopField(fld_idx));
+                f_ops.ops.push(Op::PopIntoField(fld_idx));
                 cs_ops.ops.append(&mut f_ops.ops);
             }
             cs_ops.ops
@@ -446,8 +450,16 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             rops.ops.push(Op::Return);
             rops.ops
         }
-        Ast::Op2(".", base, _field) => {
-            let base_ops = make_sub_ops2(base, opm);
+        Ast::Op2(".", base, field) => {
+            let mut base_ops = make_sub_ops2(base, opm);
+            match *field.node {
+                Ast::DataMember(f) => {
+                    base_ops.ops.push(Op::PushField(f as i8));
+                }
+                other => {
+                    panic!("dunno what this is: {:?}", other);
+                }
+            }
             base_ops.ops
         }
         Ast::Id(ref _id) => {
@@ -810,29 +822,8 @@ impl Registration
                     Self::assign_registers(&mut i.v)?;
                 }
             }
-            Ast::Op2(".", ref mut base, ref field) => {
+            Ast::Op2(".", ref mut base, ref _field) => {
                 Self::assign_registers(base)?;
-                let field_idx = match &*field.node {
-                    Ast::Id(idx_str) => {
-                        idx_str.parse().map_err(|e| {
-                            rustfail!(
-                                "leema_failure",
-                                "{} for {:?}",
-                                e,
-                                idx_str,
-                            )
-                        })?
-                    }
-                    Ast::ConstVal(Val::Int(i)) => *i as i8,
-                    Ast::DataMember(_, i) => *i as i8,
-                    other => {
-                        panic!(
-                            "field name is not an identifier: {:?} @ {:?}",
-                            other, field.loc
-                        )
-                    }
-                };
-                node.dst = base.dst.sub(field_idx);
             }
             Ast::Op2(op2, ref mut a, ref mut b) => {
                 panic!("assign registers to op2? {:?} {} {:?}", a, op2, b);
@@ -847,7 +838,7 @@ impl Registration
             Ast::Id(_) | Ast::ConstVal(_) => {}
             // these shouldn't be here
             Ast::Canonical(_)
-            | Ast::DataMember(_, _)
+            | Ast::DataMember(_)
             | Ast::DefConst(_, _)
             | Ast::DefFunc(_, _, _, _)
             | Ast::DefImpl(_, _, _)

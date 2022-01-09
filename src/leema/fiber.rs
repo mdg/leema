@@ -107,7 +107,8 @@ impl Fiber
             &Op::PopListCons => self.execute_pop_list_cons(),
             &Op::PopStrCat => self.execute_pop_str_cat(),
             &Op::PushTuple(n) => self.execute_push_tuple(n),
-            &Op::PopField(fld_idx) => self.execute_pop_field(fld_idx),
+            &Op::PopIntoField(fld_idx) => self.execute_pop_into_field(fld_idx),
+            &Op::PushField(fld) => self.execute_push_field(fld),
             &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
             &Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
@@ -219,13 +220,24 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_pop_field(&mut self, fld: i8) -> Lresult<Event>
+    pub fn execute_pop_into_field(&mut self, fld: i8) -> Lresult<Event>
     {
         let v = ltry!(self.head.e.stack_pop());
         {
             let dst = ltry!(self.head.e.stack_top_mut());
             ltry!(dst.ireg_set(Ireg::Reg(fld), v));
         }
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
+    }
+
+    /// pop a value off the stack, take its field
+    /// then push the field value back onto the stack
+    pub fn execute_push_field(&mut self, idx: i8) -> Lresult<Event>
+    {
+        let base = ltry!(self.head.e.stack_pop());
+        let fld = ltry!(base.ireg_get(Ireg::Reg(idx)));
+        self.head.e.stack_push(fld.clone());
         self.head.pc += 1;
         Ok(Event::Uneventful)
     }

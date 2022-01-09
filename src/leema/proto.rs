@@ -579,7 +579,9 @@ impl ProtoModule
             let t = self.ast_to_type(&f.v, data_t.type_args())?;
             let lstrk = f.k.map(|k| Lstr::Sref(k));
             let fname = Type::unwrap_name(&lstrk, i);
-            let scope_type = AstNode::new(Ast::DataMember(t, i as u8), f.v.loc);
+            let mut scope_type =
+                AstNode::new(Ast::DataMember(i as u8), f.v.loc);
+            scope_type.typ = t;
             if let Lstr::Sref(k) = fname {
                 self.modscope.insert(k, scope_type);
             } else {
@@ -1618,7 +1620,7 @@ impl ProtoLib
     /// get the field type and index for a struct field
     /// maybe have a _closed version of this that closes the type
     /// if it's generic based on t.args
-    pub fn data_member(&self, t: &Type, fld: &Lstr) -> Lresult<(&Type, i8)>
+    pub fn data_member(&self, t: &Type, fld: &Lstr) -> Lresult<(Type, i8)>
     {
         let proto = ltry!(self.path_proto(&t.path));
         proto
@@ -1632,8 +1634,9 @@ impl ProtoLib
                 )
             })
             .and_then(|e| {
-                if let Ast::DataMember(fld_type, fld_idx) = &*e.node {
-                    Ok((fld_type, *fld_idx as i8))
+                if let Ast::DataMember(fld_idx) = &*e.node {
+                    let closed_type = ltry!(e.typ.apply_typecall(&t.args));
+                    Ok((closed_type, *fld_idx as i8))
                 } else {
                     Err(lfail!(
                         failure::Mode::TypeFailure,

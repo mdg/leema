@@ -1500,9 +1500,13 @@ impl<'p> TypeCheck<'p>
                                 found.typ.clone(),
                             );
                         }
-                        Ast::DataMember(fld_typ, _) => {
-                            fld.replace((*found.node).clone(), fld_typ.clone());
-                            *expr_typ = fld_typ.clone();
+                        Ast::DataMember(fld_idx) => {
+                            *expr_typ =
+                                ltry!(found.typ.apply_typecall(&base_typ.args));
+                            fld.replace(
+                                (*found.node).clone(),
+                                expr_typ.clone(),
+                            );
                         }
                         other => {
                             return Err(rustfail!(
@@ -1568,8 +1572,7 @@ impl<'p> TypeCheck<'p>
                             .lib
                             .data_member(&copy_typ, &Lstr::Sref(fld_name)));
                         a.v.dst = Reg::param(fld_idx);
-                        // is this necessary?
-                        a.v.typ = fld_typ.clone();
+                        a.v.typ = fld_typ;
                     } else {
                         a.v.dst = Reg::param(i as i8);
                     }

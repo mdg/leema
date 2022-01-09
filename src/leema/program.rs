@@ -154,8 +154,7 @@ impl Lib
                 f,
             ))
         } else {
-            let mut semantics_ast = semantics.src;
-            code::assign_registers(&mut semantics_ast)?;
+            let semantics_ast = semantics.src;
             let ops = code::make_ops2(semantics_ast);
             log_timer!(start, "read_code {}", f);
             Ok(Code::Leema(ops))

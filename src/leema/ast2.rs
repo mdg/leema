@@ -235,7 +235,7 @@ pub enum Ast
     Canonical(Canonical),
     ConstVal(Val),
     CopyAndSet(AstNode, Xlist),
-    DataMember(Type, u8),
+    DataMember(u8),
     DefConst(&'static str, AstNode),
     DefFunc(AstNode, Xlist, AstNode, AstNode),
     DefImpl(AstNode, AstNode, Vec<AstNode>),
@@ -360,7 +360,7 @@ impl Ast
             Ast::CopyAndSet(src, flds) => {
                 write!(f, "(CopyAndSet {:?} {:?})", src, flds)
             }
-            Ast::DataMember(t, i) => write!(f, "DataMember: {} {:?}", i, t),
+            Ast::DataMember(i) => write!(f, "DataMember: {}", i),
             Ast::DefConst(id, x) => write!(f, "DefConst {} := {:?}", id, x),
             Ast::DefFunc(name, args, result, body) => {
                 write!(
@@ -835,7 +835,7 @@ impl Walker
             }
             Ast::Canonical(_)
             | Ast::ConstVal(_)
-            | Ast::DataMember(_, _)
+            | Ast::DataMember(_)
             | Ast::Id(_)
             | Ast::Type(_)
             | Ast::Wildcard => {
