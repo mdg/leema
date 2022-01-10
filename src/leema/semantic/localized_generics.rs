@@ -109,7 +109,7 @@ impl ast2::Op for LocalizeGenerics
                     node.typ = Type::local(type_var);
                 }
             }
-            Ast::Id(id) => {
+            Ast::Id(_id) => {
                 // shouldn't have to localize ids
             }
             _ => {}

@@ -2043,6 +2043,22 @@ impl ast2::Op for RemoveExtraCode
                     *node = mem::take(rhs);
                 }
             }
+            Ast::Tuple(items) if mode.is_pattern() => {
+                let mut vitems = Vec::with_capacity(items.len());
+                for i in items.drain(..) {
+                    if let Ast::ConstVal(v) = *i.v.node {
+                        let k = i.k.map(|k| Lstr::Sref(k));
+                        vitems.push(StrupleItem::new(k, v));
+                    } else {
+                        return Err(lfail!(
+                            failure::Mode::CompileFailure,
+                            "unexpected non-const tuple pattern item",
+                            "item": ldebug!(i),
+                        ));
+                    }
+                }
+                *node.node = Ast::ConstVal(Val::Tuple(vitems));
+            }
             Ast::List(items) if mode.is_pattern() => {
                 let mut listv = Val::Nil;
                 for i in items.drain(..) {
@@ -2051,12 +2067,28 @@ impl ast2::Op for RemoveExtraCode
                     } else {
                         return Err(lfail!(
                             failure::Mode::CompileFailure,
-                            "unexpected non-const list item",
+                            "unexpected non-const list pattern item",
                             "item": ldebug!(i),
                         ));
                     }
                 }
                 *node.node = Ast::ConstVal(listv);
+            }
+            Ast::Op2(";", h, t) if mode.is_pattern() => {
+                match (&*h.node, &*t.node) {
+                    (Ast::ConstVal(hv), Ast::ConstVal(tv)) => {
+                        *node.node =
+                            Ast::ConstVal(list::cons(hv.clone(), tv.clone()));
+                    }
+                    _ => {
+                        return Err(lfail!(
+                            failure::Mode::CompileFailure,
+                            "unexpected non-const list pattern item",
+                            "head": ldebug!(h),
+                            "tail": ldebug!(t),
+                        ));
+                    }
+                }
             }
             Ast::Wildcard if mode.is_pattern() => {
                 // convert the ast to the val
