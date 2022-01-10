@@ -4,8 +4,8 @@ use crate::leema::ast2::{
 use crate::leema::canonical::Canonical;
 use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::inter::Blockstack;
+use crate::leema::list;
 use crate::leema::loader::Interloader;
-use crate::leema::lstr::Lstr;
 use crate::leema::module::ModKey;
 use crate::leema::proto::{self, ProtoLib, ProtoModule};
 use crate::leema::reg::Reg;
@@ -15,6 +15,7 @@ use crate::leema::val::{
     Fref, FuncTypeRef, FuncTypeRefMut, LocalTypeVars, Type, TypeArg,
     TypeArgSlice, TypeArgs, TypeRef, Val,
 };
+use crate::leema::Lstr;
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
@@ -1500,7 +1501,7 @@ impl<'p> TypeCheck<'p>
                                 found.typ.clone(),
                             );
                         }
-                        Ast::DataMember(fld_idx) => {
+                        Ast::DataMember(_fld_idx) => {
                             *expr_typ =
                                 ltry!(found.typ.apply_typecall(&base_typ.args));
                             fld.replace(
@@ -2020,7 +2021,7 @@ struct RemoveExtraCode;
 
 impl ast2::Op for RemoveExtraCode
 {
-    fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
+    fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
             Ast::Block(items) => {
@@ -2041,6 +2042,25 @@ impl ast2::Op for RemoveExtraCode
                     rhs.dst = lhs.dst;
                     *node = mem::take(rhs);
                 }
+            }
+            Ast::List(items) if mode.is_pattern() => {
+                let mut listv = Val::Nil;
+                for i in items.drain(..) {
+                    if let Ast::ConstVal(v) = *i.v.node {
+                        listv = list::cons(v, listv);
+                    } else {
+                        return Err(lfail!(
+                            failure::Mode::CompileFailure,
+                            "unexpected non-const list item",
+                            "item": ldebug!(i),
+                        ));
+                    }
+                }
+                *node.node = Ast::ConstVal(listv);
+            }
+            Ast::Wildcard if mode.is_pattern() => {
+                // convert the ast to the val
+                *node.node = Ast::ConstVal(Val::Wildcard);
             }
             _ => {} // do nothing
         };
