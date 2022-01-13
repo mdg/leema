@@ -322,7 +322,13 @@ impl LeemaPrec
     {
         let loc = nodeloc(&n);
         match n.as_rule() {
-            Rule::id => Ok(AstNode::new(Ast::Id(n.as_str()), loc)),
+            Rule::id => {
+                if n.as_str() == "_" {
+                    Ok(AstNode::new(Ast::Wildcard, loc))
+                } else {
+                    Ok(AstNode::new(Ast::Id(n.as_str()), loc))
+                }
+            }
             Rule::int => {
                 let i = n.as_str().parse().unwrap();
                 Ok(AstNode::new_constval(Val::Int(i), loc))
@@ -455,7 +461,6 @@ impl LeemaPrec
                 let cases = self.parse_cases(n.into_inner())?;
                 Ok(AstNode::new(Ast::Matchx(None, cases), loc))
             }
-            Rule::underscore => Ok(AstNode::new(Ast::Wildcard, loc)),
             Rule::def_enum => {
                 let mut inner = n.into_inner();
                 let id = self.primary(Mode::Type, inner.next().unwrap())?;

@@ -26,7 +26,6 @@ less_than = { "<=" | "<" }
 equality = { "==" | "!=" }
 greater_than = { ">=" | ">" }
 add_newline = { "\\n" }
-underscore = { "_" }
 block_arrow = _{ "->" | ">>" }
 double_dash = _{ "--" }
 
@@ -107,7 +106,6 @@ def_id = _{ gen_type | id }
 hashtag = @{ "#" ~ id }
 
 term = _{ hashtag | id | number | str | tuple | list | gen_type | canonical }
-pattern = _{ underscore | expr }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
@@ -120,7 +118,7 @@ canonical = { "(" ~ as0 ~ mxmod ~ as0 ~ ")" }
 
 blockx = { (block_arrow ~ vs1 ~ stmt_block ~ double_dash) }
 
-case = { "|" ~ pattern ~ as1 ~ arrow_block }
+case = { "|" ~ expr ~ as1 ~ arrow_block }
 ifx = { "if" ~ vs1 ~ case+ ~ double_dash }
 matchargs = { "match" ~ vs1 ~ case+ ~ double_dash }
 matchx = { "match" ~ hs1 ~ expr? ~ vs1 ~ case+ ~ double_dash }

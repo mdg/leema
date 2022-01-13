@@ -1873,9 +1873,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     ));
                 }
             }
-            Ast::Wildcard => {
-                node.typ = Type::UNKNOWN;
-            }
             Ast::Let(_, _, _) => {
                 // a let statment has no return type
                 node.typ = Type::VOID;

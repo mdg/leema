@@ -99,10 +99,14 @@ impl ast2::Op for LocalizeGenerics
                 // self.localize_node_with_id(a, local_id.clone());
                 // self.localize_node_with_id(b, local_id.clone());
             }
+            Ast::Wildcard if mode.is_pattern() => {
+                let local_id = lstrf!("_{}", self.localized_id(node.loc));
+                node.typ = Type::local(local_id);
+            }
             Ast::Id(patt) if mode.is_pattern() => {
                 if node.typ == Type::UNKNOWN {
                     let type_var = if *patt == "_" {
-                        lstrf!("_{}", self.localized_id(node.loc))
+                        panic!("unexpected _");
                     } else {
                         Lstr::Sref(patt)
                     };
