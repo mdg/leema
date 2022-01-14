@@ -2058,7 +2058,7 @@ impl ast2::Op for RemoveExtraCode
             }
             Ast::List(items) if mode.is_pattern() => {
                 let mut listv = Val::Nil;
-                for i in items.drain(..) {
+                for i in items.drain(..).rev() {
                     if let Ast::ConstVal(v) = *i.v.node {
                         listv = list::cons(v, listv);
                     } else {
