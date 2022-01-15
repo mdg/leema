@@ -836,7 +836,7 @@ impl<'p> ScopeCheck<'p>
                         if let Ast::ConstVal(v) = &*me.node {
                             let mut new_v = v.clone();
                             new_v.close_generics(&t.args);
-                            node.typ.close_generics(&t.args);
+                            node.typ = new_v.get_type();
                             *node.node = Ast::ConstVal(new_v);
                         }
                     }
@@ -1609,21 +1609,6 @@ impl<'p> TypeCheck<'p>
                             args,
                             node.loc
                         ));
-                    }
-                    Ast::ConstVal(v) => {
-                        let new_type = v.get_type();
-                        if new_type != callx.typ {
-                            callx.typ = new_type;
-                            return Ok(AstStep::Rewrite);
-                        } else {
-                            // not ideal
-                            steptry!(self.post_var_call(
-                                &mut node.typ,
-                                &mut callx.typ,
-                                args,
-                                node.loc,
-                            ));
-                        }
                     }
                     // handle a method call
                     Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
