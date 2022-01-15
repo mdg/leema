@@ -1515,6 +1515,38 @@ impl Val
         }
     }
 
+    /// replace any open type variables that are already closed
+    pub fn close_generics(&mut self, type_args: &TypeArgSlice)
+    {
+        match self {
+            Val::Struct(t, flds) => {
+                t.close_generics(type_args);
+                for f in flds.iter_mut() {
+                    f.v.close_generics(type_args);
+                }
+            }
+            Val::Tuple(flds) => {
+                for f in flds.iter_mut() {
+                    f.v.close_generics(type_args);
+                }
+            }
+            Val::EnumStruct(t, _, flds) => {
+                t.close_generics(type_args);
+                for f in flds.iter_mut() {
+                    f.v.close_generics(type_args);
+                }
+            }
+            Val::EnumToken(t, _) => {
+                t.close_generics(type_args);
+            }
+            Val::Token(t) => {
+                t.close_generics(type_args);
+            }
+            // do nothing for most types
+            _ => {}
+        }
+    }
+
     pub fn map<Op>(&self, op: &Op) -> Lresult<Val>
     where
         Op: Fn(&Val) -> Lresult<Option<Val>>,

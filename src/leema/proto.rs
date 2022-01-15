@@ -519,11 +519,16 @@ impl ProtoModule
                 StrupleItem::new(f.k, AstNode::new(Ast::Id(k), loc))
             })
             .collect();
-        let macro_args = vec![
-            StrupleItem::new_v(AstNode::new(
+        let call = if construct.args.len() > 0 {
+            AstNode::new(Ast::Type(construct.clone()), loc)
+        } else {
+            AstNode::new(
                 Ast::Canonical(construct.path.clone()),
                 loc,
-            )),
+            )
+        };
+        let macro_args = vec![
+            StrupleItem::new_v(call),
             StrupleItem::new_v(AstNode::new(Ast::Tuple(fields_arg), loc)),
         ];
 
@@ -552,7 +557,7 @@ impl ProtoModule
             .iter()
             .map(|f| StrupleItem::new(f.k.map(|k| Lstr::Sref(k)), Val::VOID))
             .collect();
-        let void_val = if typ == construct {
+        let void_val = if typ.path == construct.path {
             Val::Struct(typ, void_fields)
         } else {
             let variant = construct.path.last_module().unwrap();

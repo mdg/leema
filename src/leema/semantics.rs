@@ -830,10 +830,20 @@ impl<'p> ScopeCheck<'p>
                             ltry!(self.lib.exported_elem(c, sub, node.loc));
                         node.replace((*me.node).clone(), me.typ.clone());
                     }
+                    (Ast::Type(t), Ast::Id(sub)) if mode == AstMode::Value => {
+                        let me =
+                            ltry!(self.lib.exported_elem(&t.path, sub, node.loc));
+                        if let Ast::ConstVal(v) = &*me.node {
+                            let mut new_v = v.clone();
+                            new_v.close_generics(&t.args);
+                            node.typ.close_generics(&t.args);
+                            *node.node = Ast::ConstVal(new_v);
+                        }
+                    }
                     (other_base, other_sub) => {
                         // else it's probably (hopefully?) a method or something
-                        eprintln!("{:?}", other_base);
-                        eprintln!("{:?}", other_sub);
+                        dbg!(other_base);
+                        dbg!(other_sub);
                         unimplemented!();
                     }
                 }
@@ -1346,7 +1356,10 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let mut funcref = ltry!(calltype.try_func_ref_mut());
+        let mut funcref = ltry!(calltype.try_func_ref_mut(),
+            "calltype": ldisplay!(calltype),
+            "args": ldebug!(args),
+        );
         Ok(ltry!(
             self.match_argtypes(&mut funcref, args),
             "calltype": ldisplay!(calltype),
@@ -1597,6 +1610,21 @@ impl<'p> TypeCheck<'p>
                             node.loc
                         ));
                     }
+                    Ast::ConstVal(v) => {
+                        let new_type = v.get_type();
+                        if new_type != callx.typ {
+                            callx.typ = new_type;
+                            return Ok(AstStep::Rewrite);
+                        } else {
+                            // not ideal
+                            steptry!(self.post_var_call(
+                                &mut node.typ,
+                                &mut callx.typ,
+                                args,
+                                node.loc,
+                            ));
+                        }
+                    }
                     // handle a method call
                     Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
                         let base = mem::take(base_ref);
@@ -1779,8 +1807,6 @@ impl<'p> ast2::Op for TypeCheck<'p>
                 // if the type is known, assign it to this variable
                 if let Some(typ) = self.vartypes.get(id) {
                     node.typ = typ.clone();
-                // put the node back the way it was
-                // *node.node = Ast::Id(id);
                 } else {
                     let tvar = Type::local(Lstr::Sref(id));
                     self.vartypes.insert(id, tvar.clone());
@@ -3099,6 +3125,31 @@ mod tests
         let err = prog.read_semantics(&fref);
         assert_matches!(err, Err(_));
         err.unwrap_err();
+    }
+
+    #[test]
+    fn typecheck_option_some()
+    {
+        let input = r#"
+        func main ->
+            let x := Some(5)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let m = ModKey::from("/core/Option/Some");
+        let mut fref = Fref::with_modules(m, "__construct");
+        fref.t = vec![StrupleItem::new(Lstr::Sref("T"), Type::INT)];
+        match prog.read_semantics(&fref) {
+            Err(f) => {
+                eprintln!("{:#?}", f);
+                panic!("unexpected failure");
+            }
+            Ok(sem) => {
+                assert_matches!(*sem.src.node, Ast::CopyAndSet(_, _));
+            }
+        }
     }
 
     /*
