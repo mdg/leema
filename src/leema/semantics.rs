@@ -687,9 +687,21 @@ impl<'p> ScopeCheck<'p>
                 self.blocks.push_blockscope();
             }
             Ast::Id(id) if mode.is_pattern() => {
-                let local_type = mode.get_pattern().unwrap();
+                if let Some(bin) = proto::find_builtin(id) {
+                    match bin {
+                        Ast::ConstVal(v) => {
+                            node.typ = v.get_type();
+                            *node.node = Ast::ConstVal(v.clone());
+                        }
+                        _ => {
+                            *node.node = bin.clone();
+                        }
+                    }
+                    return Ok(AstStep::Rewrite);
+                }
                 // make sure this doesn't duplicate an import
                 // why not just add ModAliases to the blocks?
+                // shouldn't it be ok to duplicate an imported const?
                 if self.local_mod.imports.contains_key(id) {
                     return Err(Failure::static_leema(
                         failure::Mode::CompileFailure,
@@ -698,6 +710,7 @@ impl<'p> ScopeCheck<'p>
                         node.loc.lineno,
                     ));
                 }
+                let local_type = mode.get_pattern().unwrap();
                 node.dst = ltry!(
                     self.blocks.assign_var(id, local_type),
                     "file": self.local_mod.key.best_path(),
