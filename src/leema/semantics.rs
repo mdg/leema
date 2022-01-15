@@ -2071,6 +2071,27 @@ impl ast2::Op for RemoveExtraCode
                 }
                 *node.node = Ast::ConstVal(listv);
             }
+            Ast::Call(callx, args) if mode.is_pattern() => {
+                if let Ast::ConstVal(Val::Func(fref)) = &*callx.node {
+                    if fref.f == "__construct" {
+                        let mut cargs = Vec::with_capacity(args.len());
+                        for a in args.drain(..) {
+                            if let Ast::ConstVal(v) = *a.v.node {
+                                let k = a.k.map(|k| Lstr::Sref(k));
+                                cargs.push(StrupleItem::new(k, v));
+                            } else {
+                                return Err(lfail!(
+                                    failure::Mode::CompileFailure,
+                                    "expected constant param value",
+                                    "param": ldebug!(a.v),
+                                ));
+                            }
+                        }
+                        let t = node.typ.clone();
+                        *node.node = Ast::ConstVal(Val::Struct(t, cargs));
+                    }
+                }
+            }
             Ast::Op2(";", h, t) if mode.is_pattern() => {
                 match (&*h.node, &*t.node) {
                     (Ast::ConstVal(hv), Ast::ConstVal(tv)) => {

@@ -738,12 +738,6 @@ fn set_jumps(ops: OpVec) -> OpVec
     jumps
 }
 
-pub fn assign_registers(input: &mut AstNode) -> Lresult<()>
-{
-    vout!("assign_registers({:?})\n", input);
-    Registration::assign_registers(input)
-}
-
 pub struct Registration {}
 
 impl Registration
@@ -768,20 +762,6 @@ impl Registration
     fn assign_registers(node: &mut AstNode) -> Lresult<()>
     {
         match &mut *node.node {
-            Ast::Block(ref mut items) => {
-                // copy the block's dst to the last item in the block
-                if let Some(item) = items.last_mut() {
-                    Self::set_dst_or_copy(item, node.dst);
-                }
-                for i in items.iter_mut() {
-                    Self::assign_registers(i)?;
-                }
-            }
-            Ast::Call(_, ref mut args) => {
-                for a in args.iter_mut() {
-                    Self::assign_registers(&mut a.v)?;
-                }
-            }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
                 let pval = Self::make_pattern_val(lhs)?;
                 *lhs.node = Ast::ConstVal(pval);
@@ -806,49 +786,12 @@ impl Registration
                     Self::assign_registers(&mut case.body)?;
                 }
             }
-            Ast::StrExpr(ref mut items) => {
-                for i in items.iter_mut() {
-                    Self::assign_registers(i)?;
-                }
-            }
-            Ast::Tuple(ref mut items) => {
-                for item in items.iter_mut() {
-                    Self::assign_registers(&mut item.v)?;
-                }
-            }
-            Ast::List(ref mut items) => {
-                // not really sure what's going on here or why
-                for i in items.iter_mut() {
-                    Self::assign_registers(&mut i.v)?;
-                }
-            }
             Ast::Op2(".", ref mut base, ref _field) => {
                 Self::assign_registers(base)?;
             }
             Ast::Op2(op2, ref mut a, ref mut b) => {
                 panic!("assign registers to op2? {:?} {} {:?}", a, op2, b);
             }
-            Ast::CopyAndSet(ref mut src, ref mut _fields) => {
-                Self::assign_registers(src)?;
-            }
-            Ast::Return(ref mut result) => {
-                Self::assign_registers(result)?;
-            }
-            // nothing else to do
-            Ast::Id(_) | Ast::ConstVal(_) => {}
-            // these shouldn't be here
-            Ast::Canonical(_)
-            | Ast::DataMember(_)
-            | Ast::DefConst(_, _)
-            | Ast::DefFunc(_, _, _, _)
-            | Ast::DefImpl(_, _, _)
-            | Ast::DefTrait(_, _)
-            | Ast::DefMacro(_, _, _)
-            | Ast::DefType(_, _, _)
-            | Ast::FuncType(_, _)
-            | Ast::Generic(_, _)
-            | Ast::ModAction(_, _)
-            | Ast::Wildcard => {} // do nothing
             Ast::Alias(_, _) => {
                 panic!("unexpected alias {:?}, at {:?}", node.node, node.loc);
             }
@@ -858,6 +801,7 @@ impl Registration
             Ast::Type(t) => {
                 panic!("assigning a register to a type? {:?}", t);
             }
+            _ => {}
         }
         Ok(())
     }
