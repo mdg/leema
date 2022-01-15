@@ -831,8 +831,9 @@ impl<'p> ScopeCheck<'p>
                         node.replace((*me.node).clone(), me.typ.clone());
                     }
                     (Ast::Type(t), Ast::Id(sub)) if mode == AstMode::Value => {
-                        let me =
-                            ltry!(self.lib.exported_elem(&t.path, sub, node.loc));
+                        let me = ltry!(self
+                            .lib
+                            .exported_elem(&t.path, sub, node.loc));
                         if let Ast::ConstVal(v) = &*me.node {
                             let mut new_v = v.clone();
                             new_v.close_generics(&t.args);
@@ -1356,7 +1357,8 @@ impl<'p> TypeCheck<'p>
         args: &mut ast2::Xlist,
     ) -> Lresult<Type>
     {
-        let mut funcref = ltry!(calltype.try_func_ref_mut(),
+        let mut funcref = ltry!(
+            calltype.try_func_ref_mut(),
             "calltype": ldisplay!(calltype),
             "args": ldebug!(args),
         );

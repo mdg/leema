@@ -522,10 +522,7 @@ impl ProtoModule
         let call = if construct.args.len() > 0 {
             AstNode::new(Ast::Type(construct.clone()), loc)
         } else {
-            AstNode::new(
-                Ast::Canonical(construct.path.clone()),
-                loc,
-            )
+            AstNode::new(Ast::Canonical(construct.path.clone()), loc)
         };
         let macro_args = vec![
             StrupleItem::new_v(call),
