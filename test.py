@@ -9,9 +9,9 @@ def run_leema(f, cli_args=None):
         args += cli_args
     print(args)
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-    result = proc.wait(3)
     output = proc.stdout.read()
     err = proc.stderr.read()
+    result = proc.wait(3)
     proc.stdout.close()
     proc.stderr.close()
     return {'code': result, 'output': output, 'stderr': err}
