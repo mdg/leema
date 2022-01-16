@@ -1311,6 +1311,31 @@ impl Val
         }
     }
 
+    /// Given a type and a path to a constructor, and some args
+    /// create a Val that is a Struct or an EnumStruct
+    pub fn make_struct_or_enum(
+        t: &Type,
+        constructor_mod: &Canonical,
+        flds: Struple2<Val>,
+    ) -> Lresult<Val>
+    {
+        if *constructor_mod == t.path {
+            Ok(Val::Struct(t.clone(), flds))
+        } else {
+            let split_f = constructor_mod.last_module();
+            if let Some(var) = split_f {
+                Ok(Val::EnumStruct(t.clone(), var.clone(), flds))
+            } else {
+                Err(lfail!(
+                    failure::Mode::StaticLeemaFailure,
+                    "invalid constructor module",
+                    "type": ldisplay!(t),
+                    "constructor_module": constructor_mod.to_lstr(),
+                ))
+            }
+        }
+    }
+
     pub fn future(r: Receiver<Val>) -> Val
     {
         Val::Future(Arc::new(Mutex::new(r)))

@@ -2113,8 +2113,12 @@ impl ast2::Op for RemoveExtraCode
                                 ));
                             }
                         }
-                        let t = node.typ.clone();
-                        *node.node = Ast::ConstVal(Val::Struct(t, cargs));
+                        let v = ltry!(Val::make_struct_or_enum(
+                            &node.typ,
+                            &fref.m.name,
+                            cargs
+                        ));
+                        *node.node = Ast::ConstVal(v);
                     }
                 }
             }
