@@ -5,4 +5,3 @@ func main ->
     let f := file.read_file("T/hello.txt")
     print("hello $f\n")
 --
-

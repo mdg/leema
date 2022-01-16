@@ -238,6 +238,9 @@ impl Type
     pub const PATH_OPENVAR: &'static str = "/leema/Open";
     /// identifies an open type call
     pub const PATH_TYPECALL: &'static str = "/leema/TypeCall";
+    /// identifies a closed type call
+    /// [Result, Arg(Name: Actual)..]
+    pub const PATH_TYPECLOSED: &'static str = "/leema/TypeClosed";
     /// identifies an unknown type
     pub const PATH_UNKNOWN: &'static str = "/leema/Unknown";
 

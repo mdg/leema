@@ -12,6 +12,8 @@ def run_leema(f, cli_args=None):
     output = proc.stdout.read()
     err = proc.stderr.read()
     result = proc.wait(3)
+    output = output + proc.stdout.read()
+    err = err + proc.stderr.read()
     proc.stdout.close()
     proc.stderr.close()
     return {'code': result, 'output': output, 'stderr': err}
