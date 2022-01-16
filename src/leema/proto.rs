@@ -449,7 +449,7 @@ impl ProtoModule
         let (name_id, ftyp) =
             ltry!(self.make_func_type(name, &args, result, opens.clone()));
 
-        let fref = Fref::new(self.key.clone(), name_id, ftyp.clone());
+        let fref = Fref::new(self.key.clone(), name_id, opens);
         let call = Val::Func(fref);
         let mut fref_ast = AstNode::new_constval(call, loc);
         fref_ast.typ = ftyp;

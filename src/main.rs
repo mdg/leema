@@ -113,10 +113,7 @@ fn real_main() -> Lresult<()>
             let fref_node = parser::parse_fref(sfunc)?;
             fref_node.node.to_fref(main_key.clone())?
         }
-        None => {
-            let main_type = Type::f(Type::VOID, vec![]);
-            Fref::new(main_key.clone(), "main", main_type)
-        }
+        None => Fref::with_modules(main_key.clone(), "main"),
     };
     vout!("run {}\n", main_mod);
 

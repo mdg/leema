@@ -1053,14 +1053,9 @@ pub struct Fref
 impl Fref
 {
     /// eventually make this take just TypeArgs
-    pub fn new(m: ModKey, f: &'static str, t: Type) -> Fref
+    pub fn new(m: ModKey, f: &'static str, t: TypeArgs) -> Fref
     {
-        let targs = if let Some(ftref) = t.func_ref() {
-            ftref.type_args.to_vec()
-        } else {
-            vec![]
-        };
-        Fref { m, f, t: targs }
+        Fref { m, f, t }
     }
 
     pub fn with_modules(m: ModKey, f: &'static str) -> Fref

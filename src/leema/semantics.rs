@@ -276,7 +276,12 @@ impl AnonFuncDef
 
     pub fn fref(&self) -> Fref
     {
-        Fref::new(self.m.clone(), self.name, self.func_type().clone())
+        let t = if let Some(gen) = self.func_type.generic_ref() {
+            gen.1.to_vec()
+        } else {
+            vec![]
+        };
+        Fref::new(self.m.clone(), self.name, t)
     }
 
     pub fn func_type(&self) -> &Type
