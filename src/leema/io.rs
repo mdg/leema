@@ -222,13 +222,17 @@ impl Io
                 f,
                 params,
             } => {
+                let fval = f.take();
+                let pvals: Struple2<Val> =
+                    params.into_iter().map(|p| p.map_v(|v| v.take())).collect();
                 vout!(
                     "io call: {}:{}:{:?} {:?}\n",
                     worker_id,
                     fiber_id,
-                    f,
-                    params
+                    fval,
+                    pvals,
                 );
+                self.push_call(worker_id, fiber_id, fval, pvals);
             }
             IoMsg::NewWorker(worker_id, worker_tx) => {
                 self.worker_tx.insert(worker_id, worker_tx);
@@ -237,6 +241,23 @@ impl Io
                 self.done = true;
             }
         }
+    }
+
+    fn push_call(
+        &mut self,
+        worker_id: i64,
+        fiber_id: i64,
+        f: Val,
+        params: Struple2<Val>,
+    )
+    {
+        vout!(
+            "push_call({},{},{:?},{:?})\n",
+            worker_id,
+            fiber_id,
+            f,
+            params
+        );
     }
 
     fn handle_iop_action(

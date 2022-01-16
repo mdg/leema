@@ -46,6 +46,25 @@ impl<K, V> StrupleItem<K, V>
     }
 }
 
+impl<K, V> StrupleItem<K, V>
+where
+    K: Clone,
+{
+    pub fn map_v<F, U>(self, f: F) -> StrupleItem<K, U>
+    where
+        F: FnOnce(V) -> U,
+    {
+        StrupleItem::new(self.k, f(self.v))
+    }
+
+    pub fn map_v_ref<F, U>(&self, f: F) -> StrupleItem<K, U>
+    where
+        F: FnOnce(&V) -> U,
+    {
+        StrupleItem::new(self.k.clone(), f(&self.v))
+    }
+}
+
 impl<V> fmt::Display for StrupleItem<Option<Lstr>, V>
 where
     V: fmt::Display,

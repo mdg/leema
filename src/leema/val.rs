@@ -981,6 +981,7 @@ impl fmt::Debug for Type
     }
 }
 
+/// For library data that should share a reference to a single instance
 pub trait LibVal: mopa::Any + fmt::Debug + Send + Sync
 {
     fn get_type(&self) -> Type;
@@ -1191,9 +1192,6 @@ pub enum Val
     Map(LmapNode),
     Failure2(Box<Failure>),
     Type(Type),
-    // LibVal(Box<dyn LibVal>),
-    // LibVal(Rc<dyn LibVal>),
-    // LibRef(Arc<dyn LibRef>),
     Lib(Arc<dyn LibVal>),
     ResourceRef(i64),
     // can Val::Future just be a Val::Lib?
