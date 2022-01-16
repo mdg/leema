@@ -216,6 +216,20 @@ impl Io
                 let param_vals = params.take();
                 self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
             }
+            IoMsg::Call {
+                worker_id,
+                fiber_id,
+                f,
+                params,
+            } => {
+                vout!(
+                    "io call: {}:{}:{:?} {:?}\n",
+                    worker_id,
+                    fiber_id,
+                    f,
+                    params
+                );
+            }
             IoMsg::NewWorker(worker_id, worker_tx) => {
                 self.worker_tx.insert(worker_id, worker_tx);
             }

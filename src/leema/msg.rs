@@ -72,6 +72,13 @@ pub enum IoMsg
         rsrc_id: Option<i64>,
         params: MsgVal,
     },
+    Call
+    {
+        worker_id: i64,
+        fiber_id: i64,
+        f: MsgVal,
+        params: Struple2<MsgVal>,
+    },
     NewWorker(i64, mpsc::Sender<WorkerMsg>),
     Done,
 }
@@ -91,6 +98,19 @@ impl fmt::Debug for IoMsg
                     f,
                     "IoMsg::Iop({}:{}, {:?})",
                     worker_id, fiber_id, params
+                )
+            }
+            &IoMsg::Call {
+                worker_id,
+                fiber_id,
+                f: ref func,
+                ref params,
+                ..
+            } => {
+                write!(
+                    f,
+                    "IoMsg::Call({}:{}, {:?} {:?})",
+                    worker_id, fiber_id, func, params
                 )
             }
             &IoMsg::NewWorker(worker_id, _) => {
