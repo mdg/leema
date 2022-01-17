@@ -1,6 +1,7 @@
 use crate::leema::code::Code;
-use crate::leema::io::Io;
+use crate::leema::failure::{self, Lresult};
 pub use crate::leema::io::RunQueue;
+use crate::leema::io::{Io, Iop};
 use crate::leema::val::{Fref, Type, Val};
 
 use std::cell::RefCell;
@@ -71,80 +72,55 @@ impl fmt::Debug for Event
 pub struct IopCtx
 {
     rcio: Rc<RefCell<Io>>,
-    src_worker_id: i64,
-    src_fiber_id: i64,
+    pub iop: Iop,
     run_queue: RunQueue,
-    rsrc_id: Option<i64>,
-    rsrc: Option<Box<dyn Rsrc>>,
-    params: Vec<Option<Val>>,
+    new_rsrc_id: i64,
+    new_rsrc: Option<Box<dyn Rsrc>>,
 }
 
 impl IopCtx
 {
     pub fn new(
         rcio: Rc<RefCell<Io>>,
-        wid: i64,
-        fid: i64,
+        iop: Iop,
         run_queue: RunQueue,
-        rsrc_id: Option<i64>,
-        rsrc: Option<Box<dyn Rsrc>>,
-        param_val: Val,
+        new_rsrc_id: i64,
     ) -> IopCtx
     {
-        let params = match param_val {
-            Val::Tuple(items) => items.into_iter().map(|i| Some(i.v)).collect(),
-            _ => {
-                panic!("IopCtx params not a tuple");
-            }
-        };
         IopCtx {
             rcio,
-            src_worker_id: wid,
-            src_fiber_id: fid,
+            iop,
             run_queue,
-            rsrc_id,
-            rsrc,
-            params,
+            new_rsrc_id,
+            new_rsrc: None,
         }
     }
 
-    pub fn init_rsrc(&mut self, rsrc: Box<dyn Rsrc>)
+    pub fn init_rsrc(&mut self, rsrc: Box<dyn Rsrc>) -> Lresult<Val>
     {
-        if self.rsrc_id.is_none() {
-            panic!("cannot init rsrc with no rsrc_id");
+        if self.new_rsrc.is_some() {
+            return Err(lfail!(
+                failure::Mode::CodeFailure,
+                "attempt to create second resource"
+            ));
         }
-        if self.rsrc.is_some() {
-            panic!("cannot reinitialize rsrc");
-        }
-        self.rsrc = Some(rsrc);
+        self.new_rsrc = Some(rsrc);
+        Ok(Val::ResourceRef(self.new_rsrc_id))
     }
 
     pub fn take_rsrc<T>(&mut self) -> T
     where
         T: Rsrc,
     {
-        if self.rsrc_id.is_none() {
-            panic!("cannot take uninitialized resource");
-        }
-        let opt_rsrc = self.rsrc.take();
-        match opt_rsrc {
-            Some(rsrc) => {
-                let result = rsrc.downcast::<T>();
-                *(result.unwrap())
-            }
-            None => {
-                let rsrc_id = self.rsrc_id.unwrap();
-                panic!("resource is missing: {}", rsrc_id);
-            }
-        }
+        self.iop.take_rsrc(0).unwrap()
     }
 
     /**
      * Take a parameter from the context
      */
-    pub fn take_param(&mut self, i: i8) -> Option<Val>
+    pub fn take_param(&mut self, i: i8) -> Lresult<Val>
     {
-        self.params.get_mut(i as usize).unwrap().take()
+        Ok(ltry!(self.iop.get_param(i)).clone())
     }
 
     pub fn clone_run_queue(&self) -> RunQueue

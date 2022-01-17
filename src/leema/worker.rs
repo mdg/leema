@@ -4,10 +4,9 @@ use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
-use crate::leema::rsrc;
 use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
-use crate::leema::val::{Fref, MsgVal, Val};
+use crate::leema::val::{Fref, Val};
 
 use crate::leema::lib_core;
 
@@ -233,14 +232,14 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
-            let args =
-                Val::Tuple(vec![StrupleItem::new_v(Val::Func(fref.clone()))]);
+            let args = vec![StrupleItem::new_v(MsgItem::new(&Val::Func(
+                fref.clone(),
+            )))];
             let msg = IoMsg::Iop {
                 worker_id: self.id,
                 fiber_id: curf.fiber_id,
                 action: lib_core::load_code,
-                rsrc_id: Some(rsrc::ID_PROGLIB),
-                params: MsgItem::new(&args),
+                params: args,
             };
             self.io_tx
                 .send(msg)
@@ -443,28 +442,21 @@ impl Worker
 
     fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>) -> Lresult<()>
     {
-        if let Some((iopf, rsrc_idx)) = code.get_iop() {
+        if let Some((iopf, _rsrc_idx)) = code.get_iop() {
             let fiber_id = fib.fiber_id;
-            let rsrc_id = match rsrc_idx {
-                Some(idx) => {
-                    if let &Val::ResourceRef(rid) = fib.head.e.get_param(idx)? {
-                        Some(rid)
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            };
-
-            let args = Val::Tuple(fib.head.e.get_params().to_vec());
-            let msg_vals = MsgVal::new(&args);
+            let params = fib
+                .head
+                .e
+                .get_params()
+                .iter()
+                .map(|p| p.map_v_ref(|ip| MsgItem::new(ip)))
+                .collect();
             self.io_tx
                 .send(IoMsg::Iop {
                     worker_id: self.id,
                     fiber_id,
-                    rsrc_id,
                     action: iopf,
-                    params: msg_vals,
+                    params,
                 })
                 .map_err(|e| rustfail!("io_failure", "{}", e))?;
             self.waiting.insert(fiber_id, FiberWait::Io(fib));

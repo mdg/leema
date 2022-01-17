@@ -126,7 +126,7 @@ impl Future for Sender
         let nbytes = match write_result {
             Ok(Async::Ready(nb)) => nb as i64,
             Ok(Async::NotReady) => {
-                self.ctx.init_rsrc(Box::new(sock));
+                self.ctx.init_rsrc(Box::new(sock)).unwrap();
                 return Ok(Async::NotReady);
             }
             Err(e) => {

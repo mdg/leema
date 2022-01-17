@@ -70,7 +70,7 @@ impl Future for UdpRecv
             }
             Ok(Async::NotReady) => {
                 vout!("poll_recv_from notready");
-                self.ctx.init_rsrc(Box::new(sock));
+                self.ctx.init_rsrc(Box::new(sock)).unwrap();
                 return Ok(Async::NotReady);
             }
             Err(e) => {

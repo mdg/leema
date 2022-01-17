@@ -1,3 +1,4 @@
+use crate::leema::failure::{self, Lresult};
 use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
@@ -38,13 +39,179 @@ ResourceQueue
 IoEvent
 */
 
+const DEFAULT_NEXT_CAPACITY: usize = 16;
+
 pub struct Iop
 {
-    action: rsrc::IopAction,
-    ctx: IopCtx,
     src_worker_id: i64,
     src_fiber_id: i64,
-    rsrc_id: Option<i64>,
+    action: rsrc::IopAction,
+    params: Struple2<Val>,
+    rsrc_ids: Vec<i64>,
+    rsrc_val: HashMap<i64, Box<dyn Rsrc>>,
+}
+
+impl Iop
+{
+    pub fn new(
+        worker_id: i64,
+        fiber_id: i64,
+        action: rsrc::IopAction,
+        params: Struple2<Val>,
+    ) -> Iop
+    {
+        let mut rsrc_ids: Vec<i64> = params
+            .iter()
+            .filter_map(|p| {
+                if let Val::ResourceRef(rsrc_id) = &p.v {
+                    Some(*rsrc_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        rsrc_ids.sort();
+        let rsrc_val = HashMap::with_capacity(rsrc_ids.len());
+        Iop {
+            src_worker_id: worker_id,
+            src_fiber_id: fiber_id,
+            action,
+            params,
+            rsrc_ids,
+            rsrc_val,
+        }
+    }
+
+    pub fn pop_rsrc_id(&mut self) -> Option<i64>
+    {
+        self.rsrc_ids.pop()
+    }
+
+    pub fn add_rsrc(&mut self, id: i64, rsrc: Box<dyn Rsrc>)
+    {
+        if self.rsrc_val.contains_key(&id) {
+            panic!("cannot reinitialize rsrc");
+        }
+        self.rsrc_val.insert(id, rsrc);
+    }
+
+    pub fn init_rsrc(&mut self, _id: i64, _rsrc: Box<dyn Rsrc>)
+    {
+        unimplemented!();
+    }
+
+    pub fn get_rsrc<T>(&self, p: i8) -> Lresult<&T>
+    where
+        T: Rsrc,
+    {
+        let r = ltry!(self.params.get(p as usize).ok_or_else(|| {
+            lfail!(
+                failure::Mode::CodeFailure,
+                "invalid parameter",
+                "param": ldisplay!(p),
+            )
+        }));
+        if let Val::ResourceRef(id) = r.v {
+            self.rsrc_val
+                .get(&id)
+                .map(|v| {
+                    let result = v.downcast_ref::<T>();
+                    &*(result.unwrap())
+                })
+                .ok_or_else(|| {
+                    lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "resource missing",
+                        "rsrc_id": ldisplay!(id),
+                    )
+                })
+        } else {
+            Err(lfail!(
+                failure::Mode::CodeFailure,
+                "parameter is not a resource",
+                "param": ldisplay!(p),
+            ))
+        }
+    }
+
+    pub fn mut_rsrc<T>(&mut self, p: i8) -> Lresult<&mut T>
+    where
+        T: Rsrc,
+    {
+        let r = ltry!(self.params.get(p as usize).ok_or_else(|| {
+            lfail!(
+                failure::Mode::CodeFailure,
+                "invalid parameter",
+                "param": ldisplay!(p),
+            )
+        }));
+        if let Val::ResourceRef(id) = r.v {
+            self.rsrc_val
+                .get_mut(&id)
+                .map(|v| {
+                    let result = v.downcast_mut::<T>();
+                    &mut *(result.unwrap())
+                })
+                .ok_or_else(|| {
+                    lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "resource missing",
+                        "rsrc_id": ldisplay!(id),
+                    )
+                })
+        } else {
+            Err(lfail!(
+                failure::Mode::CodeFailure,
+                "parameter is not a resource",
+                "param": ldisplay!(p),
+            ))
+        }
+    }
+
+    pub fn take_rsrc<T>(&mut self, p: i8) -> Lresult<T>
+    where
+        T: Rsrc,
+    {
+        let r = ltry!(self.params.get(p as usize).ok_or_else(|| {
+            lfail!(
+                failure::Mode::CodeFailure,
+                "invalid parameter",
+                "param": ldisplay!(p),
+            )
+        }));
+        if let Val::ResourceRef(id) = r.v {
+            self.rsrc_val
+                .remove(&id)
+                .map(|v| {
+                    let result = v.downcast::<T>();
+                    *(result.unwrap())
+                })
+                .ok_or_else(|| {
+                    lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "resource missing",
+                        "rsrc_id": ldisplay!(id),
+                    )
+                })
+        } else {
+            Err(lfail!(
+                failure::Mode::CodeFailure,
+                "parameter is not a resource",
+                "param": ldisplay!(p),
+            ))
+        }
+    }
+
+    pub fn get_param(&self, p: i8) -> Lresult<&Val>
+    {
+        self.params.get(p as usize).map(|i| &i.v).ok_or_else(|| {
+            lfail!(
+                failure::Mode::CodeFailure,
+                "invalid param index",
+                "param": ldisplay!(p),
+            )
+        })
+    }
 }
 
 pub struct RsrcQueue
@@ -68,13 +235,14 @@ impl RsrcQueue
     /**
      * Push an Iop onto the queue
      *
-     * If the resource is already in used, then return None
+     * If the resource is available, add the resource to the iop and return it
+     * If the resource is already in use, then queue the iop and return None
      */
     pub fn push_iop(&mut self, mut iop: Iop) -> Option<Iop>
     {
         match self.rsrc.take() {
             Some(r) => {
-                iop.ctx.init_rsrc(r);
+                iop.add_rsrc(self.rsrc_id, r);
                 Some(iop)
             }
             None => {
@@ -203,36 +371,12 @@ impl Io
                 worker_id: wid,
                 fiber_id: fid,
                 action,
-                rsrc_id,
                 params,
             } => {
-                vout!(
-                    "iop incoming: {:?}:{:?}:{:?} {:?}\n",
-                    wid,
-                    fid,
-                    rsrc_id,
-                    params
-                );
-                let param_vals = params.take();
-                self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
-            }
-            IoMsg::Call {
-                worker_id,
-                fiber_id,
-                f,
-                params,
-            } => {
-                let fval = f.take();
+                vout!("iop incoming: {:?}:{:?}: {:?}\n", wid, fid, params);
                 let pvals: Struple2<Val> =
                     params.into_iter().map(|p| p.map_v(|v| v.take())).collect();
-                vout!(
-                    "io call: {}:{}:{:?} {:?}\n",
-                    worker_id,
-                    fiber_id,
-                    fval,
-                    pvals,
-                );
-                self.push_call(worker_id, fiber_id, fval, pvals);
+                self.handle_iop_action(wid, fid, action, pvals);
             }
             IoMsg::NewWorker(worker_id, worker_tx) => {
                 self.worker_tx.insert(worker_id, worker_tx);
@@ -243,78 +387,49 @@ impl Io
         }
     }
 
-    fn push_call(
-        &mut self,
-        worker_id: i64,
-        fiber_id: i64,
-        f: Val,
-        params: Struple2<Val>,
-    )
-    {
-        vout!(
-            "push_call({},{},{:?},{:?})\n",
-            worker_id,
-            fiber_id,
-            f,
-            params
-        );
-    }
-
     fn handle_iop_action(
         &mut self,
         worker_id: i64,
         fiber_id: i64,
         action: rsrc::IopAction,
-        opt_rsrc_id: Option<i64>,
-        params: Val,
+        params: Struple2<Val>,
     )
     {
         vout!(
-            "handle_iop_action({},{},{:?},{:?})\n",
+            "handle_iop_action({},{},{:?})\n",
             worker_id,
             fiber_id,
-            opt_rsrc_id,
             params
         );
-        let ctx = self.create_iop_ctx(
-            worker_id,
-            fiber_id,
-            opt_rsrc_id.clone(),
-            None,
-            params,
-        );
-        let iop = Iop {
-            ctx,
-            action,
-            src_worker_id: worker_id,
-            src_fiber_id: fiber_id,
-            rsrc_id: opt_rsrc_id.clone(),
-        };
-        match opt_rsrc_id {
-            None => {
-                self.next.push_back(iop);
-            }
-            Some(rsrc_id) => {
-                let opt_rsrc_op = {
-                    let opt_rsrcq = self.resource.get_mut(&rsrc_id);
-                    if opt_rsrcq.is_none() {
-                        panic!("missing queue for rsrc: {}", rsrc_id);
-                    }
-                    let rsrcq = opt_rsrcq.unwrap();
-                    rsrcq.push_iop(iop)
-                };
-                if let Some(rsrc_op) = opt_rsrc_op {
-                    self.next.push_back(rsrc_op);
+        let iop = Iop::new(worker_id, fiber_id, action, params);
+        self.push_iop(iop).unwrap();
+    }
+
+    fn push_iop(&mut self, mut iop: Iop) -> Lresult<()>
+    {
+        if let Some(rsrc_id) = iop.pop_rsrc_id() {
+            if let Some(q) = self.resource.get_mut(&rsrc_id) {
+                if let Some(iop2) = q.push_iop(iop) {
+                    ltry!(self.push_iop(iop2));
                 }
+            } else {
+                return Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "resourced does not exist",
+                    "rsrc_id": ldisplay!(rsrc_id),
+                ));
             }
+        } else {
+            self.next.push_back(iop);
         }
+        Ok(())
     }
 
     fn run_iop(&mut self, rsrc_op: Option<(Iop, Box<dyn Rsrc>)>)
     {
-        if let Some((mut iop, rsrc)) = rsrc_op {
+        if let Some((iop, _rsrc)) = rsrc_op {
             vout!("run_iop\n");
-            iop.ctx.init_rsrc(rsrc);
+            // TODO add the rsrc back to the iop?
             self.next.push_back(iop);
         }
     }
@@ -324,13 +439,7 @@ impl Io
         self.next.pop_front()
     }
 
-    pub fn handle_event(
-        &mut self,
-        worker_id: i64,
-        fiber_id: i64,
-        rsrc_id: Option<i64>,
-        ev: Event,
-    )
+    pub fn handle_event(&mut self, worker_id: i64, fiber_id: i64, ev: Event)
     {
         match ev {
             Event::NewRsrc(rsrc) => {
@@ -339,16 +448,14 @@ impl Io
                 let result = Val::ResourceRef(new_rsrc_id);
                 self.send_result(worker_id, fiber_id, result);
             }
-            Event::ReturnRsrc(rsrc) => {
+            Event::ReturnRsrc(_rsrc) => {
+                // delete this event? or make it return iop?
                 vout!("handle Event::ReturnRsrc\n");
-                self.return_rsrc(rsrc_id, rsrc);
             }
             Event::DropRsrc => {
+                // delete this event? should be able to derive it
                 vout!("handle Event::DropRsrc\n");
-                if rsrc_id.is_none() {
-                    panic!("cannot drop rsrc with no id");
-                }
-                self.resource.remove(&rsrc_id.unwrap());
+                panic!("cannot drop rsrc with no id");
             }
             Event::Result(result) => {
                 vout!("handle Event::Result\n");
@@ -369,13 +476,13 @@ impl Io
                     .map(move |ev2| {
                         vout!("handle Event::Future ok\n");
                         let mut bio = rcio.borrow_mut();
-                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        bio.handle_event(worker_id, fiber_id, ev2);
                         ()
                     })
                     .map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
                         let mut bio = rcio_err.borrow_mut();
-                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        bio.handle_event(worker_id, fiber_id, ev2);
                         ()
                     });
                 vout!("spawn new future\n");
@@ -391,17 +498,12 @@ impl Io
                     .into_future()
                     .map(move |(ev2, _str2)| {
                         let mut bio = rcio.borrow_mut();
-                        bio.handle_event(
-                            worker_id,
-                            fiber_id,
-                            rsrc_id,
-                            ev2.unwrap(),
-                        );
+                        bio.handle_event(worker_id, fiber_id, ev2.unwrap());
                         ()
                     })
                     .map_err(move |(ev2, _str2)| {
                         let mut bio = rcio_err.borrow_mut();
-                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        bio.handle_event(worker_id, fiber_id, ev2);
                         ()
                     });
                 vout!("spawn new stream\n");
@@ -411,34 +513,19 @@ impl Io
             }
             Event::Sequence(first, second) => {
                 vout!("handle Event::Sequence\n");
-                self.handle_event(worker_id, fiber_id, rsrc_id, *first);
-                self.handle_event(worker_id, fiber_id, rsrc_id, *second);
+                self.handle_event(worker_id, fiber_id, *first);
+                self.handle_event(worker_id, fiber_id, *second);
             }
         }
     }
 
-    fn create_iop_ctx<'a>(
-        &'a mut self,
-        src_worker_id: i64,
-        src_fiber_id: i64,
-        rsrc_id: Option<i64>,
-        rsrc: Option<Box<dyn Rsrc>>,
-        param_val: Val,
-    ) -> IopCtx
+    fn create_iop_ctx<'a>(&'a mut self, iop: Iop) -> IopCtx
     {
         let rcio = self.io.clone().unwrap();
         let run_queue = RunQueue {
             app_send: self.app_tx.clone(),
         };
-        IopCtx::new(
-            rcio,
-            src_worker_id,
-            src_fiber_id,
-            run_queue,
-            rsrc_id,
-            rsrc,
-            param_val,
-        )
+        IopCtx::new(rcio, iop, run_queue, self.next_rsrc_id)
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<dyn Rsrc>) -> i64
@@ -503,13 +590,12 @@ impl Future for IoLoop
         let poll_result = self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {
-            let ev = (iop.action)(iop.ctx);
-            self.io.borrow_mut().handle_event(
-                iop.src_worker_id,
-                iop.src_fiber_id,
-                iop.rsrc_id,
-                ev,
-            );
+            let worker_id = iop.src_worker_id;
+            let fiber_id = iop.src_fiber_id;
+            let action = iop.action;
+            let ctx = self.io.borrow_mut().create_iop_ctx(iop);
+            let ev = action(ctx);
+            self.io.borrow_mut().handle_event(worker_id, fiber_id, ev);
             self.did_nothing = 0;
         } else {
             self.did_nothing = min(self.did_nothing + 1, 100_000);
@@ -531,7 +617,7 @@ pub mod tests
     use crate::leema::msg;
     use crate::leema::program;
     use crate::leema::rsrc::{self, Rsrc};
-    use crate::leema::struple::Struple2;
+    use crate::leema::struple::{Struple2, StrupleItem};
     use crate::leema::val::{MsgVal, Type, Val};
 
     use std::sync::mpsc;
@@ -577,14 +663,16 @@ pub mod tests
 
         let rcio = Io::new(app_tx, msg_rx, empty_program());
 
-        let msg_params = MsgVal::new(&Val::Tuple(params));
+        let msg_params = params
+            .into_iter()
+            .map(|p| p.map_v(|v| MsgVal::new(&v)))
+            .collect();
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
         msg_tx
             .send(msg::IoMsg::Iop {
                 worker_id: 11,
                 fiber_id: 21,
                 action,
-                rsrc_id: None,
                 params: msg_params,
             })
             .unwrap();
@@ -628,6 +716,8 @@ pub mod tests
 
         let io = Io::new(app_tx, msg_rx, empty_program());
         let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
+        let params =
+            vec![StrupleItem::new_v(MsgVal::new(&Val::ResourceRef(rsrc_id)))];
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
         msg_tx
@@ -635,8 +725,7 @@ pub mod tests
                 worker_id: 8,
                 fiber_id: 7,
                 action: mock_rsrc_action,
-                rsrc_id: Some(rsrc_id),
-                params: MsgVal::new(&Val::empty_tuple()),
+                params,
             })
             .unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
