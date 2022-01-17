@@ -262,8 +262,8 @@ pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
 pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("load_code()\n");
-    let mut prog: program::Lib = ctx.take_rsrc();
-    let fref = match ctx.take_param(0).unwrap() {
+    let mut prog: program::Lib = ctx.iop.take_rsrc(0).unwrap();
+    let fref = match ctx.take_param(1).unwrap() {
         Val::Func(fr) => fr,
         what => panic!("what is this? {:?}", what),
     };

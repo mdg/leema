@@ -41,6 +41,7 @@ IoEvent
 
 const DEFAULT_NEXT_CAPACITY: usize = 16;
 
+#[derive(Debug)]
 pub struct Iop
 {
     src_worker_id: i64,
@@ -128,8 +129,9 @@ impl Iop
         } else {
             Err(lfail!(
                 failure::Mode::CodeFailure,
-                "parameter is not a resource",
+                "ref parameter is not a resource",
                 "param": ldisplay!(p),
+                "value": ldebug!(r.v),
             ))
         }
     }
@@ -162,8 +164,9 @@ impl Iop
         } else {
             Err(lfail!(
                 failure::Mode::CodeFailure,
-                "parameter is not a resource",
+                "mut parameter is not a resource",
                 "param": ldisplay!(p),
+                "value": ldebug!(r.v),
             ))
         }
     }
@@ -196,8 +199,10 @@ impl Iop
         } else {
             Err(lfail!(
                 failure::Mode::CodeFailure,
-                "parameter is not a resource",
+                "take parameter is not a resource",
                 "param": ldisplay!(p),
+                "value": ldebug!(r.v),
+                "params": ldebug!(self.params),
             ))
         }
     }

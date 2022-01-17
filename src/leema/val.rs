@@ -1232,6 +1232,8 @@ impl Val
     pub const BLOCK_RUST: Val = Val::Token(Type::named(Type::PATH_BLOCK_RUST));
 
     pub const NOTOKEN: Val = Val::Token(Type::NOTOKEN);
+    /// PROGLIB is the ResourceRef for rsrc::ID_PROGLIB
+    pub const PROGLIB: Val = Val::ResourceRef(0);
 
     pub fn empty_tuple() -> Val
     {
