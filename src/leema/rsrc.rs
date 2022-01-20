@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{self, Lresult};
+use crate::leema::failure::Lresult;
 pub use crate::leema::io::RunQueue;
 use crate::leema::io::{Io, Iop};
 use crate::leema::val::{Fref, Type, Val};
@@ -32,6 +32,7 @@ pub enum Event
     DropRsrc,
     Result(Val),
     FoundCode(Fref, Code),
+    Complete(IopCtx),
     Sequence(Box<Event>, Box<Event>),
 }
 
@@ -55,6 +56,7 @@ impl fmt::Debug for Event
         match *self {
             Event::Future(_) => write!(f, "Event::Future"),
             Event::Stream(_) => write!(f, "Event::Stream"),
+            Event::Complete(_) => write!(f, "Event::Complete"),
             Event::NewRsrc(ref r) => write!(f, "Event::Rsrc({:?})", r),
             Event::ReturnRsrc(ref r) => write!(f, "Event::ReturnRsrc({:?})", r),
             Event::DropRsrc => write!(f, "Event::ReturnRsrc"),
@@ -75,7 +77,6 @@ pub struct IopCtx
     pub iop: Iop,
     run_queue: RunQueue,
     new_rsrc_id: i64,
-    new_rsrc: Option<Box<dyn Rsrc>>,
 }
 
 impl IopCtx
@@ -92,19 +93,12 @@ impl IopCtx
             iop,
             run_queue,
             new_rsrc_id,
-            new_rsrc: None,
         }
     }
 
     pub fn init_rsrc(&mut self, rsrc: Box<dyn Rsrc>) -> Lresult<Val>
     {
-        if self.new_rsrc.is_some() {
-            return Err(lfail!(
-                failure::Mode::CodeFailure,
-                "attempt to create second resource"
-            ));
-        }
-        self.new_rsrc = Some(rsrc);
+        ltry!(self.iop.add_rsrc(self.new_rsrc_id, rsrc));
         Ok(Val::ResourceRef(self.new_rsrc_id))
     }
 

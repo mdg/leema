@@ -48,6 +48,7 @@ pub struct Iop
     src_fiber_id: i64,
     action: rsrc::IopAction,
     params: Struple2<Val>,
+    result: Val,
     rsrc_ids: Vec<i64>,
     rsrc_val: HashMap<i64, Box<dyn Rsrc>>,
 }
@@ -78,6 +79,7 @@ impl Iop
             src_fiber_id: fiber_id,
             action,
             params,
+            result: Val::VOID,
             rsrc_ids,
             rsrc_val,
         }
@@ -88,12 +90,22 @@ impl Iop
         self.rsrc_ids.pop()
     }
 
-    pub fn add_rsrc(&mut self, id: i64, rsrc: Box<dyn Rsrc>)
+    pub fn set_result(&mut self, r: Val)
+    {
+        self.result = r;
+    }
+
+    pub fn add_rsrc(&mut self, id: i64, rsrc: Box<dyn Rsrc>) -> Lresult<()>
     {
         if self.rsrc_val.contains_key(&id) {
-            panic!("cannot reinitialize rsrc");
+            return Err(lfail!(
+                failure::Mode::CodeFailure,
+                "cannot reinitialize rsrc",
+                "rsrc_id": ldisplay!(id),
+            ));
         }
         self.rsrc_val.insert(id, rsrc);
+        Ok(())
     }
 
     pub fn init_rsrc(&mut self, _id: i64, _rsrc: Box<dyn Rsrc>)
@@ -247,7 +259,7 @@ impl RsrcQueue
     {
         match self.rsrc.take() {
             Some(r) => {
-                iop.add_rsrc(self.rsrc_id, r);
+                iop.add_rsrc(self.rsrc_id, r).unwrap();
                 Some(iop)
             }
             None => {
@@ -457,6 +469,7 @@ impl Io
                 // delete this event? or make it return iop?
                 vout!("handle Event::ReturnRsrc\n");
             }
+            Event::Complete(_iop) => {}
             Event::DropRsrc => {
                 // delete this event? should be able to derive it
                 vout!("handle Event::DropRsrc\n");
