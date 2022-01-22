@@ -65,7 +65,7 @@ impl Application
     {
         let mut app = Application::new();
         let caller = app.caller();
-        app.run(inter);
+        app.start_runtime(inter);
         let main_args = vec![StrupleItem::new_v(args)];
         let result_recv = caller.push_call(mainf, main_args);
         (app, result_recv)
@@ -74,12 +74,17 @@ impl Application
     pub fn run_lib(inter: Interloader) -> Application
     {
         let mut app = Application::new();
-        app.run(inter);
+        app.start_runtime(inter);
         app
     }
 
     #[tokio::main]
-    async fn run(&mut self, inter: Interloader)
+    async fn start_runtime(&mut self, inter: Interloader)
+    {
+        self.run(inter)
+    }
+
+    fn run(&mut self, inter: Interloader)
     {
         self.start_io(inter);
         self.start_worker();
