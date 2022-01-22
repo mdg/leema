@@ -2,7 +2,7 @@ use crate::leema::failure;
 // use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
 use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
-// use crate::leema::program;
+use crate::leema::program;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, Val};
 use crate::leema::worker::Worker;
@@ -77,19 +77,19 @@ impl Application
     }
 
     #[tokio::main]
-    async fn run(&mut self, _inter: Interloader)
+    async fn run(&mut self, inter: Interloader)
     {
-        // self.start_io(inter);
+        self.start_io(inter);
         self.start_worker();
         self.start_worker();
     }
 
-    /*
-    fn start_io(&mut self, inter: Interloader) -> thread::JoinHandle<()>
+    fn start_io(&mut self, inter: Interloader) // -> thread::JoinHandle<()>
     {
-        let prog = program::Lib::new(inter);
-        let app_send = self.app_send.clone();
-        let io_recv = self.io_recv.take().unwrap();
+        let _prog = program::Lib::new(inter);
+        // let app_send = self.app_send.clone();
+        let _io_recv = self.io_recv.take().unwrap();
+        /*
         thread::Builder::new()
             .name("leema-io".to_string())
             .spawn(move || {
@@ -97,8 +97,8 @@ impl Application
                 IoLoop::run(rcio);
             })
             .unwrap()
+            */
     }
-    */
 
     fn start_worker(&mut self) -> thread::JoinHandle<()>
     {
