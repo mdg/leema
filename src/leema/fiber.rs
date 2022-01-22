@@ -10,7 +10,8 @@ use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, Type, Val};
 
 use std::pin::Pin;
-use std::sync::mpsc::Sender;
+
+use tokio::sync::mpsc::Sender;
 
 
 #[derive(Debug)]
@@ -57,9 +58,14 @@ impl Fiber
         self.head.trace = self.head.push_frame_trace(0);
     }
 
-    pub fn take_result_sender(&mut self) -> Option<Sender<Val>>
+    pub fn send_result(&mut self) // -> Option<Sender<Val>>
     {
-        self.result_sender.take()
+        if let Some(dst) = self.result_sender.take() {
+            vout!("send riber result\n");
+            let result = self.take_result();
+            dst.blocking_send(result).expect("call result send failure");
+        }
+        // else this is a result-less fiber, which is fine
     }
 
     pub fn take_result(&mut self) -> Val

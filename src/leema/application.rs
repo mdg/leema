@@ -9,9 +9,11 @@ use crate::leema::worker::Worker;
 
 use std::cmp::min;
 use std::collections::HashMap;
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Duration;
+
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 
 pub struct Application
@@ -32,8 +34,8 @@ impl Application
 {
     fn new() -> Application
     {
-        let (tx, rx) = channel();
-        let (iotx, iorx) = channel();
+        let (tx, rx) = channel(100);
+        let (iotx, iorx) = channel(100);
         Application {
             app_recv: rx,
             app_send: tx,
@@ -105,7 +107,7 @@ impl Application
         let worker_id = self.next_worker_id();
         let app_send = self.app_send.clone();
         let io_send = self.io_send.clone();
-        let (worker_send, worker_recv) = channel();
+        let (worker_send, worker_recv) = channel(100);
         vout!("start worker {}\n", worker_id);
         let handle = thread::spawn(move || {
             let w = Worker::init(worker_id, app_send, io_send, worker_recv);
@@ -113,7 +115,7 @@ impl Application
         });
         self.worker.insert(worker_id, worker_send.clone());
         self.io_send
-            .send(IoMsg::NewWorker(worker_id, worker_send))
+            .blocking_send(IoMsg::NewWorker(worker_id, worker_send))
             .expect("fail to send worker to io thread");
         handle
     }
@@ -173,7 +175,8 @@ impl Application
             vout!("application call {}({:?})\n", call, args);
             let w = self.worker.values().next().unwrap();
             let msg = WorkerMsg::Spawn(dst, call, args);
-            w.send(msg).expect("fail sending spawn call to worker");
+            w.blocking_send(msg)
+                .expect("fail sending spawn call to worker");
             did_something = true;
         }
 
@@ -234,9 +237,9 @@ impl AppCaller
 {
     pub fn push_call(&self, call: Fref, args: Struple2<Val>) -> Receiver<Val>
     {
-        let (result_send, result_recv) = channel();
+        let (result_send, result_recv) = channel(1);
         self.app_send
-            .send(AppMsg::Spawn(result_send, call, args))
+            .blocking_send(AppMsg::Spawn(result_send, call, args))
             .unwrap();
         result_recv
     }

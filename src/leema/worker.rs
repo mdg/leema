@@ -15,14 +15,13 @@ use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::{
-    mpsc::{channel, Receiver, Sender},
-    Arc,
-};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 use futures::task::Poll;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+
 
 
 const DEFAULT_STACK_SIZE: usize = 50;
@@ -115,21 +114,21 @@ impl<'a> RustFuncContext<'a>
 
     pub fn new_task(&self, f: Fref, args: Struple2<Val>)
     {
-        let (send, _) = channel();
+        let (send, _) = channel(1);
         let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
             .app_tx
-            .send(spawn_msg)
+            .blocking_send(spawn_msg)
             .expect("failed sending new_task msg");
     }
 
     pub fn new_fork(&self, f: Fref, args: Struple2<Val>) -> Receiver<Val>
     {
-        let (send, recv) = channel();
+        let (send, recv) = channel(1);
         let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
             .app_tx
-            .send(spawn_msg)
+            .blocking_send(spawn_msg)
             .expect("failed sending new_fork msg");
         recv
     }
@@ -243,7 +242,7 @@ impl Worker
                 params: MsgItem::new(&args),
             };
             self.io_tx
-                .send(msg)
+                .blocking_send(msg)
                 .expect("failure sending load code message to app");
             let fiber_id = curf.fiber_id;
             let fw = FiberWait::Code(curf);
@@ -309,9 +308,11 @@ impl Worker
                 Poll::Pending
             }
             Event::NewTask(fref, callargs) => {
-                let (sender, _receiver) = channel();
+                let (sender, _receiver) = channel(1);
                 let msg = AppMsg::Spawn(sender, fref, callargs);
-                self.app_tx.send(msg).expect("new task msg send failure");
+                self.app_tx
+                    .blocking_send(msg)
+                    .expect("new task msg send failure");
                 let (new_child, new_parent) = fbr.new_task_key();
                 let new_task_key = Val::Tuple(vec![
                     StrupleItem::new(None, Val::Int(new_child)),
@@ -387,12 +388,7 @@ impl Worker
         // should write some metrics about being done
 
         // fiber is done, how to finish it?
-        if let Some(dst) = fbr.take_result_sender() {
-            vout!("send riber result\n");
-            let result = fbr.take_result();
-            dst.send(result).expect("call result send failure");
-        }
-        // else this is a result-less fiber, which is fine
+        fbr.send_result();
     }
 
     pub fn process_msg(&mut self, msg: WorkerMsg) -> Lresult<()>
@@ -459,14 +455,14 @@ impl Worker
             let args = Val::Tuple(fib.head.e.get_params().to_vec());
             let msg_vals = MsgVal::new(&args);
             self.io_tx
-                .send(IoMsg::Iop {
+                .blocking_send(IoMsg::Iop {
                     worker_id: self.id,
                     fiber_id,
                     rsrc_id,
                     action: iopf,
                     params: msg_vals,
                 })
-                .map_err(|e| rustfail!("io_failure", "{}", e))?;
+                .unwrap();
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
             Ok(())
         } else {

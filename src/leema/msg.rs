@@ -7,7 +7,8 @@ use crate::leema::val::{Fref, MsgVal, Val};
 
 use std::fmt;
 use std::ops::Deref;
-use std::sync::mpsc;
+
+use tokio::sync::mpsc;
 
 
 #[derive(Debug)]
