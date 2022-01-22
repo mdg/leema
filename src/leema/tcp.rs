@@ -72,8 +72,7 @@ struct Receiver
 
 impl Future for Receiver
 {
-    type Item = (TcpStream, Val);
-    type Error = (TcpStream, std::io::Error);
+    type Output = (TcpStream, Val);
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error>
     {

@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
@@ -22,7 +22,7 @@ use std::sync::{
 use std::thread;
 use std::time::Duration;
 
-use futures::{Async, Poll};
+use futures::task::Poll;
 
 
 const DEFAULT_STACK_SIZE: usize = 50;
@@ -211,8 +211,8 @@ impl Worker
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
-                let ev = self.execute_frame(&mut f, &*code);
-                self.handle_event(f, ev, code)?;
+                let _ev = self.execute_frame(&mut f, &*code);
+                // self.handle_event(f, ev, code);
             }
             None => {}
         }
@@ -279,34 +279,34 @@ impl Worker
         mut fbr: Fiber,
         evr: Lresult<Event>,
         code: Rc<Code>,
-    ) -> Poll<Val, Failure>
+    ) -> Poll<Val>
     {
         let e = match evr {
             Ok(ev) => ev,
             Err(failure) => {
                 fbr.head.e.set_result(Val::Failure2(Box::new(failure)));
                 self.return_from_call(fbr);
-                return Ok(Async::NotReady);
+                return Poll::Pending;
             }
         };
         match e {
             Event::Success => {
                 vout!("function call success\n");
                 self.return_from_call(fbr);
-                Ok(Async::NotReady)
+                Poll::Pending
             }
             Event::PushCall { argc, line } => {
                 vout!("push_call({} @{})\n", argc, line);
                 fbr.head =
                     fbr.head.push_call(code.clone(), argc, line).unwrap();
-                ltry!(self.load_code(fbr));
-                Result::Ok(Async::NotReady)
+                self.load_code(fbr).unwrap();
+                Poll::Pending
             }
             Event::TailCall(func, args) => {
                 vout!("push_tailcall({}, {:?})\n", func, args);
                 fbr.push_tailcall(func, args);
-                ltry!(self.load_code(fbr));
-                Result::Ok(Async::NotReady)
+                self.load_code(fbr).unwrap();
+                Poll::Pending
             }
             Event::NewTask(fref, callargs) => {
                 let (sender, _receiver) = channel();
@@ -319,11 +319,11 @@ impl Worker
                 ]);
                 fbr.head.e.set_result(new_task_key);
                 self.return_from_call(fbr);
-                Result::Ok(Async::NotReady)
+                Poll::Pending
             }
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
-                Result::Ok(Async::NotReady)
+                Poll::Pending
             }
             Event::Iop((rsrc_worker_id, rsrc_id), _iopf, _iopargs) => {
                 if self.id == rsrc_worker_id {
@@ -354,24 +354,24 @@ impl Worker
                         }
                     }
                     */
-                    Ok(Async::NotReady)
+                    Poll::Pending
                 } else {
-                    Err(rustfail!(
+                    Poll::Ready(Val::Failure2(Box::new(rustfail!(
                         "leema_failure",
                         "cannot send iop from worker({}) to worker({})",
                         self.id,
                         rsrc_worker_id,
-                    ))
+                    ))))
                 }
             }
             Event::Uneventful => {
                 vout!("shouldn't be here with uneventful");
-                Err(rustfail!(
+                Poll::Ready(Val::Failure2(Box::new(rustfail!(
                     "leema_failure",
                     "code: {:?}, pc: {:?}",
                     code,
                     fbr.head.pc,
-                ))
+                ))))
             }
         }
     }

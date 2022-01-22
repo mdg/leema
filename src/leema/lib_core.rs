@@ -4,7 +4,7 @@ use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::lstr::Lstr;
-use crate::leema::program;
+// use crate::leema::program;
 use crate::leema::rsrc;
 use crate::leema::val::{self, Val};
 use crate::leema::worker::RustFuncContext;
@@ -259,9 +259,10 @@ pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
     }
 }
 
-pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn load_code(mut _ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("load_code()\n");
+    /*
     let mut prog: program::Lib = ctx.take_rsrc();
     let fref = match ctx.take_param(0).unwrap() {
         Val::Func(fr) => fr,
@@ -278,6 +279,8 @@ pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
             rsrc::Event::Result(Val::Failure2(Box::new(f)))
         }
     }
+    */
+    rsrc::Event::Result(Val::VOID)
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

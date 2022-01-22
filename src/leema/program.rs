@@ -10,8 +10,7 @@ use crate::leema::rsrc::Rsrc;
 use crate::leema::semantics::Semantics;
 use crate::leema::val::{Fref, Type};
 use crate::leema::{
-    file, lib_core, lib_hyper, lib_io, lib_json, lib_list, lib_math, lib_task,
-    prefab, tcp, udp,
+    file, lib_core, lib_io, lib_json, lib_list, lib_math, prefab,
 };
 
 use std::collections::HashMap;
@@ -66,12 +65,14 @@ impl Lib
         proglib
             .rust_load
             .insert(canonical!("/file"), file::load_rust_func);
+        /*
         proglib
             .rust_load
             .insert(canonical!("/hyper_client"), lib_hyper::load_client_func);
         proglib
             .rust_load
             .insert(canonical!("/hyper_server"), lib_hyper::load_rust_func);
+            */
         proglib
             .rust_load
             .insert(canonical!("/io"), lib_io::load_rust_func);
@@ -90,6 +91,7 @@ impl Lib
         proglib
             .rust_load
             .insert(canonical!("/str"), lib_str::load_rust_func);
+        /*
         proglib
             .rust_load
             .insert(canonical!("/task"), lib_task::load_rust_func);
@@ -99,6 +101,7 @@ impl Lib
         proglib
             .rust_load
             .insert(canonical!("/udp"), udp::load_rust_func);
+            */
 
         proglib
     }

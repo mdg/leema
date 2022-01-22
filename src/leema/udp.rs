@@ -56,10 +56,9 @@ struct UdpRecv
 
 impl Future for UdpRecv
 {
-    type Item = rsrc::Event;
-    type Error = rsrc::Event;
+    type Output = rsrc::Event;
 
-    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
+    fn poll(&mut self) -> Poll<rsrc::Event>
     {
         vout!("UdpRecv::poll()\n");
         let mut sock: UdpSocket = self.ctx.take_rsrc();

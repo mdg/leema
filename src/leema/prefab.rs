@@ -3,15 +3,14 @@ use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::Event;
 use crate::leema::lstr::Lstr;
-use crate::leema::rsrc;
+// use crate::leema::rsrc;
 use crate::leema::val::{self, Type, Val};
 
 use std::io::{stderr, stdin, Write};
-use std::time::{Duration, Instant};
+// use std::time::{Duration, Instant};
 
-use futures::future::empty;
-use futures::Future;
-use tokio::timer::Delay;
+// use futures::future::empty;
+// use tokio::timer::Delay;
 
 
 pub fn bool_xor(f: &mut Fiber) -> Lresult<Event>
@@ -100,6 +99,7 @@ pub fn get_type(f: &mut Fiber) -> Lresult<Event>
 }
 
 
+/*
 pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
     let tint = ctx.take_param(0).unwrap().to_int() as u64;
@@ -114,6 +114,7 @@ pub fn leema_sleep_forever(_ctx: rsrc::IopCtx) -> rsrc::Event
 {
     rsrc::Event::Future(Box::new(empty()))
 }
+*/
 
 /**
  * cin
@@ -169,8 +170,8 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
 {
     match func_name {
         "bool_xor" => Some(Code::Rust(bool_xor)),
-        "sleep" => Some(Code::Iop(leema_sleep, None)),
-        "sleep_forever" => Some(Code::Iop(leema_sleep_forever, None)),
+        // "sleep" => Some(Code::Iop(leema_sleep, None)),
+        // "sleep_forever" => Some(Code::Iop(leema_sleep_forever, None)),
         "less_than" => Some(Code::Rust(less_than)),
         "less_than_equal" => Some(Code::Rust(less_than_equal)),
         "equal" => Some(Code::Rust(equal)),

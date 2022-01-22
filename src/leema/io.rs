@@ -1,4 +1,4 @@
-use crate::leema::lstr::Lstr;
+// use crate::leema::lstr::Lstr;
 use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::program;
 use crate::leema::rsrc::{self, Event, IopCtx, Rsrc};
@@ -10,16 +10,13 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{channel, Receiver, Sender}; // , TryRecvError};
 use std::thread;
 use std::time::Duration;
 
 use futures::future::Future;
-use futures::stream::Stream;
-use futures::task;
-use futures::{Async, Poll};
-use tokio::runtime::current_thread;
-use tokio_current_thread::TaskExecutor;
+// use futures::stream::Stream;
+use futures::task::Poll;
 
 /*
 Rsrc
@@ -122,28 +119,28 @@ impl RunQueue
     }
 }
 
+/*
 impl Future for RunQueueReceiver
 {
-    type Item = Val;
-    type Error = Val;
+    type Output = Val;
 
-    fn poll(&mut self) -> Poll<Val, Val>
+    fn poll(&mut self, _ctx: &mut Context<'_>) -> Poll<Val>
     {
         match self.0.try_recv() {
-            Ok(result) => Ok(Async::Ready(result)),
+            Ok(result) => Poll::Ready(result),
             Err(TryRecvError::Empty) => {
-                task::current().notify();
-                Ok(Async::NotReady)
+                Poll::Pending
             }
             Err(TryRecvError::Disconnected) => {
                 println!("RunQueueReceiver disconnected");
-                Ok(Async::Ready(Val::Str(Lstr::Sref(
+                Poll::Ready(Val::Str(Lstr::Sref(
                     "RunQueueReceiver disconnected",
-                ))))
+                )))
             }
         }
     }
 }
+*/
 
 
 pub struct Io
@@ -184,15 +181,15 @@ impl Io
         rcio
     }
 
-    pub fn run_once(&mut self) -> Poll<MsgVal, MsgVal>
+    pub fn run_once(&mut self) -> Poll<MsgVal>
     {
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
         }
         if self.done {
-            Ok(Async::Ready(MsgVal::new(&Val::Int(0))))
+            Poll::Ready(MsgVal::new(&Val::Int(0)))
         } else {
-            Ok(Async::NotReady)
+            Poll::Pending
         }
     }
 
@@ -342,6 +339,7 @@ impl Io
             }
             Event::Future(libfut) => {
                 vout!("handle Event::Future\n");
+                /*
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
                 let rcio_err = rcio.clone();
                 let iofut = libfut
@@ -361,7 +359,9 @@ impl Io
                 TaskExecutor::current()
                     .spawn_local(Box::new(iofut))
                     .expect("spawn local failure");
+                    */
             }
+            /*
             Event::Stream(libstream) => {
                 vout!("handle Event::Stream\n");
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
@@ -388,6 +388,7 @@ impl Io
                     .spawn_local(Box::new(iostream))
                     .expect("spawn local failure");
             }
+            */
             Event::Sequence(first, second) => {
                 vout!("handle Event::Sequence\n");
                 self.handle_event(worker_id, fiber_id, rsrc_id, *first);
@@ -465,20 +466,20 @@ impl IoLoop
             did_nothing: 0,
         };
 
+        /*
         let mut rt = current_thread::Runtime::new().unwrap();
         let result = rt.block_on(my_loop);
         println!("io is done: {:?}", result);
+        */
     }
 }
 
 impl Future for IoLoop
 {
-    type Item = MsgVal;
-    type Error = MsgVal;
+    type Output = MsgVal;
 
-    fn poll(&mut self) -> Poll<MsgVal, MsgVal>
+    fn poll(&mut self) -> Poll<MsgVal>
     {
-        task::current().notify();
         let poll_result = self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {

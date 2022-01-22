@@ -1,14 +1,14 @@
 use crate::leema::code::Code;
-use crate::leema::io::Io;
-pub use crate::leema::io::RunQueue;
+// use crate::leema::io::Io;
+// pub use crate::leema::io::RunQueue;
 use crate::leema::val::{Fref, Type, Val};
 
-use std::cell::RefCell;
+// use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
+// use std::rc::Rc;
 
 use futures::future;
-use futures::stream;
+// use futures::stream;
 use mopa::mopafy;
 
 
@@ -24,8 +24,8 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
-    Future(Box<dyn future::Future<Item = Event, Error = Event>>),
-    Stream(Box<dyn stream::Stream<Item = Event, Error = Event>>),
+    Future(Box<dyn future::Future<Output = Event>>),
+    // Stream(Box<dyn stream::Stream<Item = Event, Error = Event>>),
     NewRsrc(Box<dyn Rsrc>),
     ReturnRsrc(Box<dyn Rsrc>),
     DropRsrc,
@@ -53,7 +53,7 @@ impl fmt::Debug for Event
     {
         match *self {
             Event::Future(_) => write!(f, "Event::Future"),
-            Event::Stream(_) => write!(f, "Event::Stream"),
+            // Event::Stream(_) => write!(f, "Event::Stream"),
             Event::NewRsrc(ref r) => write!(f, "Event::Rsrc({:?})", r),
             Event::ReturnRsrc(ref r) => write!(f, "Event::ReturnRsrc({:?})", r),
             Event::DropRsrc => write!(f, "Event::ReturnRsrc"),
@@ -70,24 +70,22 @@ impl fmt::Debug for Event
 
 pub struct IopCtx
 {
-    rcio: Rc<RefCell<Io>>,
+    // rcio: Rc<RefCell<Io>>,
     src_worker_id: i64,
     src_fiber_id: i64,
-    run_queue: RunQueue,
+    // run_queue: RunQueue,
     rsrc_id: Option<i64>,
-    rsrc: Option<Box<dyn Rsrc>>,
     params: Vec<Option<Val>>,
 }
 
 impl IopCtx
 {
     pub fn new(
-        rcio: Rc<RefCell<Io>>,
+        // rcio: Rc<RefCell<Io>>,
         wid: i64,
         fid: i64,
-        run_queue: RunQueue,
+        // run_queue: RunQueue,
         rsrc_id: Option<i64>,
-        rsrc: Option<Box<dyn Rsrc>>,
         param_val: Val,
     ) -> IopCtx
     {
@@ -98,44 +96,19 @@ impl IopCtx
             }
         };
         IopCtx {
-            rcio,
+            // rcio,
             src_worker_id: wid,
             src_fiber_id: fid,
-            run_queue,
+            // run_queue,
             rsrc_id,
-            rsrc,
             params,
         }
     }
 
-    pub fn init_rsrc(&mut self, rsrc: Box<dyn Rsrc>)
+    pub fn init_rsrc(&mut self, _rsrc: Box<dyn Rsrc>)
     {
         if self.rsrc_id.is_none() {
             panic!("cannot init rsrc with no rsrc_id");
-        }
-        if self.rsrc.is_some() {
-            panic!("cannot reinitialize rsrc");
-        }
-        self.rsrc = Some(rsrc);
-    }
-
-    pub fn take_rsrc<T>(&mut self) -> T
-    where
-        T: Rsrc,
-    {
-        if self.rsrc_id.is_none() {
-            panic!("cannot take uninitialized resource");
-        }
-        let opt_rsrc = self.rsrc.take();
-        match opt_rsrc {
-            Some(rsrc) => {
-                let result = rsrc.downcast::<T>();
-                *(result.unwrap())
-            }
-            None => {
-                let rsrc_id = self.rsrc_id.unwrap();
-                panic!("resource is missing: {}", rsrc_id);
-            }
         }
     }
 
@@ -147,10 +120,12 @@ impl IopCtx
         self.params.get_mut(i as usize).unwrap().take()
     }
 
+    /*
     pub fn clone_run_queue(&self) -> RunQueue
     {
         self.run_queue.clone()
     }
+    */
 }
 
 pub type IopAction = fn(IopCtx) -> Event;
