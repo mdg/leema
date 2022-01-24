@@ -1,11 +1,11 @@
 use crate::leema::failure::{self, Lresult};
 // use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
-use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
+use crate::leema::msg::{IoMsg, SpawnMsg, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, Val};
-use crate::leema::worker::{Worker, WorkerSeed};
+use crate::leema::worker::{self, Worker, WorkerSeed};
 
 use std::collections::HashMap;
 
@@ -20,8 +20,6 @@ use tokio::task::{self, JoinHandle};
 /// let async_result = caller.call_async(fref, args).await;
 pub struct Application
 {
-    app_recv: Receiver<AppMsg>,
-    app_send: Sender<AppMsg>,
     io_recv: Option<Receiver<IoMsg>>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
@@ -36,19 +34,17 @@ impl Application
 {
     pub fn start(inter: Interloader) -> TaskQueue
     {
+        let (spawn_tx, spawn_rx) = channel(100);
         let app = Application::new();
-        let tasks = TaskQueue::new(app.app_send.clone());
-        app.start_runtime(inter);
+        let tasks = TaskQueue::new(spawn_tx);
+        app.start_runtime(inter, spawn_rx);
         tasks
     }
 
     fn new() -> Application
     {
-        let (tx, rx) = channel(100);
         let (iotx, iorx) = channel(100);
         Application {
-            app_recv: rx,
-            app_send: tx,
             io_recv: Some(iorx),
             io_send: iotx,
             worker: HashMap::new(),
@@ -60,38 +56,21 @@ impl Application
         }
     }
 
-    pub fn caller(&self) -> AppCaller
-    {
-        AppCaller {
-            app_send: self.app_send.clone(),
-        }
-    }
-
-    pub fn run_main(
-        _inter: Interloader,
-        mainf: Fref,
-        _args: Val,
-    ) -> (Application, Receiver<Val>)
-    {
-        let app = Application::new();
-        let caller = app.caller();
-        let result_recv = caller.push_call(mainf, vec![]);
-        (app, result_recv)
-    }
-
     pub fn run_lib(_inter: Interloader) -> Application
     {
         Application::new()
     }
 
     #[tokio::main]
-    async fn start_runtime(self, inter: Interloader)
+    async fn start_runtime(self, inter: Interloader, spawn: Receiver<SpawnMsg>)
     {
-        self.run(inter).await;
+        self.run(inter, spawn).await;
+        task::yield_now().await;
     }
 
-    async fn run(mut self, inter: Interloader)
+    async fn run(mut self, inter: Interloader, spawn: Receiver<SpawnMsg>)
     {
+        let _spawnh = worker::run_spawn_loop(spawn);
         self.start_io(inter);
         let _wh1 = {
             let seed = self.new_worker().await;
@@ -118,7 +97,6 @@ impl Application
     async fn new_worker(&mut self) -> WorkerSeed
     {
         let worker_id = self.next_worker_id();
-        let app_send = self.app_send.clone();
         let io_send = self.io_send.clone();
         let (worker_send, worker_recv) = channel(100);
         self.worker.insert(worker_id, worker_send.clone());
@@ -127,7 +105,6 @@ impl Application
             .await.expect("fail to send worker to io thread");
         WorkerSeed {
             wid: worker_id,
-            app_send,
             io_send,
             worker_recv,
         }
@@ -198,26 +175,7 @@ impl Application
                 .expect("fail sending spawn call to worker");
             did_something = true;
         }
-
-        while let Result::Ok(msg) = self.app_recv.try_recv() {
-            self.process_msg(msg);
-            did_something = true;
-        }
         did_something
-    }
-
-    pub fn process_msg(&mut self, msg: AppMsg)
-    {
-        vout!("Received a message! {:?}\n", msg);
-        match msg {
-            AppMsg::MainResult(mv) => {
-                self.result = Some(mv.take());
-                self.done = true;
-            }
-            AppMsg::Spawn(result_dst, func, args) => {
-                self.calls.push((result_dst, func, args));
-            }
-        }
     }
 
     pub fn take_result(&mut self) -> Option<Val>
@@ -279,12 +237,12 @@ impl TaskResult
 #[derive(Debug)]
 pub struct TaskQueue
 {
-    app_send: Sender<AppMsg>,
+    app_send: Sender<SpawnMsg>,
 }
 
 impl TaskQueue
 {
-    pub fn new(app_send: Sender<AppMsg>) -> TaskQueue
+    pub fn new(app_send: Sender<SpawnMsg>) -> TaskQueue
     {
         TaskQueue {app_send}
     }
@@ -293,66 +251,13 @@ impl TaskQueue
     {
         let (result_send, result_recv) = channel(1);
         let result = self.app_send
-            .blocking_send(AppMsg::Spawn(result_send, call.clone(), args));
+            .blocking_send(SpawnMsg::Spawn(result_send, call.clone(), args));
         if let Err(e) = result {
-            eprintln!("send error: {:?}", e);
+eprintln!("send error: {:?}", e);
         }
         TaskResult::new(call, result_recv)
     }
 }
-
-#[derive(Clone)]
-#[derive(Debug)]
-pub struct AppCaller
-{
-    app_send: Sender<AppMsg>,
-}
-
-impl AppCaller
-{
-    pub fn push_call(&self, call: Fref, args: Struple2<Val>) -> Receiver<Val>
-    {
-        let (result_send, result_recv) = channel(1);
-        self.app_send
-            .blocking_send(AppMsg::Spawn(result_send, call, args))
-            .unwrap();
-        result_recv
-    }
-
-    pub fn wait_for_result(&mut self, mut result_recv: Receiver<Val>) -> Val
-    {
-        vout!("wait_for_result\n");
-        // this name is a little off. it's # of cycles when nothing was done
-        let mut result = None;
-        while result.is_none() {
-            result = self.try_recv_result(&mut result_recv);
-        }
-        vout!("result received\n");
-        result.unwrap()
-    }
-
-    pub fn try_recv_result(
-        &mut self,
-        result_recv: &mut Receiver<Val>,
-    ) -> Option<Val>
-    {
-        match result_recv.try_recv() {
-            Ok(result) => Some(result),
-            Err(TryRecvError::Empty) => {
-                // do nothing, not finished yet
-                None
-            }
-            Err(TryRecvError::Disconnected) => {
-                println!("error receiving application result");
-                Some(Val::Failure2(Box::new(lfail!(
-                    failure::Mode::RuntimeLeemaFailure,
-                    "disconnected before receiving result"
-                ))))
-            }
-        }
-    }
-}
-
 
 /*
 enum Stype
@@ -379,7 +284,6 @@ mod tests
     use crate::leema::val::{Fref, Val};
 
     use libc::getpid;
-    use std::io::{stderr, Write};
     use std::path::PathBuf;
 
 
@@ -389,7 +293,7 @@ mod tests
         let p = unsafe {
             getpid();
         };
-        writeln!(stderr(), "test_main_func_finishes {:?}", p).unwrap();
+        eprintln!("test_main_func_finishes {:?}", p);
         let input = "func main >> 3 --".to_string();
         let path = vec![PathBuf::from("lib")];
         let mut loader = Interloader::new("test.lma", path);
@@ -400,7 +304,7 @@ mod tests
         let tasks = Application::start(loader);
         let mut result = tasks.spawn(mainf, vec![StrupleItem::new_v(Val::Nil)]);
 
-        writeln!(stderr(), "wait until done").unwrap();
+        eprintln!("wait until done");
         let result = result.wait().unwrap();
         assert_eq!(Val::Int(3), result);
     }

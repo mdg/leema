@@ -2,7 +2,7 @@ use crate::leema::code::Code;
 use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace};
-use crate::leema::msg::{AppMsg, IoMsg, MsgItem, WorkerMsg};
+use crate::leema::msg::{IoMsg, MsgItem, SpawnMsg, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::rsrc;
 use crate::leema::stack;
@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use futures::task::Poll;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::task::{self, JoinHandle};
 
 
 
@@ -114,22 +115,28 @@ impl<'a> RustFuncContext<'a>
 
     pub fn new_task(&self, f: Fref, args: Struple2<Val>)
     {
+        eprintln!("new_task {} {:?}", f, args);
+        /*
         let (send, _) = channel(1);
         let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
             .app_tx
             .blocking_send(spawn_msg)
             .expect("failed sending new_task msg");
+            */
     }
 
     pub fn new_fork(&self, f: Fref, args: Struple2<Val>) -> Receiver<Val>
     {
-        let (send, recv) = channel(1);
+        eprintln!("new_fork {} {:?}", f, args);
+        let (_send, recv) = channel(1);
+        /*
         let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
             .app_tx
             .blocking_send(spawn_msg)
             .expect("failed sending new_fork msg");
+            */
         recv
     }
 }
@@ -140,7 +147,6 @@ pub struct Worker
     fresh: LinkedList<ReadyFiber>,
     waiting: HashMap<i64, FiberWait>,
     code: HashMap<Fref, Rc<Code>>,
-    app_tx: Sender<AppMsg>,
     io_tx: Sender<IoMsg>,
     msg_rx: Receiver<WorkerMsg>,
     id: i64,
@@ -152,7 +158,6 @@ pub struct Worker
 pub struct WorkerSeed
 {
     pub wid: i64,
-    pub app_send: Sender<AppMsg>,
     pub io_send: Sender<IoMsg>,
     pub worker_recv: Receiver<WorkerMsg>,
 }
@@ -172,7 +177,6 @@ impl Worker
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
             code: HashMap::new(),
-            app_tx: seed.app_send,
             io_tx: seed.io_send,
             msg_rx: seed.worker_recv,
             id: seed.wid,
@@ -310,6 +314,10 @@ impl Worker
                 self.load_code(fbr).unwrap();
                 Poll::Pending
             }
+            Event::NewTask(_fref, _callargs) => {
+                Poll::Pending
+            }
+            /*
             Event::NewTask(fref, callargs) => {
                 let (sender, _receiver) = channel(1);
                 let msg = AppMsg::Spawn(sender, fref, callargs);
@@ -325,6 +333,7 @@ impl Worker
                 self.return_from_call(fbr);
                 Poll::Pending
             }
+            */
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
                 Poll::Pending
@@ -497,4 +506,21 @@ impl Worker
     {
         self.fresh.push_back(f)
     }
+}
+
+fn process_spawn(m: SpawnMsg)
+{
+    eprintln!("spawn {:?}", m);
+}
+
+pub async fn run_spawn_loop(mut r: Receiver<SpawnMsg>) -> JoinHandle<()>
+{
+    task::spawn(async move {
+        loop {
+            if let Some(spawn) = r.recv().await {
+                process_spawn(spawn);
+            } else {
+            }
+        }
+    })
 }

@@ -44,6 +44,13 @@ unsafe impl<T> Send for MsgItem<T> {}
 type MsgLstr = MsgItem<Lstr>;
 
 #[derive(Debug)]
+pub enum SpawnMsg
+{
+    /// Start a new task
+    Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
+}
+
+#[derive(Debug)]
 pub enum AppMsg
 {
     /// Start a new task

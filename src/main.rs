@@ -15,6 +15,7 @@ use crate::leema::loader::Interloader;
 use crate::leema::lstr::Lstr;
 use crate::leema::parser;
 use crate::leema::program;
+use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Fref, Type, Val};
 
 use docopt::Docopt;
@@ -154,15 +155,15 @@ fn real_main() -> Lresult<()>
             "wouldn't it be cool if there were a repl?",
         ));
     } else {
-        let lma_args_rev: Val =
-            args.arg_args.iter().fold(Val::Nil, |aacc, a| {
+        let lma_args: Val =
+            args.arg_args.iter().rev().fold(Val::Nil, |aacc, a| {
                 list::cons(Val::Str(Lstr::from(a.to_string())), aacc)
             });
-        let leema_args = list::reverse(&lma_args_rev);
+        let leema_args = vec![StrupleItem::new_v(lma_args)];
 
-        let (mut app, result_recv) =
-            Application::run_main(inter, fref, leema_args);
-        app.wait_for_result(result_recv)
+        let tasks = Application::start(inter);
+        let mut result = tasks.spawn(fref, leema_args);
+        Some(ltry!(result.wait()))
     };
 
     match main_result {
