@@ -139,12 +139,15 @@ pub enum Mode
     Unauthorized,
     NotFound,
     // programmer-user errors
-    Timeout,
     ParseFailure,
     CompileFailure,
     ScopeFailure,
     TypeFailure,
     CodeFailure,
+    // dynamic user-space execution errors
+    Timeout,
+    Overflow,
+    Underflow,
     // internal leema errors
     StaticLeemaFailure,
     RuntimeLeemaFailure,
@@ -157,19 +160,20 @@ impl Mode
     {
         match self {
             Mode::Ok => 0,
-            // end-user input errors
+            // user-space errors
             Mode::InvalidUserInput => 1,
             Mode::Unauthenticated => 2,
             Mode::Unauthorized => 3,
             Mode::NotFound => 4,
-            // programmer-user errors
             Mode::Timeout => 5,
             Mode::ParseFailure => 6,
             Mode::CompileFailure => 7,
             Mode::ScopeFailure => 9,
             Mode::TypeFailure => 10,
             Mode::CodeFailure => 11,
-            // internal leema errors
+            Mode::Overflow => 12,
+            Mode::Underflow => 13,
+            // leema-space errors
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
             Mode::LeemaTodoFailure => -3,
@@ -186,12 +190,15 @@ impl Mode
             Mode::Unauthorized => "unauthorized",
             Mode::NotFound => "not_found",
             // programmer-user errors
-            Mode::Timeout => "timeout",
             Mode::ParseFailure => "parse_failure",
             Mode::CompileFailure => "compile_failure",
             Mode::ScopeFailure => "scope_failure",
             Mode::TypeFailure => "type_failure",
             Mode::CodeFailure => "code_failure",
+            // runtime user-space errors
+            Mode::Timeout => "timeout",
+            Mode::Overflow => "overflow",
+            Mode::Underflow => "underflow",
             // internal leema errors
             Mode::StaticLeemaFailure => "static_leema_failure",
             Mode::RuntimeLeemaFailure => "runtime_leema_failure",

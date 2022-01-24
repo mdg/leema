@@ -149,6 +149,14 @@ pub struct Worker
     done: bool,
 }
 
+pub struct WorkerSeed
+{
+    pub wid: i64,
+    pub app_send: Sender<AppMsg>,
+    pub io_send: Sender<IoMsg>,
+    pub worker_recv: Receiver<WorkerMsg>,
+}
+
 /**
  * main_loop
  *   get fresh/active frame
@@ -158,21 +166,16 @@ pub struct Worker
  */
 impl Worker
 {
-    pub fn init(
-        wid: i64,
-        send: Sender<AppMsg>,
-        io: Sender<IoMsg>,
-        recv: Receiver<WorkerMsg>,
-    ) -> Worker
+    pub fn init(seed: WorkerSeed) -> Worker
     {
         Worker {
             fresh: LinkedList::new(),
             waiting: HashMap::new(),
             code: HashMap::new(),
-            app_tx: send,
-            io_tx: io,
-            msg_rx: recv,
-            id: wid,
+            app_tx: seed.app_send,
+            io_tx: seed.io_send,
+            msg_rx: seed.worker_recv,
+            id: seed.wid,
             next_fiber_id: 0,
             did_nothing: 0,
             done: false,

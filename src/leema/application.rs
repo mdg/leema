@@ -1,21 +1,23 @@
-use crate::leema::failure;
+use crate::leema::failure::{self, Lresult};
 // use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
 use crate::leema::msg::{AppMsg, IoMsg, WorkerMsg};
 use crate::leema::program;
-use crate::leema::struple::{Struple2, StrupleItem};
+use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, Val};
-use crate::leema::worker::Worker;
+use crate::leema::worker::{Worker, WorkerSeed};
 
-use std::cmp::min;
 use std::collections::HashMap;
-use std::thread;
-use std::time::Duration;
 
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::task::{self, JoinHandle};
 
 
+/// let caller = Application::start(loader);
+/// let call = caller.call(fref, args);
+/// let result = call.wait_for_result();
+/// let async_result = caller.call_async(fref, args).await;
 pub struct Application
 {
     app_recv: Receiver<AppMsg>,
@@ -32,6 +34,14 @@ pub struct Application
 
 impl Application
 {
+    pub fn start(inter: Interloader) -> TaskQueue
+    {
+        let app = Application::new();
+        let tasks = TaskQueue::new(app.app_send.clone());
+        app.start_runtime(inter);
+        tasks
+    }
+
     fn new() -> Application
     {
         let (tx, rx) = channel(100);
@@ -58,44 +68,42 @@ impl Application
     }
 
     pub fn run_main(
-        inter: Interloader,
+        _inter: Interloader,
         mainf: Fref,
-        args: Val,
+        _args: Val,
     ) -> (Application, Receiver<Val>)
     {
-        let mut app = Application::new();
+        let app = Application::new();
         let caller = app.caller();
-        app.start_runtime(inter);
-        let main_args = vec![StrupleItem::new_v(args)];
-        let result_recv = caller.push_call(mainf, main_args);
+        let result_recv = caller.push_call(mainf, vec![]);
         (app, result_recv)
     }
 
-    pub fn run_lib(inter: Interloader) -> Application
+    pub fn run_lib(_inter: Interloader) -> Application
     {
-        let mut app = Application::new();
-        app.start_runtime(inter);
-        app
+        Application::new()
     }
 
     #[tokio::main]
-    async fn start_runtime(&mut self, inter: Interloader)
+    async fn start_runtime(self, inter: Interloader)
     {
-        self.run(inter)
+        self.run(inter).await;
     }
 
-    fn run(&mut self, inter: Interloader)
+    async fn run(mut self, inter: Interloader)
     {
         self.start_io(inter);
-        self.start_worker();
-        self.start_worker();
+        let _wh1 = {
+            let seed = self.new_worker().await;
+            Self::start_worker(seed)
+        };
+        let _apph = self.spawn_app_loop();
     }
 
     fn start_io(&mut self, inter: Interloader) // -> thread::JoinHandle<()>
     {
         let _prog = program::Lib::new(inter);
         // let app_send = self.app_send.clone();
-        let _io_recv = self.io_recv.take().unwrap();
         /*
         thread::Builder::new()
             .name("leema-io".to_string())
@@ -107,21 +115,31 @@ impl Application
             */
     }
 
-    fn start_worker(&mut self) -> thread::JoinHandle<()>
+    async fn new_worker(&mut self) -> WorkerSeed
     {
         let worker_id = self.next_worker_id();
         let app_send = self.app_send.clone();
         let io_send = self.io_send.clone();
         let (worker_send, worker_recv) = channel(100);
-        vout!("start worker {}\n", worker_id);
-        let handle = thread::spawn(move || {
-            let w = Worker::init(worker_id, app_send, io_send, worker_recv);
-            Worker::run(w);
-        });
         self.worker.insert(worker_id, worker_send.clone());
         self.io_send
-            .blocking_send(IoMsg::NewWorker(worker_id, worker_send))
-            .expect("fail to send worker to io thread");
+            .send(IoMsg::NewWorker(worker_id, worker_send))
+            .await.expect("fail to send worker to io thread");
+        WorkerSeed {
+            wid: worker_id,
+            app_send,
+            io_send,
+            worker_recv,
+        }
+    }
+
+    async fn start_worker(seed: WorkerSeed) -> JoinHandle<()>
+    {
+        let handle = tokio::spawn(async move {
+            vout!("start worker {}\n", seed.wid);
+            let w = Worker::init(seed);
+            Worker::run(w);
+        });
         handle
     }
 
@@ -131,29 +149,25 @@ impl Application
         self.last_worker_id
     }
 
-    pub fn wait_for_result(
-        &mut self,
-        mut result_recv: Receiver<Val>,
-    ) -> Option<Val>
+    fn spawn_app_loop(mut self) -> JoinHandle<()>
     {
-        vout!("wait_for_result\n");
-        // this name is a little off. it's # of cycles when nothing was done
-        let mut did_nothing = 0;
-        while !self.done {
-            if self.iterate() {
-                did_nothing = 0;
-            } else {
-                did_nothing = min(did_nothing + 1, 100_000);
-                if did_nothing > 1000 {
-                    thread::sleep(Duration::from_micros(did_nothing));
-                }
+        task::spawn(async move {
+            while !self.done {
+                self.iterate().await;
             }
-            self.try_recv_result(&mut result_recv);
-        }
-        vout!("application done\n");
-        self.result.take()
+        })
     }
 
+    /// DELETEME
+    pub fn wait_for_result(
+        &mut self,
+        _result_recv: Receiver<Val>,
+    ) -> Option<Val>
+    {
+        None
+    }
+
+    /// DELETEME
     pub fn try_recv_result(&mut self, result_recv: &mut Receiver<Val>)
     {
         match result_recv.try_recv() {
@@ -172,7 +186,7 @@ impl Application
         }
     }
 
-    pub fn iterate(&mut self) -> bool
+    async fn iterate(&mut self) -> bool
     {
         let mut did_something = false;
         for call in self.calls.drain(..) {
@@ -180,7 +194,7 @@ impl Application
             vout!("application call {}({:?})\n", call, args);
             let w = self.worker.values().next().unwrap();
             let msg = WorkerMsg::Spawn(dst, call, args);
-            w.blocking_send(msg)
+            w.send(msg).await
                 .expect("fail sending spawn call to worker");
             did_something = true;
         }
@@ -230,6 +244,62 @@ impl Future for CallHandle
     }
 }
 */
+
+#[derive(Debug)]
+pub struct TaskResult
+{
+    f: Fref,
+    result: Receiver<Val>,
+}
+
+impl TaskResult
+{
+    pub fn new(f: Fref, result: Receiver<Val>) -> TaskResult
+    {
+        TaskResult {f, result}
+    }
+
+    pub fn wait(
+        &mut self,
+    ) -> Lresult<Val>
+    {
+        vout!("TaskResult.wait\n");
+        let result = ltry!(self.result.blocking_recv().ok_or_else(|| {
+            lfail!(
+                failure::Mode::Underflow,
+                "no result received",
+                "func": ldisplay!(self.f),
+            )
+        }));
+        Ok(result)
+    }
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+pub struct TaskQueue
+{
+    app_send: Sender<AppMsg>,
+}
+
+impl TaskQueue
+{
+    pub fn new(app_send: Sender<AppMsg>) -> TaskQueue
+    {
+        TaskQueue {app_send}
+    }
+
+    pub fn spawn(&self, call: Fref, args: Struple2<Val>) -> TaskResult
+    {
+        let (result_send, result_recv) = channel(1);
+        let result = self.app_send
+            .blocking_send(AppMsg::Spawn(result_send, call.clone(), args));
+        if let Err(e) = result {
+            eprintln!("send error: {:?}", e);
+        }
+        TaskResult::new(call, result_recv)
+    }
+}
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -305,6 +375,7 @@ mod tests
     use crate::leema::application::Application;
     use crate::leema::loader::Interloader;
     use crate::leema::module::ModKey;
+    use crate::leema::struple::StrupleItem;
     use crate::leema::val::{Fref, Val};
 
     use libc::getpid;
@@ -326,10 +397,11 @@ mod tests
         loader.set_mod_txt(test_key.clone(), input);
 
         let mainf = Fref::with_modules(test_key, "main");
-        let (mut app, recv) = Application::run_main(loader, mainf, Val::Nil);
+        let tasks = Application::start(loader);
+        let mut result = tasks.spawn(mainf, vec![StrupleItem::new_v(Val::Nil)]);
 
-        writeln!(stderr(), "Application::wait_until_done").unwrap();
-        let result = app.wait_for_result(recv);
-        assert_eq!(Some(Val::Int(3)), result);
+        writeln!(stderr(), "wait until done").unwrap();
+        let result = result.wait().unwrap();
+        assert_eq!(Val::Int(3), result);
     }
 }
