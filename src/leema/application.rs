@@ -9,6 +9,7 @@ use crate::leema::worker::{self, Worker, WorkerSeed};
 
 use std::collections::HashMap;
 
+use tokio::runtime::Builder;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::{self, JoinHandle};
@@ -61,22 +62,44 @@ impl Application
         Application::new()
     }
 
-    #[tokio::main]
-    async fn start_runtime(self, inter: Interloader, spawn: Receiver<SpawnMsg>)
+    fn start_runtime(self, inter: Interloader, spawn: Receiver<SpawnMsg>)
     {
-        self.run(inter, spawn).await;
-        task::yield_now().await;
+        let rt = Builder::new_multi_thread()
+            .thread_name("leema-worker")
+            .enable_all()
+            .on_thread_start(|| {
+                eprintln!("thread start");
+            })
+            .on_thread_stop(|| {
+                eprintln!("thread stop");
+            })
+            .on_thread_park(|| {
+                eprintln!("thread park");
+            })
+            .on_thread_unpark(|| {
+                eprintln!("thread unpark");
+            })
+            .build()
+            .unwrap();
+
+        rt.block_on(async {
+            self.run(inter, spawn).await;
+            task::yield_now().await;
+        })
     }
 
     async fn run(mut self, inter: Interloader, spawn: Receiver<SpawnMsg>)
     {
-        let _spawnh = worker::run_spawn_loop(spawn);
+        let spawnh = worker::run_spawn_loop(spawn);
         self.start_io(inter);
         let _wh1 = {
             let seed = self.new_worker().await;
             Self::start_worker(seed)
         };
-        let _apph = self.spawn_app_loop();
+        // self.start_worker();
+        let apph = self.spawn_app_loop();
+        let (a, b) = futures::join!(spawnh, apph);
+        b.unwrap();
     }
 
     fn start_io(&mut self, inter: Interloader) // -> thread::JoinHandle<()>
