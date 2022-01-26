@@ -38,7 +38,9 @@ impl Application
         let (spawn_tx, spawn_rx) = channel(100);
         let app = Application::new();
         let tasks = TaskQueue::new(spawn_tx);
-        app.start_runtime(inter, spawn_rx);
+        std::thread::spawn(move || {
+            app.start_runtime(inter, spawn_rx);
+        });
         tasks
     }
 
