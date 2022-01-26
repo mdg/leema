@@ -127,7 +127,8 @@ impl Application
         self.worker.insert(worker_id, worker_send.clone());
         self.io_send
             .send(IoMsg::NewWorker(worker_id, worker_send))
-            .await.expect("fail to send worker to io thread");
+            .await
+            .expect("fail to send worker to io thread");
         WorkerSeed {
             wid: worker_id,
             io_send,
@@ -196,7 +197,8 @@ impl Application
             vout!("application call {}({:?})\n", call, args);
             let w = self.worker.values().next().unwrap();
             let msg = WorkerMsg::Spawn(dst, call, args);
-            w.send(msg).await
+            w.send(msg)
+                .await
                 .expect("fail sending spawn call to worker");
             did_something = true;
         }
@@ -239,12 +241,10 @@ impl TaskResult
 {
     pub fn new(f: Fref, result: Receiver<Val>) -> TaskResult
     {
-        TaskResult {f, result}
+        TaskResult { f, result }
     }
 
-    pub fn wait(
-        &mut self,
-    ) -> Lresult<Val>
+    pub fn wait(&mut self) -> Lresult<Val>
     {
         vout!("TaskResult.wait\n");
         let result = ltry!(self.result.blocking_recv().ok_or_else(|| {
@@ -269,16 +269,19 @@ impl TaskQueue
 {
     pub fn new(app_send: Sender<SpawnMsg>) -> TaskQueue
     {
-        TaskQueue {app_send}
+        TaskQueue { app_send }
     }
 
     pub fn spawn(&self, call: Fref, args: Struple2<Val>) -> TaskResult
     {
         let (result_send, result_recv) = channel(1);
-        let result = self.app_send
-            .blocking_send(SpawnMsg::Spawn(result_send, call.clone(), args));
+        let result = self.app_send.blocking_send(SpawnMsg::Spawn(
+            result_send,
+            call.clone(),
+            args,
+        ));
         if let Err(e) = result {
-eprintln!("send error: {:?}", e);
+            eprintln!("send error: {:?}", e);
         }
         TaskResult::new(call, result_recv)
     }

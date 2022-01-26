@@ -314,9 +314,7 @@ impl Worker
                 self.load_code(fbr).unwrap();
                 Poll::Pending
             }
-            Event::NewTask(_fref, _callargs) => {
-                Poll::Pending
-            }
+            Event::NewTask(_fref, _callargs) => Poll::Pending,
             /*
             Event::NewTask(fref, callargs) => {
                 let (sender, _receiver) = channel(1);
