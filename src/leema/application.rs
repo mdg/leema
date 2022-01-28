@@ -92,15 +92,14 @@ impl Application
 
     async fn run(mut self, inter: Interloader, spawn: Receiver<SpawnMsg>)
     {
-        let spawnh = worker::run_spawn_loop(spawn);
+        let spawnh = worker::run_spawn_loop(spawn).await;
         self.start_io(inter);
-        let _wh1 = {
+        let wh0 = {
             let seed = self.new_worker().await;
-            Self::start_worker(seed)
+            Self::start_worker(seed).await
         };
         // self.start_worker();
-        let apph = self.spawn_app_loop();
-        let (a, b) = futures::join!(spawnh, apph);
+        let (a, b) = futures::join!(spawnh, wh0);
         b.unwrap();
     }
 
@@ -108,6 +107,7 @@ impl Application
     {
         let _prog = program::Lib::new(inter);
         // let app_send = self.app_send.clone();
+        // let _io_recv = self.io_recv.take().unwrap();
         /*
         thread::Builder::new()
             .name("leema-io".to_string())
@@ -152,83 +152,15 @@ impl Application
         self.last_worker_id
     }
 
-    fn spawn_app_loop(mut self) -> JoinHandle<()>
+    fn spawn_app_loop(self) -> JoinHandle<()>
     {
         task::spawn(async move {
             while !self.done {
-                self.iterate().await;
+                // self.iterate().await;
             }
         })
     }
-
-    /// DELETEME
-    pub fn wait_for_result(
-        &mut self,
-        _result_recv: Receiver<Val>,
-    ) -> Option<Val>
-    {
-        None
-    }
-
-    /// DELETEME
-    pub fn try_recv_result(&mut self, result_recv: &mut Receiver<Val>)
-    {
-        match result_recv.try_recv() {
-            Ok(result) => {
-                self.result = Some(result);
-                self.done = true;
-            }
-            Err(TryRecvError::Empty) => {
-                // do nothing, not finished yet
-            }
-            Err(TryRecvError::Disconnected) => {
-                println!("error receiving application result");
-                self.result = Some(Val::Int(3));
-                self.done = true;
-            }
-        }
-    }
-
-    async fn iterate(&mut self) -> bool
-    {
-        let mut did_something = false;
-        for call in self.calls.drain(..) {
-            let (dst, call, args) = call;
-            vout!("application call {}({:?})\n", call, args);
-            let w = self.worker.values().next().unwrap();
-            let msg = WorkerMsg::Spawn(dst, call, args);
-            w.send(msg)
-                .await
-                .expect("fail sending spawn call to worker");
-            did_something = true;
-        }
-        did_something
-    }
-
-    pub fn take_result(&mut self) -> Option<Val>
-    {
-        self.result.take()
-    }
 }
-
-/*
-#[derive(Debug)]
-pub struct CallHandle
-{
-    result: FutureReceiver<Val>,
-}
-
-impl Future for CallHandle
-{
-    type Item = rsrc::Event;
-    type Error = rsrc::Event;
-
-    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
-    {
-        Ok(Async::NotReady)
-    }
-}
-*/
 
 #[derive(Debug)]
 pub struct TaskResult
@@ -255,6 +187,21 @@ impl TaskResult
             )
         }));
         Ok(result)
+    }
+
+    pub fn try_recv_result(&mut self) -> Option<Val>
+    {
+        match self.result.try_recv() {
+            Ok(result) => Some(result),
+            Err(TryRecvError::Empty) => {
+                // do nothing, not finished yet
+                None
+            }
+            Err(TryRecvError::Disconnected) => {
+                println!("error receiving application result");
+                Some(Val::Int(3))
+            }
+        }
     }
 }
 

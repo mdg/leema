@@ -15,6 +15,7 @@ use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -26,6 +27,7 @@ use tokio::task::{self, JoinHandle};
 
 
 const DEFAULT_STACK_SIZE: usize = 50;
+static NEXT_FIBER_ID: AtomicI64 = AtomicI64::new(0);
 
 #[derive(Debug)]
 enum ReadyFiber
@@ -506,9 +508,37 @@ impl Worker
     }
 }
 
-fn process_spawn(m: SpawnMsg)
+async fn run_fiber_loop(f: Fiber)
+{
+    loop {
+        task::yield_now().await;
+    }
+}
+
+fn new_fiber(f: Fref, args: Struple2<Val>, result: Option<Sender<Val>>)
+    -> Fiber
+{
+    vout!("spawn fiber {}\n", f);
+    let (stack, e) = stack::Buffer::new(DEFAULT_STACK_SIZE, f, args);
+    let root = Frame::new_root(e);
+
+    let id = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
+    Fiber::spawn(id, stack, root, result)
+}
+
+async fn process_spawn(m: SpawnMsg) -> JoinHandle<()>
 {
     eprintln!("spawn {:?}", m);
+    match m {
+        SpawnMsg::Spawn(result_tx, f, args) => {
+            let id = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
+            let id2 = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
+            task::spawn_local(async move {
+                let fib = new_fiber(f, args, Some(result_tx));
+                run_fiber_loop(fib).await
+            })
+        }
+    }
 }
 
 pub async fn run_spawn_loop(mut r: Receiver<SpawnMsg>) -> JoinHandle<()>
@@ -516,7 +546,7 @@ pub async fn run_spawn_loop(mut r: Receiver<SpawnMsg>) -> JoinHandle<()>
     task::spawn(async move {
         loop {
             if let Some(spawn) = r.recv().await {
-                process_spawn(spawn);
+                process_spawn(spawn).await;
             } else {
             }
         }
