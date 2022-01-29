@@ -16,7 +16,7 @@ use std::collections::{HashMap, LinkedList};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
+use std::sync::mpsc::{self, sync_channel, Receiver, SyncSender};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -216,6 +216,14 @@ impl Worker
             self.process_msg(msg)?;
         }
 
+        match self.spawn_rx.try_recv() {
+            Ok(spawn) => ltry!(self.process_spawn(spawn)),
+            Err(mpsc::TryRecvError::Empty) => {} // do nothing
+            Err(mpsc::TryRecvError::Disconnected) => {
+                eprintln!("spawn channel disconnected");
+            }
+        }
+
         match self.pop_fresh() {
             Some(ReadyFiber::New(f)) => {
                 did_something = true;
@@ -410,13 +418,6 @@ impl Worker
     pub fn process_msg(&mut self, msg: WorkerMsg) -> Lresult<()>
     {
         match msg {
-            WorkerMsg::Spawn(result_dst, func, args) => {
-                vout!("worker spawn2 {}\n", func);
-                let (stack, e) =
-                    stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
-                let root = Frame::new_root(e);
-                self.spawn_fiber(stack, root, Some(result_dst));
-            }
             WorkerMsg::FoundCode(fiber_id, fref, code) => {
                 let newf = fref.take();
                 let rc_code = Rc::new(code);
@@ -448,6 +449,20 @@ impl Worker
             }
             WorkerMsg::Done => {
                 self.done = true;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn process_spawn(&mut self, msg: msg::SpawnMsg) -> Lresult<()>
+    {
+        match msg {
+            msg::SpawnMsg::Spawn(result_dst, func, args) => {
+                vout!("worker spawn2 {}\n", func);
+                let (stack, e) =
+                    stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
+                let root = Frame::new_root(e);
+                self.spawn_fiber(stack, root, Some(result_dst));
             }
         }
         Ok(())

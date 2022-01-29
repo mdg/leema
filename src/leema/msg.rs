@@ -78,8 +78,6 @@ pub enum AppMsg
 #[derive(Debug)]
 pub enum WorkerMsg
 {
-    /// Start a new task
-    Spawn(mpsc::SyncSender<Val>, Fref, Struple2<Val>),
     /// FoundCode(fiber_id, fref, code)
     FoundCode(i64, MsgItem<Fref>, Code),
     /// IopResult(fiber_id, MsgVal)
