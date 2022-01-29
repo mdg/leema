@@ -1,5 +1,5 @@
 use crate::leema::failure::{self, Lresult};
-// use crate::leema::io::{Io, IoLoop};
+use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
 use crate::leema::msg::{self, AppMsg, IoMsg, SpawnMsg, WorkerMsg};
 use crate::leema::program;
@@ -10,9 +10,6 @@ use crate::leema::worker::{Worker, WorkerSeed};
 use std::collections::HashMap;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
 use std::thread;
-
-use tokio::runtime::Builder;
-use tokio::task::{self, JoinHandle};
 
 
 /// let caller = Application::start(loader);
@@ -39,6 +36,7 @@ impl Application
         let (app, io_rx) = Application::new();
         let tasks = TaskQueue::new(app.app_send.clone(), spawn_tx);
         app.run(inter, io_rx, spawn_rx);
+        vout!("Application running...\n");
         tasks
     }
 
@@ -68,24 +66,23 @@ impl Application
     {
         let spawn = msg::SpawnReceiver::new(spawn_rx);
         self.start_io(inter, io_rx);
-        let wh0 = self.start_worker(spawn);
-        let a = wh0.join();
+        let _wh0 = self.start_worker(spawn);
         self.spawn_app_loop();
     }
 
     fn start_io(
         &mut self,
         inter: Interloader,
-        _io_rx: Receiver<IoMsg>,
+        io_rx: Receiver<IoMsg>,
     ) -> thread::JoinHandle<()>
     {
-        let _prog = program::Lib::new(inter);
-        let _app_send = self.app_send.clone();
+        let prog = program::Lib::new(inter);
+        let app_send = self.app_send.clone();
         thread::Builder::new()
             .name("leema-io".to_string())
             .spawn(move || {
-                // let rcio = Io::new(app_send, io_recv, prog);
-                // IoLoop::run(rcio);
+                let rcio = Io::new(app_send, io_rx, prog);
+                IoLoop::run(rcio);
             })
             .unwrap()
     }
@@ -119,6 +116,9 @@ impl Application
     {
         let seed = self.new_worker(spawn);
         std::thread::spawn(move || {
+            let w = Worker::init(seed);
+            Worker::run(w);
+            /*
             let rt = Builder::new_current_thread()
                 .thread_name("leema-worker")
                 .enable_time()
@@ -141,17 +141,8 @@ impl Application
                 Self::async_start_worker(seed).await;
                 task::yield_now().await;
             })
+            */
         })
-    }
-
-    async fn async_start_worker(seed: WorkerSeed) -> JoinHandle<()>
-    {
-        let handle = tokio::spawn(async move {
-            vout!("start worker {}\n", seed.wid);
-            let w = Worker::init(seed);
-            Worker::run(w);
-        });
-        handle
     }
 
     pub fn next_worker_id(&mut self) -> i64
@@ -287,6 +278,7 @@ impl TaskQueue
 
     pub fn spawn(&self, call: Fref, args: Struple2<Val>) -> TaskResult
     {
+        vout!("spawn {} {:?}", call, args);
         let (result_send, result_recv) = sync_channel(1);
         let result = self.spawn_send.send(SpawnMsg::Spawn(
             result_send,

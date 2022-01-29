@@ -1,11 +1,11 @@
 use crate::leema::code::Code;
-// use crate::leema::io::Io;
+use crate::leema::io::Io;
 // pub use crate::leema::io::RunQueue;
 use crate::leema::val::{Fref, Type, Val};
 
-// use std::cell::RefCell;
+use std::cell::RefCell;
 use std::fmt;
-// use std::rc::Rc;
+use std::rc::Rc;
 
 use futures::future;
 // use futures::stream;
@@ -70,7 +70,7 @@ impl fmt::Debug for Event
 
 pub struct IopCtx
 {
-    // rcio: Rc<RefCell<Io>>,
+    rcio: Rc<RefCell<Io>>,
     src_worker_id: i64,
     src_fiber_id: i64,
     // run_queue: RunQueue,
@@ -81,7 +81,7 @@ pub struct IopCtx
 impl IopCtx
 {
     pub fn new(
-        // rcio: Rc<RefCell<Io>>,
+        rcio: Rc<RefCell<Io>>,
         wid: i64,
         fid: i64,
         // run_queue: RunQueue,
@@ -96,7 +96,7 @@ impl IopCtx
             }
         };
         IopCtx {
-            // rcio,
+            rcio,
             src_worker_id: wid,
             src_fiber_id: fid,
             // run_queue,

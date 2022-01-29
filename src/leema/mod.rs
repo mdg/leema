@@ -18,7 +18,7 @@ pub mod code;
 pub mod fiber;
 pub mod frame;
 pub mod inter;
-// pub mod io;
+pub mod io;
 pub mod list;
 pub mod lmap;
 pub mod loader;

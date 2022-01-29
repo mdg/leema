@@ -9,14 +9,16 @@ use std;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
+use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, Sender}; // , TryRecvError};
+use std::sync::mpsc::{channel, Receiver, SyncSender};
 use std::thread;
 use std::time::Duration;
 
 use futures::future::Future;
 // use futures::stream::Stream;
 use futures::task::Poll;
+use tokio::runtime;
 
 /*
 Rsrc
@@ -101,20 +103,23 @@ impl RsrcQueue
 #[derive(Clone)]
 pub struct RunQueue
 {
-    app_send: Sender<AppMsg>,
+    app_send: SyncSender<AppMsg>,
 }
 
+/// why is this in the io code?
 #[derive(Debug)]
 pub struct RunQueueReceiver(Receiver<Val>);
 
 impl RunQueue
 {
-    pub fn spawn(&self, func: Fref, args: Struple2<Val>) -> RunQueueReceiver
+    pub fn spawn(&self, _func: Fref, _args: Struple2<Val>) -> RunQueueReceiver
     {
-        let (result_send, result_recv) = channel();
+        let (_result_send, result_recv) = channel();
+        /*
         self.app_send
             .send(AppMsg::Spawn(result_send, func, args))
             .unwrap();
+            */
         RunQueueReceiver(result_recv)
     }
 }
@@ -148,8 +153,8 @@ pub struct Io
     resource: HashMap<i64, RsrcQueue>,
     next: LinkedList<Iop>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
-    app_tx: std::sync::mpsc::Sender<AppMsg>,
-    worker_tx: HashMap<i64, std::sync::mpsc::Sender<WorkerMsg>>,
+    app_tx: std::sync::mpsc::SyncSender<AppMsg>,
+    worker_tx: HashMap<i64, std::sync::mpsc::SyncSender<WorkerMsg>>,
     next_rsrc_id: i64,
     io: Option<Rc<RefCell<Io>>>,
     done: bool,
@@ -158,7 +163,7 @@ pub struct Io
 impl Io
 {
     pub fn new(
-        app_tx: Sender<AppMsg>,
+        app_tx: SyncSender<AppMsg>,
         msg_rx: Receiver<IoMsg>,
         prog: program::Lib,
     ) -> Rc<RefCell<Io>>
@@ -256,7 +261,6 @@ impl Io
             worker_id,
             fiber_id,
             opt_rsrc_id.clone(),
-            None,
             params,
         );
         let iop = Iop {
@@ -337,7 +341,7 @@ impl Io
                     WorkerMsg::FoundCode(fiber_id, MsgItem::new(&fref), code);
                 tx.send(msg).expect("failed sending found code to worker");
             }
-            Event::Future(libfut) => {
+            Event::Future(_libfut) => {
                 vout!("handle Event::Future\n");
                 /*
                 let rcio: Rc<RefCell<Io>> = self.io.clone().unwrap();
@@ -402,23 +406,11 @@ impl Io
         src_worker_id: i64,
         src_fiber_id: i64,
         rsrc_id: Option<i64>,
-        rsrc: Option<Box<dyn Rsrc>>,
         param_val: Val,
     ) -> IopCtx
     {
         let rcio = self.io.clone().unwrap();
-        let run_queue = RunQueue {
-            app_send: self.app_tx.clone(),
-        };
-        IopCtx::new(
-            rcio,
-            src_worker_id,
-            src_fiber_id,
-            run_queue,
-            rsrc_id,
-            rsrc,
-            param_val,
-        )
+        IopCtx::new(rcio, src_worker_id, src_fiber_id, rsrc_id, param_val)
     }
 
     pub fn new_rsrc(&mut self, rsrc: Box<dyn Rsrc>) -> i64
@@ -466,11 +458,13 @@ impl IoLoop
             did_nothing: 0,
         };
 
-        /*
-        let mut rt = current_thread::Runtime::new().unwrap();
+        let rt = runtime::Builder::new_current_thread()
+            .thread_name("leema-io")
+            .enable_all()
+            .build()
+            .unwrap();
         let result = rt.block_on(my_loop);
         println!("io is done: {:?}", result);
-        */
     }
 }
 
@@ -478,7 +472,10 @@ impl Future for IoLoop
 {
     type Output = MsgVal;
 
-    fn poll(&mut self) -> Poll<MsgVal>
+    fn poll(
+        mut self: Pin<&mut Self>,
+        _: &mut futures::task::Context<'_>,
+    ) -> Poll<MsgVal>
     {
         let poll_result = self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
