@@ -2,7 +2,7 @@ use crate::leema::code::Code;
 use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace};
-use crate::leema::msg::{IoMsg, MsgItem, WorkerMsg};
+use crate::leema::msg::{self, IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::rsrc;
 use crate::leema::stack;
@@ -151,6 +151,7 @@ pub struct Worker
     code: HashMap<Fref, Rc<Code>>,
     io_tx: SyncSender<IoMsg>,
     msg_rx: Receiver<WorkerMsg>,
+    spawn_rx: msg::SpawnReceiver,
     id: i64,
     next_fiber_id: i64,
     did_nothing: i32,
@@ -163,6 +164,7 @@ pub struct WorkerSeed
     pub io_msg: IoMsg,
     pub io_send: SyncSender<IoMsg>,
     pub worker_recv: Receiver<WorkerMsg>,
+    pub spawn: msg::SpawnReceiver,
 }
 
 /**
@@ -182,6 +184,7 @@ impl Worker
             code: HashMap::new(),
             io_tx: seed.io_send,
             msg_rx: seed.worker_recv,
+            spawn_rx: seed.spawn,
             id: seed.wid,
             next_fiber_id: 0,
             did_nothing: 0,

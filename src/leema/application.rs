@@ -1,7 +1,7 @@
 use crate::leema::failure::{self, Lresult};
 // use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
-use crate::leema::msg::{AppMsg, IoMsg, SpawnMsg, WorkerMsg};
+use crate::leema::msg::{self, AppMsg, IoMsg, SpawnMsg, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, Val};
@@ -63,11 +63,12 @@ impl Application
         mut self,
         inter: Interloader,
         io_rx: Receiver<IoMsg>,
-        _spawn_rx: Receiver<SpawnMsg>,
+        spawn_rx: Receiver<SpawnMsg>,
     )
     {
+        let spawn = msg::SpawnReceiver::new(spawn_rx);
         self.start_io(inter, io_rx);
-        let wh0 = self.start_worker();
+        let wh0 = self.start_worker(spawn);
         let a = wh0.join();
         self.spawn_app_loop();
     }
@@ -89,7 +90,7 @@ impl Application
             .unwrap()
     }
 
-    fn new_worker(&mut self) -> WorkerSeed
+    fn new_worker(&mut self, spawn: msg::SpawnReceiver) -> WorkerSeed
     {
         let worker_id = self.next_worker_id();
         let io_send = self.io_send.clone();
@@ -107,12 +108,16 @@ impl Application
             io_send,
             worker_recv,
             io_msg,
+            spawn,
         }
     }
 
-    fn start_worker(&mut self) -> std::thread::JoinHandle<()>
+    fn start_worker(
+        &mut self,
+        spawn: msg::SpawnReceiver,
+    ) -> std::thread::JoinHandle<()>
     {
-        let seed = self.new_worker();
+        let seed = self.new_worker(spawn);
         std::thread::spawn(move || {
             let rt = Builder::new_current_thread()
                 .thread_name("leema-worker")

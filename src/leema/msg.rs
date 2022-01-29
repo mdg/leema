@@ -50,6 +50,25 @@ pub enum SpawnMsg
 }
 
 #[derive(Debug)]
+pub struct SpawnReceiver
+{
+    recv: mpsc::Receiver<SpawnMsg>,
+}
+
+impl SpawnReceiver
+{
+    pub fn new(recv: mpsc::Receiver<SpawnMsg>) -> SpawnReceiver
+    {
+        SpawnReceiver { recv }
+    }
+
+    pub fn try_recv(&self) -> Result<SpawnMsg, mpsc::TryRecvError>
+    {
+        self.recv.try_recv()
+    }
+}
+
+#[derive(Debug)]
 pub enum AppMsg
 {
     /// Stop the world
