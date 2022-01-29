@@ -160,6 +160,7 @@ pub struct Worker
 pub struct WorkerSeed
 {
     pub wid: i64,
+    pub io_msg: IoMsg,
     pub io_send: Sender<IoMsg>,
     pub worker_recv: Receiver<WorkerMsg>,
 }

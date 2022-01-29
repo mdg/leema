@@ -5,9 +5,10 @@ use crate::leema::msg::{IoMsg, SpawnMsg, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, Val};
-use crate::leema::worker::{self, Worker, WorkerSeed};
+use crate::leema::worker::{Worker, WorkerSeed};
 
 use std::collections::HashMap;
+use std::thread;
 
 use tokio::runtime::Builder;
 use tokio::sync::mpsc::error::TryRecvError;
@@ -21,7 +22,8 @@ use tokio::task::{self, JoinHandle};
 /// let async_result = caller.call_async(fref, args).await;
 pub struct Application
 {
-    io_recv: Option<Receiver<IoMsg>>,
+    app_recv: Receiver<SpawnMsg>,
+    app_send: Sender<SpawnMsg>,
     io_send: Sender<IoMsg>,
     worker: HashMap<i64, Sender<WorkerMsg>>,
     calls: Vec<(Sender<Val>, Fref, Struple2<Val>)>,
@@ -35,20 +37,19 @@ impl Application
 {
     pub fn start(inter: Interloader) -> TaskQueue
     {
-        let (spawn_tx, spawn_rx) = channel(100);
-        let app = Application::new();
-        let tasks = TaskQueue::new(spawn_tx);
-        std::thread::spawn(move || {
-            app.start_runtime(inter, spawn_rx);
-        });
+        let (app, io_rx) = Application::new();
+        let tasks = TaskQueue::new(app.app_send.clone());
+        app.run(inter, io_rx);
         tasks
     }
 
-    fn new() -> Application
+    fn new() -> (Application, Receiver<IoMsg>)
     {
+        let (spawn_tx, spawn_rx) = channel(100);
         let (iotx, iorx) = channel(100);
-        Application {
-            io_recv: Some(iorx),
+        let app = Application {
+            app_recv: spawn_rx,
+            app_send: spawn_tx,
             io_send: iotx,
             worker: HashMap::new(),
             calls: Vec::new(),
@@ -56,15 +57,12 @@ impl Application
             result: None,
             done: false,
             last_worker_id: 0,
-        }
+        };
+        (app, iorx)
     }
 
-    pub fn run_lib(_inter: Interloader) -> Application
-    {
-        Application::new()
-    }
-
-    fn start_runtime(self, inter: Interloader, spawn: Receiver<SpawnMsg>)
+    /*
+    fn start_runtime(self, inter: Interloader)
     {
         let rt = Builder::new_multi_thread()
             .thread_name("leema-worker")
@@ -85,58 +83,88 @@ impl Application
             .unwrap();
 
         rt.block_on(async {
-            self.run(inter, spawn).await;
+            self.run(inter).await;
             task::yield_now().await;
         })
     }
+    */
 
-    async fn run(mut self, inter: Interloader, spawn: Receiver<SpawnMsg>)
+    fn run(mut self, inter: Interloader, io_rx: Receiver<IoMsg>)
     {
-        let spawnh = worker::run_spawn_loop(spawn).await;
-        self.start_io(inter);
-        let wh0 = {
-            let seed = self.new_worker().await;
-            Self::start_worker(seed).await
-        };
-        // self.start_worker();
-        let (a, b) = futures::join!(spawnh, wh0);
-        b.unwrap();
+        self.start_io(inter, io_rx);
+        let wh0 = self.start_worker();
+        let a = wh0.join();
+        self.spawn_app_loop();
     }
 
-    fn start_io(&mut self, inter: Interloader) // -> thread::JoinHandle<()>
+    fn start_io(
+        &mut self,
+        inter: Interloader,
+        _io_rx: Receiver<IoMsg>,
+    ) -> thread::JoinHandle<()>
     {
         let _prog = program::Lib::new(inter);
-        // let app_send = self.app_send.clone();
-        // let _io_recv = self.io_recv.take().unwrap();
-        /*
+        let _app_send = self.app_send.clone();
         thread::Builder::new()
             .name("leema-io".to_string())
             .spawn(move || {
-                let rcio = Io::new(app_send, io_recv, prog);
-                IoLoop::run(rcio);
+                // let rcio = Io::new(app_send, io_recv, prog);
+                // IoLoop::run(rcio);
             })
             .unwrap()
-            */
     }
 
-    async fn new_worker(&mut self) -> WorkerSeed
+    fn new_worker(&mut self) -> WorkerSeed
     {
         let worker_id = self.next_worker_id();
         let io_send = self.io_send.clone();
         let (worker_send, worker_recv) = channel(100);
         self.worker.insert(worker_id, worker_send.clone());
+        /*
         self.io_send
             .send(IoMsg::NewWorker(worker_id, worker_send))
             .await
             .expect("fail to send worker to io thread");
+            */
+        let io_msg = IoMsg::NewWorker(worker_id, worker_send);
         WorkerSeed {
             wid: worker_id,
             io_send,
             worker_recv,
+            io_msg,
         }
     }
 
-    async fn start_worker(seed: WorkerSeed) -> JoinHandle<()>
+    fn start_worker(&mut self) -> std::thread::JoinHandle<()>
+    {
+        let seed = self.new_worker();
+        std::thread::spawn(move || {
+            let rt = Builder::new_current_thread()
+                .thread_name("leema-worker")
+                .enable_time()
+                .on_thread_start(|| {
+                    eprintln!("thread start");
+                })
+                .on_thread_stop(|| {
+                    eprintln!("thread stop");
+                })
+                .on_thread_park(|| {
+                    eprintln!("thread park");
+                })
+                .on_thread_unpark(|| {
+                    eprintln!("thread unpark");
+                })
+                .build()
+                .unwrap();
+
+            rt.block_on(async {
+                Self::async_start_worker(seed).await;
+                task::yield_now().await;
+            })
+        })
+    }
+
+    async fn async_start_worker(seed: WorkerSeed) -> JoinHandle<()>
     {
         let handle = tokio::spawn(async move {
             vout!("start worker {}\n", seed.wid);
@@ -152,13 +180,15 @@ impl Application
         self.last_worker_id
     }
 
-    fn spawn_app_loop(self) -> JoinHandle<()>
+    fn spawn_app_loop(self) -> thread::JoinHandle<()>
     {
-        task::spawn(async move {
-            while !self.done {
-                // self.iterate().await;
-            }
-        })
+        thread::Builder::new()
+            .name("leema-app".to_string())
+            .spawn(move || {
+                while !self.done {
+                }
+            })
+            .unwrap()
     }
 }
 
