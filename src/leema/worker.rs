@@ -2,7 +2,7 @@ use crate::leema::code::Code;
 use crate::leema::failure::Lresult;
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace};
-use crate::leema::msg::{IoMsg, MsgItem, SpawnMsg, WorkerMsg};
+use crate::leema::msg::{IoMsg, MsgItem, WorkerMsg};
 use crate::leema::reg::Reg;
 use crate::leema::rsrc;
 use crate::leema::stack;
@@ -16,13 +16,13 @@ use std::collections::{HashMap, LinkedList};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 use futures::task::Poll;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::task::{self, JoinHandle};
+use tokio::task;
 
 
 
@@ -131,7 +131,7 @@ impl<'a> RustFuncContext<'a>
     pub fn new_fork(&self, f: Fref, args: Struple2<Val>) -> Receiver<Val>
     {
         eprintln!("new_fork {} {:?}", f, args);
-        let (_send, recv) = channel(1);
+        let (_send, recv) = sync_channel(1);
         /*
         let spawn_msg = AppMsg::Spawn(send, f, args);
         self.worker
@@ -149,7 +149,7 @@ pub struct Worker
     fresh: LinkedList<ReadyFiber>,
     waiting: HashMap<i64, FiberWait>,
     code: HashMap<Fref, Rc<Code>>,
-    io_tx: Sender<IoMsg>,
+    io_tx: SyncSender<IoMsg>,
     msg_rx: Receiver<WorkerMsg>,
     id: i64,
     next_fiber_id: i64,
@@ -161,7 +161,7 @@ pub struct WorkerSeed
 {
     pub wid: i64,
     pub io_msg: IoMsg,
-    pub io_send: Sender<IoMsg>,
+    pub io_send: SyncSender<IoMsg>,
     pub worker_recv: Receiver<WorkerMsg>,
 }
 
@@ -252,7 +252,7 @@ impl Worker
                 params: MsgItem::new(&args),
             };
             self.io_tx
-                .blocking_send(msg)
+                .send(msg)
                 .expect("failure sending load code message to app");
             let fiber_id = curf.fiber_id;
             let fw = FiberWait::Code(curf);
@@ -468,7 +468,7 @@ impl Worker
             let args = Val::Tuple(fib.head.e.get_params().to_vec());
             let msg_vals = MsgVal::new(&args);
             self.io_tx
-                .blocking_send(IoMsg::Iop {
+                .send(IoMsg::Iop {
                     worker_id: self.id,
                     fiber_id,
                     rsrc_id,
@@ -488,7 +488,7 @@ impl Worker
         &mut self,
         stack: Pin<Box<stack::Buffer>>,
         frame: Frame,
-        result: Option<Sender<Val>>,
+        result: Option<SyncSender<Val>>,
     )
     {
         vout!("spawn_fiber({})\n", frame.function().unwrap().f);
@@ -516,8 +516,11 @@ async fn run_fiber_loop(f: Fiber)
     }
 }
 
-fn new_fiber(f: Fref, args: Struple2<Val>, result: Option<Sender<Val>>)
-    -> Fiber
+fn new_fiber(
+    f: Fref,
+    args: Struple2<Val>,
+    result: Option<SyncSender<Val>>,
+) -> Fiber
 {
     vout!("spawn fiber {}\n", f);
     let (stack, e) = stack::Buffer::new(DEFAULT_STACK_SIZE, f, args);
@@ -525,31 +528,4 @@ fn new_fiber(f: Fref, args: Struple2<Val>, result: Option<Sender<Val>>)
 
     let id = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
     Fiber::spawn(id, stack, root, result)
-}
-
-async fn process_spawn(m: SpawnMsg) -> JoinHandle<()>
-{
-    eprintln!("spawn {:?}", m);
-    match m {
-        SpawnMsg::Spawn(result_tx, f, args) => {
-            let id = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
-            let id2 = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
-            task::spawn_local(async move {
-                let fib = new_fiber(f, args, Some(result_tx));
-                run_fiber_loop(fib).await
-            })
-        }
-    }
-}
-
-pub async fn run_spawn_loop(mut r: Receiver<SpawnMsg>) -> JoinHandle<()>
-{
-    task::spawn(async move {
-        loop {
-            if let Some(spawn) = r.recv().await {
-                process_spawn(spawn).await;
-            } else {
-            }
-        }
-    })
 }

@@ -1,18 +1,17 @@
 use crate::leema::failure::{self, Lresult};
 // use crate::leema::io::{Io, IoLoop};
 use crate::leema::loader::Interloader;
-use crate::leema::msg::{IoMsg, SpawnMsg, WorkerMsg};
+use crate::leema::msg::{AppMsg, IoMsg, SpawnMsg, WorkerMsg};
 use crate::leema::program;
 use crate::leema::struple::Struple2;
 use crate::leema::val::{Fref, Val};
 use crate::leema::worker::{Worker, WorkerSeed};
 
 use std::collections::HashMap;
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
 use std::thread;
 
 use tokio::runtime::Builder;
-use tokio::sync::mpsc::error::TryRecvError;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::{self, JoinHandle};
 
 
@@ -22,11 +21,10 @@ use tokio::task::{self, JoinHandle};
 /// let async_result = caller.call_async(fref, args).await;
 pub struct Application
 {
-    app_recv: Receiver<SpawnMsg>,
-    app_send: Sender<SpawnMsg>,
-    io_send: Sender<IoMsg>,
-    worker: HashMap<i64, Sender<WorkerMsg>>,
-    calls: Vec<(Sender<Val>, Fref, Struple2<Val>)>,
+    app_recv: Receiver<AppMsg>,
+    app_send: SyncSender<AppMsg>,
+    io_send: SyncSender<IoMsg>,
+    worker: HashMap<i64, SyncSender<WorkerMsg>>,
     args: Val,
     result: Option<Val>,
     done: bool,
@@ -37,22 +35,22 @@ impl Application
 {
     pub fn start(inter: Interloader) -> TaskQueue
     {
+        let (spawn_tx, spawn_rx) = sync_channel(100);
         let (app, io_rx) = Application::new();
-        let tasks = TaskQueue::new(app.app_send.clone());
-        app.run(inter, io_rx);
+        let tasks = TaskQueue::new(app.app_send.clone(), spawn_tx);
+        app.run(inter, io_rx, spawn_rx);
         tasks
     }
 
     fn new() -> (Application, Receiver<IoMsg>)
     {
-        let (spawn_tx, spawn_rx) = channel(100);
-        let (iotx, iorx) = channel(100);
+        let (spawn_tx, spawn_rx) = sync_channel(100);
+        let (iotx, iorx) = sync_channel(100);
         let app = Application {
             app_recv: spawn_rx,
             app_send: spawn_tx,
             io_send: iotx,
             worker: HashMap::new(),
-            calls: Vec::new(),
             args: Val::Nil,
             result: None,
             done: false,
@@ -61,35 +59,12 @@ impl Application
         (app, iorx)
     }
 
-    /*
-    fn start_runtime(self, inter: Interloader)
-    {
-        let rt = Builder::new_multi_thread()
-            .thread_name("leema-worker")
-            .enable_all()
-            .on_thread_start(|| {
-                eprintln!("thread start");
-            })
-            .on_thread_stop(|| {
-                eprintln!("thread stop");
-            })
-            .on_thread_park(|| {
-                eprintln!("thread park");
-            })
-            .on_thread_unpark(|| {
-                eprintln!("thread unpark");
-            })
-            .build()
-            .unwrap();
-
-        rt.block_on(async {
-            self.run(inter).await;
-            task::yield_now().await;
-        })
-    }
-    */
-
-    fn run(mut self, inter: Interloader, io_rx: Receiver<IoMsg>)
+    fn run(
+        mut self,
+        inter: Interloader,
+        io_rx: Receiver<IoMsg>,
+        _spawn_rx: Receiver<SpawnMsg>,
+    )
     {
         self.start_io(inter, io_rx);
         let wh0 = self.start_worker();
@@ -118,7 +93,7 @@ impl Application
     {
         let worker_id = self.next_worker_id();
         let io_send = self.io_send.clone();
-        let (worker_send, worker_recv) = channel(100);
+        let (worker_send, worker_recv) = sync_channel(100);
         self.worker.insert(worker_id, worker_send.clone());
         /*
         self.io_send
@@ -180,15 +155,63 @@ impl Application
         self.last_worker_id
     }
 
-    fn spawn_app_loop(self) -> thread::JoinHandle<()>
+    fn handle_app_msg(&mut self, m: AppMsg)
+    {
+        match m {
+            /*
+            AppMsg::Spawn(result_tx, f, args) => {
+                // send to a worker
+                let wm = WorkerMsg::Spawn(result_tx, f, args);
+                let w = self.worker.values_mut().next().unwrap();
+                w.send(wm);
+                /*
+                let id = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
+                let id2 = NEXT_FIBER_ID.fetch_add(1, Ordering::SeqCst);
+                task::spawn(move {
+                    let fib = new_fiber(f, args, Some(result_tx));
+                    run_fiber_loop(fib).await
+                })
+                */
+            }
+            */
+            AppMsg::Stop => {
+                panic!("stop");
+            }
+        }
+    }
+
+    fn iterate(&mut self)
+    {
+        match self.app_recv.try_recv() {
+            Ok(m) => {
+                self.handle_app_msg(m);
+            }
+            Err(TryRecvError::Empty) => {
+                // no messages, do nothing
+            }
+            Err(TryRecvError::Disconnected) => {
+                eprintln!("app queue disconnected");
+                self.stop();
+            }
+        }
+    }
+
+    fn spawn_app_loop(mut self) -> thread::JoinHandle<()>
     {
         thread::Builder::new()
             .name("leema-app".to_string())
             .spawn(move || {
                 while !self.done {
+                    self.iterate();
                 }
             })
             .unwrap()
+    }
+
+    fn stop(&mut self)
+    {
+        // send a stop msg to the workers and io threads/tasks
+        self.done = true;
     }
 }
 
@@ -209,10 +232,11 @@ impl TaskResult
     pub fn wait(&mut self) -> Lresult<Val>
     {
         vout!("TaskResult.wait\n");
-        let result = ltry!(self.result.blocking_recv().ok_or_else(|| {
+        let result = ltry!(self.result.recv().map_err(|e| {
             lfail!(
                 failure::Mode::Underflow,
                 "no result received",
+                "error": ldisplay!(e),
                 "func": ldisplay!(self.f),
             )
         }));
@@ -239,20 +263,27 @@ impl TaskResult
 #[derive(Debug)]
 pub struct TaskQueue
 {
-    app_send: Sender<SpawnMsg>,
+    app_send: SyncSender<AppMsg>,
+    spawn_send: SyncSender<SpawnMsg>,
 }
 
 impl TaskQueue
 {
-    pub fn new(app_send: Sender<SpawnMsg>) -> TaskQueue
+    pub fn new(
+        app: SyncSender<AppMsg>,
+        spawn: SyncSender<SpawnMsg>,
+    ) -> TaskQueue
     {
-        TaskQueue { app_send }
+        TaskQueue {
+            app_send: app,
+            spawn_send: spawn,
+        }
     }
 
     pub fn spawn(&self, call: Fref, args: Struple2<Val>) -> TaskResult
     {
-        let (result_send, result_recv) = channel(1);
-        let result = self.app_send.blocking_send(SpawnMsg::Spawn(
+        let (result_send, result_recv) = sync_channel(1);
+        let result = self.spawn_send.send(SpawnMsg::Spawn(
             result_send,
             call.clone(),
             args,

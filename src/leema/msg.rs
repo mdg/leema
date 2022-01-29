@@ -7,8 +7,7 @@ use crate::leema::val::{Fref, MsgVal, Val};
 
 use std::fmt;
 use std::ops::Deref;
-
-use tokio::sync::mpsc;
+use std::sync::mpsc;
 
 
 #[derive(Debug)]
@@ -47,26 +46,26 @@ type MsgLstr = MsgItem<Lstr>;
 pub enum SpawnMsg
 {
     /// Start a new task
-    Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
+    Spawn(mpsc::SyncSender<Val>, Fref, Struple2<Val>),
 }
 
 #[derive(Debug)]
 pub enum AppMsg
 {
-    /// Start a new task
-    Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
-    MainResult(MsgVal),
+    /// Stop the world
+    Stop,
 }
 
 #[derive(Debug)]
 pub enum WorkerMsg
 {
     /// Start a new task
-    Spawn(mpsc::Sender<Val>, Fref, Struple2<Val>),
-    // FoundCode(fiber_id, fref, code)
+    Spawn(mpsc::SyncSender<Val>, Fref, Struple2<Val>),
+    /// FoundCode(fiber_id, fref, code)
     FoundCode(i64, MsgItem<Fref>, Code),
-    // IopResult(fiber_id, MsgVal)
+    /// IopResult(fiber_id, MsgVal)
     IopResult(i64, MsgVal),
+    /// Stop the worker
     Done,
 }
 
@@ -87,7 +86,7 @@ pub enum IoMsg
         f: MsgVal,
         params: Struple2<MsgVal>,
     },
-    NewWorker(i64, mpsc::Sender<WorkerMsg>),
+    NewWorker(i64, mpsc::SyncSender<WorkerMsg>),
     Done,
 }
 
