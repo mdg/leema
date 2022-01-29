@@ -93,18 +93,13 @@ impl Application
         let io_send = self.io_send.clone();
         let (worker_send, worker_recv) = sync_channel(100);
         self.worker.insert(worker_id, worker_send.clone());
-        /*
-        self.io_send
+        io_send
             .send(IoMsg::NewWorker(worker_id, worker_send))
-            .await
             .expect("fail to send worker to io thread");
-            */
-        let io_msg = IoMsg::NewWorker(worker_id, worker_send);
         WorkerSeed {
             wid: worker_id,
             io_send,
             worker_recv,
-            io_msg,
             spawn,
         }
     }
@@ -278,7 +273,7 @@ impl TaskQueue
 
     pub fn spawn(&self, call: Fref, args: Struple2<Val>) -> TaskResult
     {
-        vout!("spawn {} {:?}", call, args);
+        vout!("spawn {} {:?}\n", call, args);
         let (result_send, result_recv) = sync_channel(1);
         let result = self.spawn_send.send(SpawnMsg::Spawn(
             result_send,

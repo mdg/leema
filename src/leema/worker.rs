@@ -161,7 +161,6 @@ pub struct Worker
 pub struct WorkerSeed
 {
     pub wid: i64,
-    pub io_msg: IoMsg,
     pub io_send: SyncSender<IoMsg>,
     pub worker_recv: Receiver<WorkerMsg>,
     pub spawn: msg::SpawnReceiver,
@@ -253,6 +252,7 @@ impl Worker
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
         } else {
+            vout!("load code for {}\n", fref);
             let args =
                 Val::Tuple(vec![StrupleItem::new_v(Val::Func(fref.clone()))]);
             let msg = IoMsg::Iop {
@@ -458,7 +458,7 @@ impl Worker
     {
         match msg {
             msg::SpawnMsg::Spawn(result_dst, func, args) => {
-                vout!("worker spawn2 {}\n", func);
+                vout!("worker spawn {}\n", func);
                 let (stack, e) =
                     stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
                 let root = Frame::new_root(e);

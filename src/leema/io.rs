@@ -233,6 +233,7 @@ impl Io
                 );
             }
             IoMsg::NewWorker(worker_id, worker_tx) => {
+                vout!("add worker send channel {}\n", worker_id);
                 self.worker_tx.insert(worker_id, worker_tx);
             }
             IoMsg::Done => {
@@ -474,7 +475,7 @@ impl Future for IoLoop
 
     fn poll(
         mut self: Pin<&mut Self>,
-        _: &mut futures::task::Context<'_>,
+        ctx: &mut futures::task::Context<'_>,
     ) -> Poll<MsgVal>
     {
         let poll_result = self.io.borrow_mut().run_once();
@@ -494,6 +495,7 @@ impl Future for IoLoop
                 thread::sleep(Duration::from_micros(self.did_nothing));
             }
         }
+        ctx.waker().wake_by_ref();
         poll_result
     }
 }
