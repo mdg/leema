@@ -310,10 +310,14 @@ impl Io
         worker_id: i64,
         fiber_id: i64,
         rsrc_id: Option<i64>,
+        ctx: IopCtx,
         ev: Event,
     )
     {
         match ev {
+            Event::Complete => {
+                self.send_result(worker_id, fiber_id, ctx.get_result().clone());
+            }
             Event::NewRsrc(rsrc) => {
                 vout!("handle Event::NewRsrc\n");
                 let new_rsrc_id = self.new_rsrc(rsrc);
@@ -396,8 +400,8 @@ impl Io
             */
             Event::Sequence(first, second) => {
                 vout!("handle Event::Sequence\n");
-                self.handle_event(worker_id, fiber_id, rsrc_id, *first);
-                self.handle_event(worker_id, fiber_id, rsrc_id, *second);
+                self.handle_event(worker_id, fiber_id, rsrc_id, ctx, *first);
+                self.handle_event(worker_id, fiber_id, rsrc_id, ctx, *second);
             }
         }
     }
@@ -481,11 +485,12 @@ impl Future for IoLoop
         let poll_result = self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {
-            let ev = (iop.action)(iop.ctx);
+            let ev = (iop.action)(iop.ctx).unwrap();
             self.io.borrow_mut().handle_event(
                 iop.src_worker_id,
                 iop.src_fiber_id,
                 iop.rsrc_id,
+                iop.ctx,
                 ev,
             );
             self.did_nothing = 0;

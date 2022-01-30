@@ -259,26 +259,19 @@ pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
     }
 }
 
-pub fn load_code(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn load_code(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
 {
     vout!("load_code()\n");
-    let mut prog: program::Lib = ctx.take_rsrc();
-    let fref = match ctx.take_param(0).unwrap() {
+    let prog: &mut program::Lib = ltry!(ctx.rsrc_mut(0));
+    let fref = match ctx.take_param(1).unwrap() {
         Val::Func(fr) => fr,
         what => panic!("what is this? {:?}", what),
     };
-    let rcode = prog.load_code(&fref).map(|c| (*c).clone());
-    match rcode {
-        Ok(code) => {
-            rsrc::Event::ReturnRsrc(Box::new(prog))
-                .cat(rsrc::Event::FoundCode(fref, code))
-        }
-        Err(f) => {
-            eprintln!("code load error: {}.{}\n{:#?}", fref.m.name, fref.f, f);
-            rsrc::Event::Result(Val::Failure2(Box::new(f)))
-        }
-    }
-    rsrc::Event::Result(Val::VOID)
+    let code = ltry!(
+        prog.load_code(&fref).map(|c| (*c).clone()),
+        "func": ldisplay!(fref),
+    );
+    Ok(rsrc::Event::FoundCode(fref, code))
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

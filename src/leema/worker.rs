@@ -253,13 +253,15 @@ impl Worker
             self.push_coded_fiber(curf, func)
         } else {
             vout!("load code for {}\n", fref);
-            let args =
-                Val::Tuple(vec![StrupleItem::new_v(Val::Func(fref.clone()))]);
+            let args = Val::Tuple(vec![
+                StrupleItem::new_v(Val::ResourceRef(rsrc::ID_PROGLIB)),
+                StrupleItem::new_v(Val::Func(fref.clone())),
+            ]);
             let msg = IoMsg::Iop {
                 worker_id: self.id,
                 fiber_id: curf.fiber_id,
                 action: lib_core::load_code,
-                rsrc_id: Some(rsrc::ID_PROGLIB),
+                rsrc_id: None, // TODO delete the rsrc_id field
                 params: MsgItem::new(&args),
             };
             self.io_tx

@@ -26,6 +26,7 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
+    Complete,
     Future(Box<dyn future::Future<Output = Event>>),
     // Stream(Box<dyn stream::Stream<Item = Event, Error = Event>>),
     NewRsrc(Box<dyn Rsrc>),
@@ -54,6 +55,7 @@ impl fmt::Debug for Event
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match *self {
+            Event::Complete => write!(f, "Event::Complete"),
             Event::Future(_) => write!(f, "Event::Future"),
             // Event::Stream(_) => write!(f, "Event::Stream"),
             Event::NewRsrc(ref r) => write!(f, "Event::Rsrc({:?})", r),
@@ -79,6 +81,7 @@ pub struct IopCtx
     rsrc_id: Option<i64>,
     params: Vec<Option<Val>>,
     rsrc: HashMap<i64, Box<dyn Rsrc>>,
+    result: Val,
 }
 
 impl IopCtx
@@ -106,7 +109,13 @@ impl IopCtx
             rsrc_id,
             params,
             rsrc: HashMap::new(),
+            result: Val::VOID,
         }
+    }
+
+    pub fn set_result(&mut self, r: Val)
+    {
+        self.result = r;
     }
 
     pub fn init_rsrc(&mut self, _rsrc: Box<dyn Rsrc>)
@@ -125,7 +134,7 @@ impl IopCtx
     }
 
     /// Get a resource parameter from the context
-    pub fn get_rsrc<T>(&mut self, i: i8) -> Lresult<&T>
+    pub fn rsrc<T>(&self, i: i8) -> Lresult<&T>
     where
         T: Rsrc,
     {
@@ -169,6 +178,56 @@ impl IopCtx
         }
     }
 
+    /// Get a mutable resource parameter from the context
+    pub fn rsrc_mut<T>(&mut self, i: i8) -> Lresult<&mut T>
+    where
+        T: Rsrc,
+    {
+        if let Some(val) = self.params.get(i as usize).unwrap() {
+            if let Val::ResourceRef(rsrc_id) = val {
+                if let Some(rsrc) = self.rsrc.get_mut(rsrc_id) {
+                    if let Some(rval) = rsrc.downcast_mut::<T>() {
+                        Ok(rval)
+                    } else {
+                        Err(lfail!(
+                            failure::Mode::CodeFailure,
+                            "invalid resource type",
+                            "param": ldisplay!(i),
+                            "rsrc_id": ldisplay!(rsrc_id),
+                            "value": ldebug!(val),
+                            "valtype": ldebug!(val.get_type()),
+                        ))
+                    }
+                } else {
+                    Err(lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "unknown resource",
+                        "param": ldisplay!(i),
+                        "rsrc_id": ldisplay!(rsrc_id),
+                    ))
+                }
+            } else {
+                Err(lfail!(
+                    failure::Mode::CodeFailure,
+                    "non-resource parameter",
+                    "param": ldisplay!(i),
+                    "value": ldisplay!(val),
+                ))
+            }
+        } else {
+            Err(lfail!(
+                failure::Mode::CodeFailure,
+                "invalid parameter index",
+                "param": ldisplay!(i),
+            ))
+        }
+    }
+
+    pub fn get_result(&self) -> &Val
+    {
+        &self.result
+    }
+
     /*
     pub fn clone_run_queue(&self) -> RunQueue
     {
@@ -177,4 +236,4 @@ impl IopCtx
     */
 }
 
-pub type IopAction = fn(IopCtx) -> Event;
+pub type IopAction = fn(IopCtx) -> Lresult<Event>;
