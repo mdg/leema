@@ -26,7 +26,7 @@ mopafy!(Rsrc);
 
 pub enum Event
 {
-    Complete,
+    Complete(IopCtx),
     Future(Box<dyn future::Future<Output = Event>>),
     // Stream(Box<dyn stream::Stream<Item = Event, Error = Event>>),
     NewRsrc(Box<dyn Rsrc>),
@@ -55,7 +55,7 @@ impl fmt::Debug for Event
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match *self {
-            Event::Complete => write!(f, "Event::Complete"),
+            Event::Complete(_) => write!(f, "Event::Complete"),
             Event::Future(_) => write!(f, "Event::Future"),
             // Event::Stream(_) => write!(f, "Event::Stream"),
             Event::NewRsrc(ref r) => write!(f, "Event::Rsrc({:?})", r),

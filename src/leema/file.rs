@@ -68,7 +68,7 @@ pub fn file_read_file(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
     let mut s = String::new();
     f.read_to_string(&mut s).expect("read_to_string failure");
     ctx.set_result(Val::Str(Lstr::from(s)));
-    Ok(rsrc::Event::Complete)
+    Ok(rsrc::Event::Complete(ctx))
 }
 
 pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event
@@ -91,7 +91,7 @@ pub fn file_write_file(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
         .unwrap();
     f.write_all(output.str().as_bytes())
         .expect("write_all failure");
-    Ok(rsrc::Event::Complete)
+    Ok(rsrc::Event::Complete(ctx))
 }
 
 pub fn file_exists(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
@@ -99,7 +99,7 @@ pub fn file_exists(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
     let pathval = ctx.take_param(0).unwrap();
     let exists = Path::new(pathval.str()).exists();
     ctx.set_result(Val::Bool(exists));
-    Ok(rsrc::Event::Complete)
+    Ok(rsrc::Event::Complete(ctx))
 }
 
 pub fn file_read(f: &mut Fiber) -> Lresult<Event>
