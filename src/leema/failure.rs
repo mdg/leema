@@ -104,9 +104,9 @@ macro_rules! ltry {
             Ok(success) => success,
             Err(f) => {
                 return Err(f.with_context(vec![
-                    StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
-                    StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
-                    StrupleItem::new(Lstr::Sref($key), $val),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref($key), $val),
                 ]));
             }
         }
@@ -116,9 +116,9 @@ macro_rules! ltry {
             Ok(success) => success,
             Err(f) => {
                 return Err(f.with_context(vec![
-                    StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
-                    StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
-                    $(StrupleItem::new(Lstr::Sref($key), $val)),+
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
+                    $(crate::leema::struple::StrupleItem::new(Lstr::Sref($key), $val)),+
                 ]));
             }
         }
