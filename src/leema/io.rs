@@ -55,6 +55,11 @@ impl Iop
     {
         self.required_rsrc_ids.pop()
     }
+
+    pub fn push_rsrc(&mut self, rsrc_id: i64, rsrc: Box<dyn Rsrc>)
+    {
+        self.rsrc.insert(rsrc_id, rsrc);
+    }
 }
 
 pub struct RsrcQueue
@@ -97,11 +102,13 @@ impl RsrcQueue
     /**
      * Add the resource back to the Ioq to be used later
      */
-    pub fn checkin(&mut self, r: Box<dyn Rsrc>)
-        -> Option<(Iop, Box<dyn Rsrc>)>
+    pub fn checkin(&mut self, r: Box<dyn Rsrc>) -> Option<Iop>
     {
         match self.queue.pop_front() {
-            Some(iop) => Some((iop, r)),
+            Some(mut iop) => {
+                iop.push_rsrc(self.rsrc_id, r);
+                Some(iop)
+            }
             None => {
                 self.rsrc = Some(r);
                 None
@@ -297,15 +304,6 @@ impl Io
         }
     }
 
-    fn run_iop(&mut self, rsrc_op: Option<(Iop, Box<dyn Rsrc>)>)
-    {
-        if let Some((mut iop, rsrc)) = rsrc_op {
-            vout!("run_iop\n");
-            iop.ctx.init_rsrc(rsrc);
-            self.next.push_back(iop);
-        }
-    }
-
     pub fn take_next_iop(&mut self) -> Option<Iop>
     {
         self.next.pop_front()
@@ -449,7 +447,9 @@ impl Io
             let ioq = self.resource.get_mut(&rsrc_id.unwrap()).unwrap();
             ioq.checkin(rsrc)
         };
-        self.run_iop(next_op);
+        if let Some(op) = next_op {
+            self.push_iop(op);
+        }
     }
 }
 
