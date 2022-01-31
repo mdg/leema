@@ -195,6 +195,7 @@ pub enum Code
     Leema(OpVec),
     Rust(RustFunc),
     Rust2(RustFunc2),
+    /// TODO Remove rsrc_idx field from 2nd param
     Iop(rsrc::IopAction, Option<i8>),
 }
 
@@ -217,6 +218,7 @@ impl Code
         }
     }
 
+    /// TODO remove the rsrc_idx field from this
     pub fn get_iop(&self) -> Option<(rsrc::IopAction, Option<i8>)>
     {
         if let &Code::Iop(iopf, rsrc_idx) = self {

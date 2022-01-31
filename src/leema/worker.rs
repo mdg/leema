@@ -261,7 +261,6 @@ impl Worker
                 worker_id: self.id,
                 fiber_id: curf.fiber_id,
                 action: lib_core::load_code,
-                rsrc_id: None, // TODO delete the rsrc_id field
                 params: MsgItem::new(&args),
             };
             self.io_tx
@@ -472,26 +471,15 @@ impl Worker
 
     fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>) -> Lresult<()>
     {
-        if let Some((iopf, rsrc_idx)) = code.get_iop() {
+        // remove the rsrc_idx config from the iops
+        if let Some((iopf, _rsrc_idx)) = code.get_iop() {
             let fiber_id = fib.fiber_id;
-            let rsrc_id = match rsrc_idx {
-                Some(idx) => {
-                    if let &Val::ResourceRef(rid) = fib.head.e.get_param(idx)? {
-                        Some(rid)
-                    } else {
-                        None
-                    }
-                }
-                None => None,
-            };
-
             let args = Val::Tuple(fib.head.e.get_params().to_vec());
             let msg_vals = MsgVal::new(&args);
             self.io_tx
                 .send(IoMsg::Iop {
                     worker_id: self.id,
                     fiber_id,
-                    rsrc_id,
                     action: iopf,
                     params: msg_vals,
                 })

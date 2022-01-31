@@ -44,6 +44,17 @@ pub struct Iop
     src_worker_id: i64,
     src_fiber_id: i64,
     rsrc_id: Option<i64>,
+    required_rsrc_ids: Vec<i64>,
+    rsrc: HashMap<i64, Box<dyn Rsrc>>,
+    result: Val,
+}
+
+impl Iop
+{
+    pub fn next_required_rsrc(&mut self) -> Option<i64>
+    {
+        self.required_rsrc_ids.pop()
+    }
 }
 
 pub struct RsrcQueue
@@ -205,18 +216,11 @@ impl Io
                 worker_id: wid,
                 fiber_id: fid,
                 action,
-                rsrc_id,
                 params,
             } => {
-                vout!(
-                    "iop incoming: {:?}:{:?}:{:?} {:?}\n",
-                    wid,
-                    fid,
-                    rsrc_id,
-                    params
-                );
+                vout!("iop incoming: {:?}:{:?}:{:?}\n", wid, fid, params);
                 let param_vals = params.take();
-                self.handle_iop_action(wid, fid, action, rsrc_id, param_vals);
+                self.handle_iop_action(wid, fid, action, param_vals);
             }
             IoMsg::Call {
                 worker_id,
@@ -247,31 +251,32 @@ impl Io
         worker_id: i64,
         fiber_id: i64,
         action: rsrc::IopAction,
-        opt_rsrc_id: Option<i64>,
         params: Val,
     )
     {
         vout!(
-            "handle_iop_action({},{},{:?},{:?})\n",
+            "handle_iop_action({},{},{:?})\n",
             worker_id,
             fiber_id,
-            opt_rsrc_id,
             params
         );
-        let ctx = self.create_iop_ctx(
-            worker_id,
-            fiber_id,
-            opt_rsrc_id.clone(),
-            params,
-        );
+        let ctx = self.create_iop_ctx(worker_id, fiber_id, None, params);
         let iop = Iop {
             ctx,
             action,
             src_worker_id: worker_id,
             src_fiber_id: fiber_id,
-            rsrc_id: opt_rsrc_id.clone(),
+            rsrc_id: None,
+            required_rsrc_ids: vec![],
+            result: Val::VOID,
+            rsrc: HashMap::new(),
         };
-        match opt_rsrc_id {
+        self.push_iop(iop);
+    }
+
+    fn push_iop(&mut self, mut iop: Iop)
+    {
+        match iop.next_required_rsrc() {
             None => {
                 self.next.push_back(iop);
             }
@@ -285,7 +290,8 @@ impl Io
                     rsrcq.push_iop(iop)
                 };
                 if let Some(rsrc_op) = opt_rsrc_op {
-                    self.next.push_back(rsrc_op);
+                    // recurse in case rsrc_op needs more resources
+                    self.push_iop(rsrc_op);
                 }
             }
         }

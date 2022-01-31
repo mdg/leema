@@ -93,8 +93,6 @@ pub enum IoMsg
         worker_id: i64,
         fiber_id: i64,
         action: IopAction,
-        /// TODO delete the rsrc_id field
-        rsrc_id: Option<i64>,
         params: MsgVal,
     },
     Call
