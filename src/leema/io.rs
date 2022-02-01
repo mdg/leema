@@ -11,6 +11,7 @@ use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::atomic::AtomicI64;
 use std::sync::mpsc::{channel, Receiver, SyncSender};
 use std::thread;
 use std::time::Duration;
@@ -37,6 +38,9 @@ ResourceQueue
 IoEvent
 */
 
+/// Maybe just make this a UUID?
+static NEXT_RSRC_ID: AtomicI64 = AtomicI64::new(0);
+
 pub struct Iop
 {
     action: rsrc::IopAction,
@@ -51,6 +55,9 @@ pub struct Iop
 
 impl Iop
 {
+    /// take the params, extract the rsrc_ids, sort them into required_rsrc_ids
+    pub fn new() {}
+
     pub fn next_required_rsrc(&mut self) -> Option<i64>
     {
         self.required_rsrc_ids.pop()

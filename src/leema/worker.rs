@@ -517,7 +517,7 @@ impl Worker
     }
 }
 
-async fn run_fiber_loop(f: Fiber)
+async fn run_fiber_loop(_f: Fiber)
 {
     loop {
         task::yield_now().await;
