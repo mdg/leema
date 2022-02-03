@@ -8,6 +8,7 @@ use crate::leema::val::{self, LibVal, Type, Val};
 
 use std::fmt::{self, Debug, Display};
 use std::fs::{File, OpenOptions};
+use std::future::Future;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::Mutex;
@@ -59,16 +60,20 @@ pub fn file_open(_ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Result(Val::VOID)
 }
 
-pub fn file_read_file(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
+pub fn file_read_file(
+    mut ctx: rsrc::IopCtx,
+) -> Box<dyn Future<Output = rsrc::IopCtx>>
 {
-    vout!("file_read_file()\n");
-    let pathval = ctx.take_param(0).unwrap();
-    let path = Path::new(pathval.str());
-    let mut f = File::open(path).unwrap();
-    let mut s = String::new();
-    f.read_to_string(&mut s).expect("read_to_string failure");
-    ctx.set_result(Val::Str(Lstr::from(s)));
-    Ok(rsrc::Event::Complete(ctx))
+    Box::new(async move {
+        vout!("file_read_file()\n");
+        let pathval = ctx.take_param(0).unwrap();
+        let path = Path::new(pathval.str());
+        let mut f = File::open(path).unwrap();
+        let mut s = String::new();
+        f.read_to_string(&mut s).expect("read_to_string failure");
+        ctx.set_result(Val::Str(Lstr::from(s)));
+        ctx
+    })
 }
 
 pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event
@@ -77,29 +82,37 @@ pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event
     rsrc::Event::Result(Val::VOID)
 }
 
-pub fn file_write_file(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
+pub fn file_write_file(
+    mut ctx: rsrc::IopCtx,
+) -> Box<dyn Future<Output = rsrc::IopCtx>>
 {
-    vout!("file_write_file()\n");
-    let pathval = ctx.take_param(0).unwrap();
-    let output = ctx.take_param(1).unwrap();
-    let path = Path::new(pathval.str());
-    let mut f = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(path)
-        .unwrap();
-    f.write_all(output.str().as_bytes())
-        .expect("write_all failure");
-    Ok(rsrc::Event::Complete(ctx))
+    Box::new(async move {
+        vout!("file_write_file()\n");
+        let pathval = ctx.take_param(0).unwrap();
+        let output = ctx.take_param(1).unwrap();
+        let path = Path::new(pathval.str());
+        let mut f = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)
+            .unwrap();
+        f.write_all(output.str().as_bytes())
+            .expect("write_all failure");
+        ctx
+    })
 }
 
-pub fn file_exists(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
+pub fn file_exists(
+    mut ctx: rsrc::IopCtx,
+) -> Box<dyn Future<Output = rsrc::IopCtx>>
 {
-    let pathval = ctx.take_param(0).unwrap();
-    let exists = Path::new(pathval.str()).exists();
-    ctx.set_result(Val::Bool(exists));
-    Ok(rsrc::Event::Complete(ctx))
+    Box::new(async move {
+        let pathval = ctx.take_param(0).unwrap();
+        let exists = Path::new(pathval.str()).exists();
+        ctx.set_result(Val::Bool(exists));
+        ctx
+    })
 }
 
 pub fn file_read(f: &mut Fiber) -> Lresult<Event>

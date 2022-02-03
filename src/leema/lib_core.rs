@@ -9,6 +9,8 @@ use crate::leema::rsrc;
 use crate::leema::val::{self, Val};
 use crate::leema::worker::RustFuncContext;
 
+use std::future::Future;
+
 
 pub fn init_main(ctx: RustFuncContext) -> Lresult<frame::Event>
 {
@@ -259,19 +261,21 @@ pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
     }
 }
 
-pub fn load_code(mut ctx: rsrc::IopCtx) -> Lresult<rsrc::Event>
+pub fn load_code(
+    mut ctx: rsrc::IopCtx,
+) -> Box<dyn Future<Output = rsrc::IopCtx>>
 {
-    vout!("load_code()\n");
-    let fref = match ctx.take_param(1).unwrap() {
-        Val::Func(fr) => fr,
-        what => panic!("what is this? {:?}", what),
-    };
-    let prog: &mut program::Lib = ltry!(ctx.rsrc_mut(0));
-    let code = ltry!(
-        prog.load_code(&fref).map(|c| (*c).clone()),
-        "func": ldisplay!(fref),
-    );
-    Ok(rsrc::Event::FoundCode(fref, code))
+    Box::new(async move {
+        vout!("load_code()\n");
+        let fref = match ctx.take_param(1).unwrap() {
+            Val::Func(fr) => fr,
+            what => panic!("what is this? {:?}", what),
+        };
+        let prog: &mut program::Lib = ctx.rsrc_mut(0).unwrap();
+        let code = prog.load_code(&fref).map(|c| (*c).clone()).unwrap();
+        ctx.return_code(code);
+        ctx
+    })
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>

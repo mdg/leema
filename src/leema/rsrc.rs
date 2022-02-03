@@ -82,6 +82,7 @@ pub struct IopCtx
     params: Vec<Option<Val>>,
     rsrc: HashMap<i64, Box<dyn Rsrc>>,
     result: Val,
+    code: Option<Code>,
 }
 
 impl IopCtx
@@ -110,12 +111,18 @@ impl IopCtx
             params,
             rsrc: HashMap::new(),
             result: Val::VOID,
+            code: None,
         }
     }
 
     pub fn set_result(&mut self, r: Val)
     {
         self.result = r;
+    }
+
+    pub fn return_code(&mut self, c: Code)
+    {
+        self.code = Some(c);
     }
 
     pub fn init_rsrc(&mut self, _rsrc: Box<dyn Rsrc>)
@@ -236,4 +243,4 @@ impl IopCtx
     */
 }
 
-pub type IopAction = fn(IopCtx) -> Lresult<Event>;
+pub type IopAction = fn(IopCtx) -> Box<dyn futures::Future<Output = IopCtx>>;
