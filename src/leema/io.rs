@@ -9,16 +9,10 @@ use std;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
 use std::sync::mpsc::{channel, Receiver, SyncSender};
-use std::thread;
-use std::time::Duration;
 
-use futures::future::Future;
-// use futures::stream::Stream;
-use futures::task::Poll;
 use tokio::runtime;
 
 /*
@@ -211,15 +205,10 @@ impl Io
         rcio
     }
 
-    pub fn run_once(&mut self) -> Poll<MsgVal>
+    pub async fn run_once(&mut self)
     {
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
-        }
-        if self.done {
-            Poll::Ready(MsgVal::new(&Val::Int(0)))
-        } else {
-            Poll::Pending
         }
     }
 
@@ -464,15 +453,17 @@ pub struct IoLoop
 {
     io: Rc<RefCell<Io>>,
     did_nothing: u64,
+    done: bool,
 }
 
 impl IoLoop
 {
     pub fn run(rcio: Rc<RefCell<Io>>)
     {
-        let my_loop = IoLoop {
+        let mut my_loop = IoLoop {
             io: rcio,
             did_nothing: 0,
+            done: false,
         };
 
         let rt = runtime::Builder::new_current_thread()
@@ -480,21 +471,17 @@ impl IoLoop
             .enable_all()
             .build()
             .unwrap();
-        let result = rt.block_on(my_loop);
-        println!("io is done: {:?}", result);
+        rt.block_on(async move {
+            while my_loop.done {
+                my_loop.iterate().await;
+            }
+        });
     }
-}
 
-impl Future for IoLoop
-{
-    type Output = MsgVal;
-
-    fn poll(
-        mut self: Pin<&mut Self>,
-        ctx: &mut futures::task::Context<'_>,
-    ) -> Poll<MsgVal>
+    async fn iterate(&mut self)
     {
-        let poll_result = self.io.borrow_mut().run_once();
+        vout!("IoLoop iterate\n");
+        self.io.borrow_mut().run_once().await;
         let opt_iop = self.io.borrow_mut().take_next_iop();
         if let Some(iop) = opt_iop {
             let _ctx = (iop.action)(iop.ctx);
@@ -508,11 +495,9 @@ impl Future for IoLoop
         } else {
             self.did_nothing = min(self.did_nothing + 1, 100_000);
             if self.did_nothing > 1000 {
-                thread::sleep(Duration::from_micros(self.did_nothing));
+                tokio::task::yield_now().await;
             }
         }
-        ctx.waker().wake_by_ref();
-        poll_result
     }
 }
 
