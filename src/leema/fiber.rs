@@ -60,7 +60,7 @@ impl Fiber
     pub fn send_result(&mut self)
     {
         if let Some(dst) = self.result_sender.take() {
-            vout!("send riber result\n");
+            vout!("send fiber result\n");
             let result = self.take_result();
             dst.send(result).expect("call result send failure");
         }

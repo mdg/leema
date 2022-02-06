@@ -80,10 +80,10 @@ pub struct IopCtx
     src_fiber_id: i64,
     // run_queue: RunQueue,
     rsrc_id: Option<i64>,
-    params: Vec<Option<Val>>,
-    rsrc: HashMap<i64, Box<dyn Rsrc>>,
+    pub params: Vec<Option<Val>>,
+    pub rsrc: HashMap<i64, Box<dyn Rsrc>>,
     result: Val,
-    code: Option<Code>,
+    pub code: Option<(Fref, Code)>,
 }
 
 impl IopCtx
@@ -121,9 +121,9 @@ impl IopCtx
         self.result = r;
     }
 
-    pub fn return_code(&mut self, c: Code)
+    pub fn return_code(&mut self, f: Fref, c: Code)
     {
-        self.code = Some(c);
+        self.code = Some((f, c));
     }
 
     pub fn init_rsrc(&mut self, _rsrc: Box<dyn Rsrc>)

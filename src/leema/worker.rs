@@ -421,6 +421,7 @@ impl Worker
         match msg {
             WorkerMsg::FoundCode(fiber_id, fref, code) => {
                 let newf = fref.take();
+                vout!("worker found code {}\n", newf);
                 let rc_code = Rc::new(code);
                 self.code.insert(newf, rc_code.clone());
                 let opt_fiber = self.waiting.remove(&fiber_id);

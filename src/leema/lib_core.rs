@@ -274,7 +274,7 @@ pub fn load_code(
         };
         let prog: &mut program::Lib = ctx.rsrc_mut(0).unwrap();
         let code = prog.load_code(&fref).map(|c| (*c).clone()).unwrap();
-        ctx.return_code(code);
+        ctx.return_code(fref, code);
         ctx
     })
 }

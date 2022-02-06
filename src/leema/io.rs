@@ -9,12 +9,12 @@ use std;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
 use std::sync::mpsc::{channel, Receiver, SyncSender};
+use std::thread;
+use std::time::Duration;
 
-use futures::future;
 use tokio::{runtime, task};
 
 /*
@@ -45,8 +45,6 @@ pub struct Iop
     src_fiber_id: i64,
     rsrc_id: Option<i64>,
     required_rsrc_ids: Vec<i64>,
-    rsrc: HashMap<i64, Box<dyn Rsrc>>,
-    result: Val,
 }
 
 impl Iop
@@ -61,7 +59,7 @@ impl Iop
 
     pub fn push_rsrc(&mut self, rsrc_id: i64, rsrc: Box<dyn Rsrc>)
     {
-        self.rsrc.insert(rsrc_id, rsrc);
+        self.ctx.rsrc.insert(rsrc_id, rsrc);
     }
 }
 
@@ -92,7 +90,7 @@ impl RsrcQueue
     {
         match self.rsrc.take() {
             Some(r) => {
-                iop.ctx.init_rsrc(r);
+                iop.ctx.rsrc.insert(self.rsrc_id, r);
                 Some(iop)
             }
             None => {
@@ -266,15 +264,20 @@ impl Io
             params
         );
         let ctx = self.create_iop_ctx(worker_id, fiber_id, None, params);
+        let mut rsrc_ids = Vec::with_capacity(ctx.params.len());
+        for p in ctx.params.iter() {
+            if let Some(Val::ResourceRef(rsrc_id)) = p {
+                rsrc_ids.push(*rsrc_id);
+            }
+        }
+        rsrc_ids.sort();
         let iop = Iop {
             ctx,
             action,
             src_worker_id: worker_id,
             src_fiber_id: fiber_id,
             rsrc_id: None,
-            required_rsrc_ids: vec![],
-            result: Val::VOID,
-            rsrc: HashMap::new(),
+            required_rsrc_ids: rsrc_ids,
         };
         self.push_iop(iop);
     }
@@ -292,9 +295,11 @@ impl Io
                         panic!("missing queue for rsrc: {}", rsrc_id);
                     }
                     let rsrcq = opt_rsrcq.unwrap();
+                    vout!("queue push iop\n");
                     rsrcq.push_iop(iop)
                 };
                 if let Some(rsrc_op) = opt_rsrc_op {
+                    vout!("repush iop\n");
                     // recurse in case rsrc_op needs more resources
                     self.push_iop(rsrc_op);
                 }
@@ -317,7 +322,16 @@ impl Io
     {
         match ev {
             Event::Complete(ctx) => {
-                self.send_result(worker_id, fiber_id, ctx.get_result().clone());
+                let result = ctx.get_result().clone();
+                if let Some((f, c)) = ctx.code {
+                    vout!("send code\n");
+                    let tx = self.worker_tx.get(&worker_id).unwrap();
+                    let msg =
+                        WorkerMsg::FoundCode(fiber_id, MsgItem::new(&f), c);
+                    tx.send(msg).expect("failed sending found code to worker");
+                } else {
+                    self.send_result(worker_id, fiber_id, result);
+                }
             }
             Event::NewRsrc(rsrc) => {
                 vout!("handle Event::NewRsrc\n");
@@ -454,7 +468,6 @@ impl Io
 pub struct IoLoop
 {
     io: Rc<RefCell<Io>>,
-    y: Pin<Box<future::Pending<()>>>,
     did_nothing: u64,
     done: bool,
 }
@@ -465,7 +478,6 @@ impl IoLoop
     {
         let mut my_loop = IoLoop {
             io: rcio,
-            y: Box::pin(future::pending()),
             did_nothing: 0,
             done: false,
         };
@@ -507,10 +519,8 @@ impl IoLoop
         } else {
             self.did_nothing = min(self.did_nothing + 1, 100_000);
             if self.did_nothing > 1000 {
-                // let y = tokio::task::yield_now();
-                // pin_mut!(y);
-                // ready!(y.poll(ctx));
                 task::yield_now().await;
+                thread::sleep(Duration::from_micros(self.did_nothing));
             }
         }
     }
