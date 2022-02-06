@@ -11,6 +11,7 @@ use std::fs::{File, OpenOptions};
 use std::future::Future;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Mutex;
 
 
@@ -62,9 +63,9 @@ pub fn file_open(_ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn file_read_file(
     mut ctx: rsrc::IopCtx,
-) -> Box<dyn Future<Output = rsrc::IopCtx>>
+) -> Pin<Box<dyn Future<Output = rsrc::IopCtx>>>
 {
-    Box::new(async move {
+    Box::pin(async move {
         vout!("file_read_file()\n");
         let pathval = ctx.take_param(0).unwrap();
         let path = Path::new(pathval.str());
@@ -84,9 +85,9 @@ pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event
 
 pub fn file_write_file(
     mut ctx: rsrc::IopCtx,
-) -> Box<dyn Future<Output = rsrc::IopCtx>>
+) -> Pin<Box<dyn Future<Output = rsrc::IopCtx>>>
 {
-    Box::new(async move {
+    Box::pin(async move {
         vout!("file_write_file()\n");
         let pathval = ctx.take_param(0).unwrap();
         let output = ctx.take_param(1).unwrap();
@@ -105,9 +106,9 @@ pub fn file_write_file(
 
 pub fn file_exists(
     mut ctx: rsrc::IopCtx,
-) -> Box<dyn Future<Output = rsrc::IopCtx>>
+) -> Pin<Box<dyn Future<Output = rsrc::IopCtx>>>
 {
-    Box::new(async move {
+    Box::pin(async move {
         let pathval = ctx.take_param(0).unwrap();
         let exists = Path::new(pathval.str()).exists();
         ctx.set_result(Val::Bool(exists));

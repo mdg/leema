@@ -7,6 +7,7 @@ use crate::leema::val::{Fref, Type, Val};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
+use std::pin::Pin;
 use std::rc::Rc;
 
 use futures::future;
@@ -243,4 +244,5 @@ impl IopCtx
     */
 }
 
-pub type IopAction = fn(IopCtx) -> Box<dyn futures::Future<Output = IopCtx>>;
+pub type IopAction =
+    fn(IopCtx) -> Pin<Box<dyn futures::Future<Output = IopCtx>>>;

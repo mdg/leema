@@ -9,10 +9,14 @@ use std;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
+use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
 use std::sync::mpsc::{channel, Receiver, SyncSender};
 
+use futures::task::Poll;
+use futures::{pin_mut, ready};
 use tokio::runtime;
 
 /*
@@ -205,7 +209,7 @@ impl Io
         rcio
     }
 
-    pub async fn run_once(&mut self)
+    pub fn run_once(&mut self)
     {
         if let Ok(incoming) = self.msg_rx.try_recv() {
             self.handle_incoming(incoming);
@@ -460,7 +464,7 @@ impl IoLoop
 {
     pub fn run(rcio: Rc<RefCell<Io>>)
     {
-        let mut my_loop = IoLoop {
+        let my_loop = IoLoop {
             io: rcio,
             did_nothing: 0,
             done: false,
@@ -471,33 +475,45 @@ impl IoLoop
             .enable_all()
             .build()
             .unwrap();
-        rt.block_on(async move {
-            while my_loop.done {
-                my_loop.iterate().await;
-            }
-        });
+        rt.block_on(my_loop);
     }
+}
 
-    async fn iterate(&mut self)
+impl Future for IoLoop
+{
+    type Output = ();
+
+    fn poll(
+        mut self: Pin<&mut Self>,
+        ctx: &mut futures::task::Context<'_>,
+    ) -> Poll<()>
     {
         vout!("IoLoop iterate\n");
-        self.io.borrow_mut().run_once().await;
+        self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
+        let extra_io = self.io.clone();
         if let Some(iop) = opt_iop {
-            let _ctx = (iop.action)(iop.ctx);
-            self.io.borrow_mut().handle_event(
-                iop.src_worker_id,
-                iop.src_fiber_id,
-                iop.rsrc_id,
-                rsrc::Event::Result(Val::VOID),
-            );
+            let mut fut = Box::pin(async move {
+                let iop_ctx = (iop.action)(iop.ctx).await;
+                extra_io.borrow_mut().handle_event(
+                    iop.src_worker_id,
+                    iop.src_fiber_id,
+                    iop.rsrc_id,
+                    rsrc::Event::Complete(iop_ctx),
+                );
+            });
+            ready!(fut.as_mut().poll(ctx));
             self.did_nothing = 0;
         } else {
             self.did_nothing = min(self.did_nothing + 1, 100_000);
             if self.did_nothing > 1000 {
-                tokio::task::yield_now().await;
+                let y = tokio::task::yield_now();
+                pin_mut!(y);
+                ready!(y.poll(ctx));
             }
         }
+        ctx.waker().wake_by_ref();
+        Poll::Pending
     }
 }
 

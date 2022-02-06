@@ -10,6 +10,7 @@ use crate::leema::val::{self, Val};
 use crate::leema::worker::RustFuncContext;
 
 use std::future::Future;
+use std::pin::Pin;
 
 
 pub fn init_main(ctx: RustFuncContext) -> Lresult<frame::Event>
@@ -263,9 +264,9 @@ pub fn boolean_not(f: &mut Fiber) -> Lresult<frame::Event>
 
 pub fn load_code(
     mut ctx: rsrc::IopCtx,
-) -> Box<dyn Future<Output = rsrc::IopCtx>>
+) -> Pin<Box<dyn Future<Output = rsrc::IopCtx>>>
 {
-    Box::new(async move {
+    Box::pin(async move {
         vout!("load_code()\n");
         let fref = match ctx.take_param(1).unwrap() {
             Val::Func(fr) => fr,
