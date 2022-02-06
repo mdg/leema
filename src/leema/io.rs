@@ -319,6 +319,10 @@ impl Io
         match ev {
             Event::Complete(ctx) => {
                 let result = ctx.get_result().clone();
+                let rsrc = ctx.rsrc;
+                for (id, rsrc) in rsrc.into_iter() {
+                    self.return_rsrc(id, rsrc);
+                }
                 if let Some((f, c)) = ctx.code {
                     vout!("send code\n");
                     let tx = self.worker_tx.get(&worker_id).unwrap();
@@ -416,14 +420,11 @@ impl Io
             .expect("failed sending iop result to worker");
     }
 
-    pub fn return_rsrc(&mut self, rsrc_id: Option<i64>, rsrc: Box<dyn Rsrc>)
+    pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Box<dyn Rsrc>)
     {
         vout!("return_rsrc({:?})\n", rsrc_id);
-        if rsrc_id.is_none() {
-            panic!("cannot return resource without id");
-        }
         let next_op = {
-            let ioq = self.resource.get_mut(&rsrc_id.unwrap()).unwrap();
+            let ioq = self.resource.get_mut(&rsrc_id).unwrap();
             ioq.checkin(rsrc)
         };
         if let Some(op) = next_op {
@@ -468,7 +469,6 @@ impl IoLoop
 
     async fn iterate(&mut self)
     {
-        vout!("IoLoop iterate\n");
         self.io.borrow_mut().run_once();
         let opt_iop = self.io.borrow_mut().take_next_iop();
         let extra_io = self.io.clone();
