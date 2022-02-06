@@ -173,7 +173,6 @@ pub struct Io
     resource: HashMap<i64, RsrcQueue>,
     next: LinkedList<Iop>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
-    app_tx: std::sync::mpsc::SyncSender<AppMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::SyncSender<WorkerMsg>>,
     next_rsrc_id: i64,
     io: Option<Rc<RefCell<Io>>>,
@@ -182,17 +181,12 @@ pub struct Io
 
 impl Io
 {
-    pub fn new(
-        app_tx: SyncSender<AppMsg>,
-        msg_rx: Receiver<IoMsg>,
-        prog: program::Lib,
-    ) -> Rc<RefCell<Io>>
+    pub fn new(msg_rx: Receiver<IoMsg>, prog: program::Lib) -> Rc<RefCell<Io>>
     {
         let mut io = Io {
             resource: HashMap::new(),
             next: LinkedList::new(),
             msg_rx,
-            app_tx,
             worker_tx: HashMap::new(),
             next_rsrc_id: rsrc::ID_INITIAL,
             io: None,
@@ -505,7 +499,9 @@ pub mod tests
     use crate::leema::struple::Struple2;
     use crate::leema::val::{MsgVal, Type, Val};
 
-    use std::sync::mpsc;
+    use std::sync::mpsc::{self, Receiver, SyncSender};
+    use std::thread;
+    use std::time::Duration;
 
     #[derive(Debug)]
     struct MockRsrc {}
@@ -540,16 +536,35 @@ pub mod tests
         })
     }
 
+    pub fn run_test_io() -> (
+        SyncSender<msg::IoMsg>,
+        Receiver<msg::WorkerMsg>,
+        thread::JoinHandle<()>,
+    )
+    {
+        let (io_tx, io_rx) = mpsc::sync_channel::<msg::IoMsg>(10);
+        let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(10);
+
+        io_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
+
+        let ioh = thread::Builder::new()
+            .name("leema-test-io".to_string())
+            .spawn(move || {
+                let rcio = Io::new(io_rx, empty_program());
+                IoLoop::run(rcio);
+            })
+            .unwrap();
+
+        (io_tx, worker_rx, ioh)
+    }
+
     pub fn exercise_iop_action(
         action: rsrc::IopAction,
         params: Struple2<Val>,
     ) -> Result<(i64, Val), mpsc::TryRecvError>
     {
         let (msg_tx, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(10);
-        let (app_tx, _) = mpsc::sync_channel::<msg::AppMsg>(10);
         let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(10);
-
-        let rcio = Io::new(app_tx, msg_rx, empty_program());
 
         let msg_params = MsgVal::new(&Val::Tuple(params));
         msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
@@ -563,43 +578,68 @@ pub mod tests
             .unwrap();
         msg_tx.send(msg::IoMsg::Done).unwrap();
 
-        IoLoop::run(rcio);
+        let _ioh = thread::Builder::new()
+            .name("leema-io".to_string())
+            .spawn(move || {
+                let rcio = Io::new(msg_rx, empty_program());
+                IoLoop::run(rcio);
+            })
+            .unwrap();
 
-        worker_rx.try_recv().map(|result_msg| {
+        let result = worker_rx.try_recv().map(|result_msg| {
             match result_msg {
                 msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
                     (fiber_id, msg_val.take())
                 }
                 _ => (0, Val::Str(Lstr::Sref("that didn't work"))),
             }
-        })
+        });
+        result
     }
 
     #[test]
     fn test_io_constructor()
     {
         let (_, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(99);
-        let (app_tx, _) = mpsc::sync_channel::<msg::AppMsg>(10);
         // let worker_tx = HashMap::new();
 
-        Io::new(app_tx, msg_rx, empty_program());
+        Io::new(msg_rx, empty_program());
     }
 
     #[test]
-    fn test_iop_action_flow()
+    fn test_iop_result_flow()
     {
-        let resp = exercise_iop_action(mock_result_iop, vec![]);
-        assert!(resp.is_ok());
+        let (io, worker, jh) = run_test_io();
+        io.send(msg::IoMsg::Iop {
+            worker_id: 11,
+            fiber_id: 21,
+            action: mock_result_iop,
+            params: MsgVal::new(&Val::Tuple(vec![])),
+        })
+        .unwrap();
+        match worker.recv_timeout(Duration::from_secs(1)) {
+            Ok(msg::WorkerMsg::IopResult(21, item)) => {
+                eprintln!("val {:?}", item);
+                assert_eq!(Val::Int(8), item.take());
+            }
+            Ok(what) => {
+                panic!("unexpected msg: {:?}", what);
+            }
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        }
+        println!("{:?}", jh.thread().name());
+        io.send(msg::IoMsg::Done).unwrap();
     }
 
     #[test]
     fn test_rsrc_action_flow()
     {
         let (msg_tx, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(9);
-        let (app_tx, _) = mpsc::sync_channel::<msg::AppMsg>(9);
         let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(9);
 
-        let io = Io::new(app_tx, msg_rx, empty_program());
+        let io = Io::new(msg_rx, empty_program());
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
         msg_tx

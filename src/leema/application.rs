@@ -77,11 +77,10 @@ impl Application
     ) -> thread::JoinHandle<()>
     {
         let prog = program::Lib::new(inter);
-        let app_send = self.app_send.clone();
         thread::Builder::new()
             .name("leema-io".to_string())
             .spawn(move || {
-                let rcio = Io::new(app_send, io_rx, prog);
+                let rcio = Io::new(io_rx, prog);
                 IoLoop::run(rcio);
             })
             .unwrap()
