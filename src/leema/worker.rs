@@ -218,7 +218,8 @@ impl Worker
             Ok(spawn) => ltry!(self.process_spawn(spawn)),
             Err(mpsc::TryRecvError::Empty) => {} // do nothing
             Err(mpsc::TryRecvError::Disconnected) => {
-                eprintln!("spawn channel disconnected");
+                vout!("spawn channel disconnected\n");
+                self.done = true;
             }
         }
 
