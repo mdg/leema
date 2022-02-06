@@ -501,7 +501,7 @@ pub mod tests
     use crate::leema::lstr::Lstr;
     use crate::leema::msg;
     use crate::leema::program;
-    use crate::leema::rsrc::{self, Rsrc};
+    use crate::leema::rsrc::{self, IopFuture, Rsrc};
     use crate::leema::struple::Struple2;
     use crate::leema::val::{MsgVal, Type, Val};
 
@@ -523,18 +523,21 @@ pub mod tests
         program::Lib::new(Interloader::default())
     }
 
-    fn mock_iop_action(_ctx: rsrc::IopCtx) -> rsrc::Event
+    fn mock_result_iop(mut ctx: rsrc::IopCtx) -> IopFuture
     {
-        rsrc::Event::Result(Val::Int(8))
+        Box::pin(async move {
+            ctx.set_result(Val::Int(8));
+            ctx
+        })
     }
 
-    fn mock_rsrc_action(mut ctx: rsrc::IopCtx) -> rsrc::Event
+    fn mock_new_rsrc_iop(mut ctx: rsrc::IopCtx) -> IopFuture
     {
-        let rsrc: MockRsrc = ctx.take_rsrc();
-        rsrc::Event::seq(
-            rsrc::Event::ReturnRsrc(Box::new(rsrc)),
-            rsrc::Event::Result(Val::Int(18)),
-        )
+        Box::pin(async move {
+            let rsrc = Box::new(MockRsrc {});
+            ctx.return_rsrc(rsrc);
+            ctx
+        })
     }
 
     pub fn exercise_iop_action(
@@ -542,9 +545,9 @@ pub mod tests
         params: Struple2<Val>,
     ) -> Result<(i64, Val), mpsc::TryRecvError>
     {
-        let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
-        let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-        let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
+        let (msg_tx, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(10);
+        let (app_tx, _) = mpsc::sync_channel::<msg::AppMsg>(10);
+        let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(10);
 
         let rcio = Io::new(app_tx, msg_rx, empty_program());
 
@@ -555,7 +558,6 @@ pub mod tests
                 worker_id: 11,
                 fiber_id: 21,
                 action,
-                rsrc_id: None,
                 params: msg_params,
             })
             .unwrap();
@@ -576,8 +578,8 @@ pub mod tests
     #[test]
     fn test_io_constructor()
     {
-        let (_, msg_rx) = mpsc::channel::<msg::IoMsg>();
-        let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
+        let (_, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(99);
+        let (app_tx, _) = mpsc::sync_channel::<msg::AppMsg>(10);
         // let worker_tx = HashMap::new();
 
         Io::new(app_tx, msg_rx, empty_program());
@@ -586,27 +588,25 @@ pub mod tests
     #[test]
     fn test_iop_action_flow()
     {
-        let resp = exercise_iop_action(mock_iop_action, vec![]);
+        let resp = exercise_iop_action(mock_result_iop, vec![]);
         assert!(resp.is_ok());
     }
 
     #[test]
     fn test_rsrc_action_flow()
     {
-        let (msg_tx, msg_rx) = mpsc::channel::<msg::IoMsg>();
-        let (app_tx, _) = mpsc::channel::<msg::AppMsg>();
-        let (worker_tx, worker_rx) = mpsc::channel::<msg::WorkerMsg>();
+        let (msg_tx, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(9);
+        let (app_tx, _) = mpsc::sync_channel::<msg::AppMsg>(9);
+        let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(9);
 
         let io = Io::new(app_tx, msg_rx, empty_program());
-        let rsrc_id = io.borrow_mut().new_rsrc(Box::new(MockRsrc {}));
 
         msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
         msg_tx
             .send(msg::IoMsg::Iop {
                 worker_id: 8,
                 fiber_id: 7,
-                action: mock_rsrc_action,
-                rsrc_id: Some(rsrc_id),
+                action: mock_new_rsrc_iop,
                 params: MsgVal::new(&Val::empty_tuple()),
             })
             .unwrap();

@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use futures::future;
 // use futures::stream;
@@ -17,6 +18,12 @@ use mopa::mopafy;
 
 pub const ID_PROGLIB: i64 = 0;
 pub const ID_INITIAL: i64 = 10;
+static NEXT_RSRC_ID: AtomicI64 = AtomicI64::new(ID_INITIAL);
+
+fn next_rsrc_id() -> i64
+{
+    NEXT_RSRC_ID.fetch_add(1, Ordering::SeqCst)
+}
 
 pub trait Rsrc: mopa::Any + fmt::Debug
 {
@@ -107,6 +114,15 @@ impl IopCtx
     pub fn set_result(&mut self, r: Val)
     {
         self.result = r;
+    }
+
+    /// Return a new resource
+    pub fn return_rsrc(&mut self, r: Box<dyn Rsrc>) -> Val
+    {
+        let rsrc_id = next_rsrc_id();
+        self.rsrc.insert(rsrc_id, r);
+        self.result = Val::ResourceRef(rsrc_id);
+        Val::ResourceRef(rsrc_id)
     }
 
     pub fn return_code(&mut self, f: Fref, c: Code)
@@ -232,5 +248,5 @@ impl IopCtx
     */
 }
 
-pub type IopAction =
-    fn(IopCtx) -> Pin<Box<dyn futures::Future<Output = IopCtx>>>;
+pub type IopFuture = Pin<Box<dyn futures::Future<Output = IopCtx>>>;
+pub type IopAction = fn(IopCtx) -> IopFuture;
