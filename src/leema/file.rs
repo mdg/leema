@@ -55,10 +55,10 @@ impl Debug for LeemaFile
     }
 }
 
-pub fn file_open(_ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn file_open(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_open()\n");
-    rsrc::Event::Result(Val::VOID)
+    rsrc::Event::Complete(ctx)
 }
 
 pub fn file_read_file(
@@ -77,10 +77,10 @@ pub fn file_read_file(
     })
 }
 
-pub fn file_write(_ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn file_write(ctx: rsrc::IopCtx) -> rsrc::Event
 {
     vout!("file_write()\n");
-    rsrc::Event::Result(Val::VOID)
+    rsrc::Event::Complete(ctx)
 }
 
 pub fn file_write_file(

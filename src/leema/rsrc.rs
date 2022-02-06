@@ -30,11 +30,6 @@ pub enum Event
     Complete(IopCtx),
     Future(Box<dyn future::Future<Output = Event>>),
     // Stream(Box<dyn stream::Stream<Item = Event, Error = Event>>),
-    NewRsrc(Box<dyn Rsrc>),
-    ReturnRsrc(Box<dyn Rsrc>),
-    DropRsrc,
-    Result(Val),
-    FoundCode(Fref, Code),
     Sequence(Box<Event>, Box<Event>),
 }
 
@@ -59,13 +54,6 @@ impl fmt::Debug for Event
             Event::Complete(_) => write!(f, "Event::Complete"),
             Event::Future(_) => write!(f, "Event::Future"),
             // Event::Stream(_) => write!(f, "Event::Stream"),
-            Event::NewRsrc(ref r) => write!(f, "Event::Rsrc({:?})", r),
-            Event::ReturnRsrc(ref r) => write!(f, "Event::ReturnRsrc({:?})", r),
-            Event::DropRsrc => write!(f, "Event::ReturnRsrc"),
-            Event::Result(ref r) => write!(f, "Event::Result({:?})", r),
-            Event::FoundCode(ref fc, _) => {
-                write!(f, "Event::FoundCode({})", fc)
-            }
             Event::Sequence(ref first, ref second) => {
                 write!(f, "Event::Seq({:?}, {:?})", first, second)
             }

@@ -90,6 +90,7 @@ impl RsrcQueue
     {
         match self.rsrc.take() {
             Some(r) => {
+                vout!("push iop resource {}\n", self.rsrc_id);
                 iop.ctx.rsrc.insert(self.rsrc_id, r);
                 Some(iop)
             }
@@ -286,6 +287,7 @@ impl Io
     {
         match iop.next_required_rsrc() {
             None => {
+                vout!("push iop next\n");
                 self.next.push_back(iop);
             }
             Some(rsrc_id) => {
@@ -312,13 +314,7 @@ impl Io
         self.next.pop_front()
     }
 
-    pub fn handle_event(
-        &mut self,
-        worker_id: i64,
-        fiber_id: i64,
-        rsrc_id: Option<i64>,
-        ev: Event,
-    )
+    pub fn handle_event(&mut self, worker_id: i64, fiber_id: i64, ev: Event)
     {
         match ev {
             Event::Complete(ctx) => {
@@ -333,34 +329,6 @@ impl Io
                     self.send_result(worker_id, fiber_id, result);
                 }
             }
-            Event::NewRsrc(rsrc) => {
-                vout!("handle Event::NewRsrc\n");
-                let new_rsrc_id = self.new_rsrc(rsrc);
-                let result = Val::ResourceRef(new_rsrc_id);
-                self.send_result(worker_id, fiber_id, result);
-            }
-            Event::ReturnRsrc(rsrc) => {
-                vout!("handle Event::ReturnRsrc\n");
-                self.return_rsrc(rsrc_id, rsrc);
-            }
-            Event::DropRsrc => {
-                vout!("handle Event::DropRsrc\n");
-                if rsrc_id.is_none() {
-                    panic!("cannot drop rsrc with no id");
-                }
-                self.resource.remove(&rsrc_id.unwrap());
-            }
-            Event::Result(result) => {
-                vout!("handle Event::Result\n");
-                self.send_result(worker_id, fiber_id, result);
-            }
-            Event::FoundCode(fref, code) => {
-                vout!("handle Event::FoundCode\n");
-                let tx = self.worker_tx.get(&worker_id).unwrap();
-                let msg =
-                    WorkerMsg::FoundCode(fiber_id, MsgItem::new(&fref), code);
-                tx.send(msg).expect("failed sending found code to worker");
-            }
             Event::Future(_libfut) => {
                 vout!("handle Event::Future\n");
                 /*
@@ -370,13 +338,13 @@ impl Io
                     .map(move |ev2| {
                         vout!("handle Event::Future ok\n");
                         let mut bio = rcio.borrow_mut();
-                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        bio.handle_event(worker_id, fiber_id, ev2);
                         ()
                     })
                     .map_err(move |ev2| {
                         vout!("handle Event::Future map_err\n");
                         let mut bio = rcio_err.borrow_mut();
-                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        bio.handle_event(worker_id, fiber_id, ev2);
                         ()
                     });
                 vout!("spawn new future\n");
@@ -397,14 +365,13 @@ impl Io
                         bio.handle_event(
                             worker_id,
                             fiber_id,
-                            rsrc_id,
                             ev2.unwrap(),
                         );
                         ()
                     })
                     .map_err(move |(ev2, _str2)| {
                         let mut bio = rcio_err.borrow_mut();
-                        bio.handle_event(worker_id, fiber_id, rsrc_id, ev2);
+                        bio.handle_event(worker_id, fiber_id, ev2);
                         ()
                     });
                 vout!("spawn new stream\n");
@@ -415,8 +382,8 @@ impl Io
             */
             Event::Sequence(first, second) => {
                 vout!("handle Event::Sequence\n");
-                self.handle_event(worker_id, fiber_id, rsrc_id, *first);
-                self.handle_event(worker_id, fiber_id, rsrc_id, *second);
+                self.handle_event(worker_id, fiber_id, *first);
+                self.handle_event(worker_id, fiber_id, *second);
             }
         }
     }
@@ -511,7 +478,6 @@ impl IoLoop
                 extra_io.borrow_mut().handle_event(
                     iop.src_worker_id,
                     iop.src_fiber_id,
-                    iop.rsrc_id,
                     rsrc::Event::Complete(iop_ctx),
                 );
             });
