@@ -15,8 +15,9 @@ use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
 use std::sync::mpsc::{channel, Receiver, SyncSender};
 
+use futures::future;
+use futures::ready;
 use futures::task::Poll;
-use futures::{pin_mut, ready};
 use tokio::runtime;
 
 /*
@@ -456,6 +457,7 @@ impl Io
 pub struct IoLoop
 {
     io: Rc<RefCell<Io>>,
+    y: Pin<Box<future::Pending<()>>>,
     did_nothing: u64,
     done: bool,
 }
@@ -466,6 +468,7 @@ impl IoLoop
     {
         let my_loop = IoLoop {
             io: rcio,
+            y: Box::pin(future::pending()),
             did_nothing: 0,
             done: false,
         };
@@ -507,9 +510,10 @@ impl Future for IoLoop
         } else {
             self.did_nothing = min(self.did_nothing + 1, 100_000);
             if self.did_nothing > 1000 {
-                let y = tokio::task::yield_now();
-                pin_mut!(y);
-                ready!(y.poll(ctx));
+                // let y = tokio::task::yield_now();
+                // pin_mut!(y);
+                // ready!(y.poll(ctx));
+                ready!(self.y.as_mut().poll(ctx));
             }
         }
         ctx.waker().wake_by_ref();
