@@ -21,7 +21,6 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use futures::task::Poll;
 use tokio::task;
 
 
@@ -230,8 +229,8 @@ impl Worker
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
-                let _ev = self.execute_frame(&mut f, &*code);
-                // self.handle_event(f, ev, code);
+                let ev = self.execute_frame(&mut f, &*code);
+                self.handle_event(f, ev, code);
             }
             None => {}
         }
@@ -300,36 +299,33 @@ impl Worker
         mut fbr: Fiber,
         evr: Lresult<Event>,
         code: Rc<Code>,
-    ) -> Poll<Val>
+    )
     {
         let e = match evr {
             Ok(ev) => ev,
             Err(failure) => {
                 fbr.head.e.set_result(Val::Failure2(Box::new(failure)));
                 self.return_from_call(fbr);
-                return Poll::Pending;
+                return;
             }
         };
         match e {
             Event::Success => {
                 vout!("function call success\n");
                 self.return_from_call(fbr);
-                Poll::Pending
             }
             Event::PushCall { argc, line } => {
                 vout!("push_call({} @{})\n", argc, line);
                 fbr.head =
                     fbr.head.push_call(code.clone(), argc, line).unwrap();
                 self.load_code(fbr).unwrap();
-                Poll::Pending
             }
             Event::TailCall(func, args) => {
                 vout!("push_tailcall({}, {:?})\n", func, args);
                 fbr.push_tailcall(func, args);
                 self.load_code(fbr).unwrap();
-                Poll::Pending
             }
-            Event::NewTask(_fref, _callargs) => Poll::Pending,
+            Event::NewTask(_fref, _callargs) => {}
             /*
             Event::NewTask(fref, callargs) => {
                 let (sender, _receiver) = channel(1);
@@ -344,12 +340,10 @@ impl Worker
                 ]);
                 fbr.head.e.set_result(new_task_key);
                 self.return_from_call(fbr);
-                Poll::Pending
             }
             */
             Event::FutureWait(reg) => {
                 println!("wait for future {:?}", reg);
-                Poll::Pending
             }
             Event::Iop((rsrc_worker_id, rsrc_id), _iopf, _iopargs) => {
                 if self.id == rsrc_worker_id {
@@ -380,24 +374,27 @@ impl Worker
                         }
                     }
                     */
-                    Poll::Pending
                 } else {
-                    Poll::Ready(Val::Failure2(Box::new(rustfail!(
+                    let failure = Val::Failure2(Box::new(rustfail!(
                         "leema_failure",
                         "cannot send iop from worker({}) to worker({})",
                         self.id,
                         rsrc_worker_id,
-                    ))))
+                    )));
+                    fbr.head.e.set_result(failure);
+                    self.return_from_call(fbr);
                 }
             }
             Event::Uneventful => {
                 vout!("shouldn't be here with uneventful");
-                Poll::Ready(Val::Failure2(Box::new(rustfail!(
+                let failure = Val::Failure2(Box::new(rustfail!(
                     "leema_failure",
                     "code: {:?}, pc: {:?}",
                     code,
                     fbr.head.pc,
-                ))))
+                )));
+                fbr.head.e.set_result(failure);
+                self.return_from_call(fbr);
             }
         }
     }
