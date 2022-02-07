@@ -398,14 +398,6 @@ impl Io
         IopCtx::new(rcio, src_worker_id, src_fiber_id, rsrc_id, param_val)
     }
 
-    pub fn new_rsrc(&mut self, rsrc: Box<dyn Rsrc>) -> i64
-    {
-        let rsrc_id = self.next_rsrc_id;
-        self.next_rsrc_id += 1;
-        self.resource.insert(rsrc_id, RsrcQueue::new(rsrc_id, rsrc));
-        rsrc_id
-    }
-
     pub fn send_result(&mut self, worker_id: i64, fiber_id: i64, result: Val)
     {
         vout!("send_result({},{},{:?})\n", worker_id, fiber_id, result);
@@ -414,15 +406,23 @@ impl Io
             .expect("failed sending iop result to worker");
     }
 
+    /// return this resource back to a the queue
+    /// or create a new queue for a new resource
     pub fn return_rsrc(&mut self, rsrc_id: i64, rsrc: Box<dyn Rsrc>)
     {
         vout!("return_rsrc({:?})\n", rsrc_id);
-        let next_op = {
-            let ioq = self.resource.get_mut(&rsrc_id).unwrap();
-            ioq.checkin(rsrc)
-        };
-        if let Some(op) = next_op {
-            self.push_iop(op);
+        match self.resource.get_mut(&rsrc_id) {
+            Some(q) => {
+                if let Some(op) = q.checkin(rsrc) {
+                    self.push_iop(op);
+                }
+            }
+            None => {
+                let newq = RsrcQueue::new(rsrc_id, rsrc);
+                self.resource.insert(rsrc_id, newq);
+                // it's a new RsrcQueue, so won't be anything waiting
+                // to use the returned rsrc
+            }
         }
     }
 }
@@ -492,16 +492,16 @@ pub mod tests
 {
     use crate::leema::io::{Io, IoLoop};
     use crate::leema::loader::Interloader;
-    use crate::leema::lstr::Lstr;
     use crate::leema::msg;
     use crate::leema::program;
     use crate::leema::rsrc::{self, IopFuture, Rsrc};
-    use crate::leema::struple::Struple2;
     use crate::leema::val::{MsgVal, Type, Val};
 
     use std::sync::mpsc::{self, Receiver, SyncSender};
     use std::thread;
     use std::time::Duration;
+
+    use matches::assert_matches;
 
     #[derive(Debug)]
     struct MockRsrc {}
@@ -558,45 +558,6 @@ pub mod tests
         (io_tx, worker_rx, ioh)
     }
 
-    pub fn exercise_iop_action(
-        action: rsrc::IopAction,
-        params: Struple2<Val>,
-    ) -> Result<(i64, Val), mpsc::TryRecvError>
-    {
-        let (msg_tx, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(10);
-        let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(10);
-
-        let msg_params = MsgVal::new(&Val::Tuple(params));
-        msg_tx.send(msg::IoMsg::NewWorker(11, worker_tx)).unwrap();
-        msg_tx
-            .send(msg::IoMsg::Iop {
-                worker_id: 11,
-                fiber_id: 21,
-                action,
-                params: msg_params,
-            })
-            .unwrap();
-        msg_tx.send(msg::IoMsg::Done).unwrap();
-
-        let _ioh = thread::Builder::new()
-            .name("leema-io".to_string())
-            .spawn(move || {
-                let rcio = Io::new(msg_rx, empty_program());
-                IoLoop::run(rcio);
-            })
-            .unwrap();
-
-        let result = worker_rx.try_recv().map(|result_msg| {
-            match result_msg {
-                msg::WorkerMsg::IopResult(fiber_id, msg_val) => {
-                    (fiber_id, msg_val.take())
-                }
-                _ => (0, Val::Str(Lstr::Sref("that didn't work"))),
-            }
-        });
-        result
-    }
-
     #[test]
     fn test_io_constructor()
     {
@@ -634,26 +595,29 @@ pub mod tests
     }
 
     #[test]
-    fn test_rsrc_action_flow()
+    fn test_new_rsrc_flow()
     {
-        let (msg_tx, msg_rx) = mpsc::sync_channel::<msg::IoMsg>(9);
-        let (worker_tx, worker_rx) = mpsc::sync_channel::<msg::WorkerMsg>(9);
-
-        let io = Io::new(msg_rx, empty_program());
-
-        msg_tx.send(msg::IoMsg::NewWorker(8, worker_tx)).unwrap();
-        msg_tx
-            .send(msg::IoMsg::Iop {
-                worker_id: 8,
-                fiber_id: 7,
-                action: mock_new_rsrc_iop,
-                params: MsgVal::new(&Val::empty_tuple()),
-            })
-            .unwrap();
-        msg_tx.send(msg::IoMsg::Done).unwrap();
-        IoLoop::run(io);
-
-        let resp = worker_rx.try_recv();
-        assert!(resp.is_ok());
+        let (io, worker, jh) = run_test_io();
+        io.send(msg::IoMsg::Iop {
+            worker_id: 11,
+            fiber_id: 21,
+            action: mock_new_rsrc_iop,
+            params: MsgVal::new(&Val::Tuple(vec![])),
+        })
+        .unwrap();
+        match worker.recv_timeout(Duration::from_secs(1)) {
+            Ok(msg::WorkerMsg::IopResult(21, item)) => {
+                eprintln!("val {:?}", item);
+                assert_matches!(item.take(), Val::ResourceRef(_));
+            }
+            Ok(what) => {
+                panic!("unexpected msg: {:?}", what);
+            }
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        }
+        println!("{:?}", jh.thread().name());
+        io.send(msg::IoMsg::Done).unwrap();
     }
 }
