@@ -74,7 +74,6 @@ pub struct IopCtx
     src_worker_id: i64,
     src_fiber_id: i64,
     // run_queue: RunQueue,
-    rsrc_id: Option<i64>,
     pub params: Vec<Option<Val>>,
     pub rsrc: HashMap<i64, Box<dyn Rsrc>>,
     result: Val,
@@ -88,7 +87,6 @@ impl IopCtx
         wid: i64,
         fid: i64,
         // run_queue: RunQueue,
-        rsrc_id: Option<i64>,
         param_val: Val,
     ) -> IopCtx
     {
@@ -103,7 +101,6 @@ impl IopCtx
             src_worker_id: wid,
             src_fiber_id: fid,
             // run_queue,
-            rsrc_id,
             params,
             rsrc: HashMap::new(),
             result: Val::VOID,
@@ -120,6 +117,7 @@ impl IopCtx
     pub fn return_rsrc(&mut self, r: Box<dyn Rsrc>) -> Val
     {
         let rsrc_id = next_rsrc_id();
+        vout!("return new rsrc_id: {}\n", rsrc_id);
         self.rsrc.insert(rsrc_id, r);
         self.result = Val::ResourceRef(rsrc_id);
         Val::ResourceRef(rsrc_id)
@@ -128,13 +126,6 @@ impl IopCtx
     pub fn return_code(&mut self, f: Fref, c: Code)
     {
         self.code = Some((f, c));
-    }
-
-    pub fn init_rsrc(&mut self, _rsrc: Box<dyn Rsrc>)
-    {
-        if self.rsrc_id.is_none() {
-            panic!("cannot init rsrc with no rsrc_id");
-        }
     }
 
     /**

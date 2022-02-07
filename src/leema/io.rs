@@ -258,7 +258,7 @@ impl Io
             fiber_id,
             params
         );
-        let ctx = self.create_iop_ctx(worker_id, fiber_id, None, params);
+        let ctx = self.create_iop_ctx(worker_id, fiber_id, params);
         let mut rsrc_ids = Vec::with_capacity(ctx.params.len());
         for p in ctx.params.iter() {
             if let Some(Val::ResourceRef(rsrc_id)) = p {
@@ -390,12 +390,11 @@ impl Io
         &'a mut self,
         src_worker_id: i64,
         src_fiber_id: i64,
-        rsrc_id: Option<i64>,
         param_val: Val,
     ) -> IopCtx
     {
         let rcio = self.io.clone().unwrap();
-        IopCtx::new(rcio, src_worker_id, src_fiber_id, rsrc_id, param_val)
+        IopCtx::new(rcio, src_worker_id, src_fiber_id, param_val)
     }
 
     pub fn send_result(&mut self, worker_id: i64, fiber_id: i64, result: Val)
