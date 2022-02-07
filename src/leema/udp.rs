@@ -1,12 +1,11 @@
 use crate::leema::code::Code;
 use crate::leema::lstr::Lstr;
-use crate::leema::rsrc::{self, Rsrc};
+use crate::leema::rsrc::{self, IopFuture, Rsrc};
 use crate::leema::val::{Type, Val};
 
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use futures::{Async, Future, Poll};
 use tokio::net::UdpSocket;
 
 
@@ -21,78 +20,57 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket(_ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_socket(ctx: rsrc::IopCtx) -> IopFuture
 {
-    let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
-    let rsock = UdpSocket::bind(&sock_addr).unwrap();
-    rsrc::Event::NewRsrc(Box::new(rsock))
+    Box::pin(async move {
+        let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
+        let rsock = UdpSocket::bind(&sock_addr).await.unwrap();
+        ctx.return_rsrc(Box::new(rsock));
+        ctx
+    })
 }
 
-pub fn udp_bind(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_bind(mut ctx: rsrc::IopCtx) -> IopFuture
 {
-    vout!("udp_bind()\n");
-    let sock_addr_str = ctx.take_param(0).unwrap();
-    let port = ctx.take_param(1).unwrap().to_int() as u16;
-    let sock_addr =
-        SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port);
-    let rsock = UdpSocket::bind(&sock_addr).unwrap();
-    rsrc::Event::NewRsrc(Box::new(rsock))
+    Box::pin(async move {
+        vout!("udp_bind()\n");
+        let sock_addr_str = ctx.take_param(0).unwrap();
+        let port = ctx.take_param(1).unwrap().to_int() as u16;
+        let sock_addr =
+            SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port);
+        let rsock = UdpSocket::bind(&sock_addr).await.unwrap();
+        ctx.return_rsrc(Box::new(rsock));
+        ctx
+    })
 }
 
-pub fn udp_recv(ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_recv(ctx: rsrc::IopCtx) -> IopFuture
 {
-    vout!("udp_recv");
-    rsrc::Event::Future(Box::new(UdpRecv {
-        ctx,
-        buffer: Some(vec![0; 2048]),
-    }))
-}
+    Box::pin(async move {
+        vout!("udp_recv");
+        let mut buf: Vec<u8> = vec![0; 2048];
+        let sock: &mut UdpSocket = ctx.rsrc_mut(0).unwrap();
 
-struct UdpRecv
-{
-    ctx: rsrc::IopCtx,
-    buffer: Option<Vec<u8>>,
-}
-
-impl Future for UdpRecv
-{
-    type Output = rsrc::Event;
-
-    fn poll(&mut self) -> Poll<rsrc::Event>
-    {
-        vout!("UdpRecv::poll()\n");
-        let mut sock: UdpSocket = self.ctx.take_rsrc();
-        let result = match sock.poll_recv_from(self.buffer.as_mut().unwrap()) {
-            Ok(Async::Ready(ready_result)) => {
-                vout!("poll_recv_from ready: {:?}", ready_result);
-                ready_result
-            }
-            Ok(Async::NotReady) => {
-                vout!("poll_recv_from notready");
-                self.ctx.init_rsrc(Box::new(sock));
-                return Ok(Async::NotReady);
+        let nbytes = match sock.recv(&mut buf).await {
+            Ok(result) => {
+                vout!("recv ready bytes: {:?}", result);
+                result
             }
             Err(e) => {
                 panic!("UdpRecv error: {:?}", e);
             }
         };
-        let (nbytes, _addr) = result;
-        let mut buf = self.buffer.take().unwrap();
         unsafe {
             buf.set_len(nbytes);
         }
         let utf8 = String::from_utf8(buf).unwrap();
-        let str_result = Val::Str(Lstr::from(utf8));
-        Ok(Async::Ready(rsrc::Event::seq(
-            rsrc::Event::ReturnRsrc(Box::new(sock)),
-            rsrc::Event::Result(str_result),
-        )))
-    }
+        ctx.set_result(Val::Str(Lstr::from(utf8)));
+        ctx
+    })
 }
 
 pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
-    let sock: UdpSocket = ctx.take_rsrc();
     let dst_ip = ctx.take_param(1).unwrap();
     let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
     vout!("udp_send({}, {})\n", dst_ip, dst_port);

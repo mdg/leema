@@ -47,21 +47,23 @@ pub fn start(mut ctx: RustFuncContext) -> Lresult<Event>
     Event::success()
 }
 
-pub fn start_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn start_fork(mut ctx: rsrc::IopCtx) -> IopFuture
 {
-    vout!("lib_task::start_fork()\n");
-    let receiver: RunQueueReceiver = match ctx.take_param(0).unwrap() {
-        Val::Func(fref) => {
-            let runq = ctx.clone_run_queue();
-            runq.spawn(fref, vec![])
-        }
-        not_func => {
-            // make this work for closures
-            panic!("start fork parameter is not a func: {:?}", not_func);
-        }
-    };
-    let future_rsrc = Lfuture { receiver };
-    rsrc::Event::NewRsrc(Box::new(future_rsrc))
+    Box::pin(async move {
+        vout!("lib_task::start_fork()\n");
+        let receiver: RunQueueReceiver = match ctx.take_param(0).unwrap() {
+            Val::Func(fref) => {
+                let runq = ctx.clone_run_queue();
+                runq.spawn(fref, vec![])
+            }
+            not_func => {
+                // make this work for closures
+                panic!("start fork parameter is not a func: {:?}", not_func);
+            }
+        };
+        let future_rsrc = Lfuture { receiver };
+        rsrc::Event::NewRsrc(Box::new(future_rsrc))
+    })
 }
 
 pub fn join_fork(mut ctx: rsrc::IopCtx) -> rsrc::Event
