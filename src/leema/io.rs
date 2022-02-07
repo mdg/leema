@@ -10,7 +10,6 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
 use std::rc::Rc;
-use std::sync::atomic::AtomicI64;
 use std::sync::mpsc::{channel, Receiver, SyncSender};
 use std::thread;
 use std::time::Duration;
@@ -33,9 +32,6 @@ Ioq
 ResourceQueue
 IoEvent
 */
-
-/// Maybe just make this a UUID?
-static NEXT_RSRC_ID: AtomicI64 = AtomicI64::new(0);
 
 pub struct Iop
 {
@@ -174,7 +170,6 @@ pub struct Io
     next: LinkedList<Iop>,
     msg_rx: std::sync::mpsc::Receiver<IoMsg>,
     worker_tx: HashMap<i64, std::sync::mpsc::SyncSender<WorkerMsg>>,
-    next_rsrc_id: i64,
     io: Option<Rc<RefCell<Io>>>,
     done: bool,
 }
@@ -188,7 +183,6 @@ impl Io
             next: LinkedList::new(),
             msg_rx,
             worker_tx: HashMap::new(),
-            next_rsrc_id: rsrc::ID_INITIAL,
             io: None,
             done: false,
         };
