@@ -20,10 +20,11 @@ impl Rsrc for UdpSocket
 }
 
 
-pub fn udp_socket(ctx: rsrc::IopCtx) -> IopFuture
+pub fn udp_socket(mut ctx: rsrc::IopCtx) -> IopFuture
 {
     Box::pin(async move {
-        let sock_addr = SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
+        let sock_addr =
+            SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 0);
         let rsock = UdpSocket::bind(&sock_addr).await.unwrap();
         ctx.return_rsrc(Box::new(rsock));
         ctx
@@ -36,15 +37,17 @@ pub fn udp_bind(mut ctx: rsrc::IopCtx) -> IopFuture
         vout!("udp_bind()\n");
         let sock_addr_str = ctx.take_param(0).unwrap();
         let port = ctx.take_param(1).unwrap().to_int() as u16;
-        let sock_addr =
-            SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port);
+        let sock_addr = SocketAddr::new(
+            IpAddr::from_str(sock_addr_str.str()).unwrap(),
+            port,
+        );
         let rsock = UdpSocket::bind(&sock_addr).await.unwrap();
         ctx.return_rsrc(Box::new(rsock));
         ctx
     })
 }
 
-pub fn udp_recv(ctx: rsrc::IopCtx) -> IopFuture
+pub fn udp_recv(mut ctx: rsrc::IopCtx) -> IopFuture
 {
     Box::pin(async move {
         vout!("udp_recv");
@@ -69,31 +72,21 @@ pub fn udp_recv(ctx: rsrc::IopCtx) -> IopFuture
     })
 }
 
-pub fn udp_send(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn udp_send(mut ctx: rsrc::IopCtx) -> IopFuture
 {
-    let dst_ip = ctx.take_param(1).unwrap();
-    let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
-    vout!("udp_send({}, {})\n", dst_ip, dst_port);
-    let msg = ctx.take_param(3).unwrap().to_string();
+    Box::pin(async move {
+        let dst_ip = ctx.take_param(1).unwrap();
+        let dst_port = ctx.take_param(2).unwrap().to_int() as u16;
+        vout!("udp_send({}, {})\n", dst_ip, dst_port);
+        let msg = ctx.take_param(3).unwrap().to_string();
 
-    let dst_addr =
-        SocketAddr::new(IpAddr::from_str(dst_ip.str()).unwrap(), dst_port);
-    let fut = Box::new(
-        sock.send_dgram(msg, &dst_addr)
-            .map(move |(sock2, _buff)| {
-                let sockr: Box<dyn Rsrc> = Box::new(sock2) as Box<dyn Rsrc>;
-                rsrc::Event::seq(
-                    rsrc::Event::ReturnRsrc(sockr),
-                    rsrc::Event::Result(Val::Int(0)),
-                )
-            })
-            .map_err(|_| {
-                rsrc::Event::Result(Val::Str(Lstr::Sref(
-                    "send dgram didn't work. socket is gone",
-                )))
-            }),
-    );
-    rsrc::Event::Future(Box::new(fut))
+        let dst_addr =
+            SocketAddr::new(IpAddr::from_str(dst_ip.str()).unwrap(), dst_port);
+        let sock: &mut UdpSocket = ctx.rsrc_mut(0).unwrap();
+        let nbytes = sock.send_to(msg.as_bytes(), &dst_addr).await.unwrap();
+        ctx.set_result(Val::Int(nbytes as i64));
+        ctx
+    })
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
