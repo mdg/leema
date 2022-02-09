@@ -99,21 +99,3 @@ pub fn load_rust_func(func_name: &str) -> Option<Code>
         _ => None,
     }
 }
-
-
-#[cfg(test)]
-mod tests
-{
-    use crate::leema::io::tests::exercise_iop_action;
-    use crate::leema::udp;
-    use crate::leema::val::Val;
-
-    #[test]
-    fn test_udp_socket_creation()
-    {
-        let response = exercise_iop_action(udp::udp_socket, vec![]);
-        assert!(response.is_ok());
-        let (_fiber_id, rsrc_ref) = response.ok().unwrap();
-        assert_eq!(Val::ResourceRef(10), rsrc_ref);
-    }
-}

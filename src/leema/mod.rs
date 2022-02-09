@@ -51,7 +51,7 @@ pub mod lib_str;
 // pub mod lib_task;
 pub mod lib_time;
 pub mod prefab;
-// pub mod tcp;
+pub mod tcp;
 pub mod udp;
 
 pub use lstr::Lstr;

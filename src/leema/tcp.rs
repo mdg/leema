@@ -1,19 +1,13 @@
 use crate::leema::code::Code;
-use crate::leema::frame::FrameTrace;
 use crate::leema::lstr::Lstr;
-use crate::leema::rsrc::{self, Rsrc};
-use crate::leema::val::{self, Type, Val};
+use crate::leema::rsrc::{self, IopFuture, Rsrc};
+use crate::leema::val::{Type, Val};
 
-use bytes::BytesMut;
 use std;
-use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use futures::future::Future;
-use futures::task;
-use futures::{Async, Poll};
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 
@@ -36,197 +30,82 @@ impl Rsrc for TcpListener
     }
 }
 
-struct Acceptor
+
+pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> IopFuture
 {
-    listener: Option<TcpListener>,
-}
-
-impl Future for Acceptor
-{
-    type Item = (TcpListener, TcpStream, SocketAddr);
-    type Error = (TcpListener, std::io::Error);
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
-    {
-        let accept_result = { self.listener.as_mut().unwrap().poll_accept() };
-        match accept_result {
-            Ok(Async::Ready((sock, addr))) => {
-                let listener = self.listener.take().unwrap();
-                Ok(Async::Ready((listener, sock, addr)))
-            }
-            Ok(Async::NotReady) => {
-                task::current().notify();
-                Ok(Async::NotReady)
-            }
-            Err(e) => {
-                panic!("failure accepting new tcp connection: {:?}", e);
-            }
-        }
-    }
-}
-
-struct Receiver
-{
-    sock: Option<TcpStream>,
-}
-
-impl Future for Receiver
-{
-    type Output = (TcpStream, Val);
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error>
-    {
-        let mut buf = BytesMut::new();
-        let read_result = self.sock.as_ref().unwrap().read_buf(&mut buf);
-        match read_result {
-            Ok(Async::Ready(_sz)) => {
-                let isock = self.sock.take().unwrap();
-                let rstr = String::from_utf8(buf.to_vec()).unwrap();
-                let rval = Val::Str(Lstr::from(rstr));
-                Ok(Async::Ready((isock, rval)))
-            }
-            Ok(Async::NotReady) => {
-                vout!("Receiver NotReady\n");
-                Ok(Async::NotReady)
-            }
-            Err(e) => {
-                match e.kind() {
-                    io::ErrorKind::WouldBlock => {
-                        vout!("Receiver WouldBlock\n");
-                        Ok(Async::NotReady)
-                    }
-                    _ => {
-                        let sock = self.sock.take().unwrap();
-                        Err((sock, e))
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct Sender
-{
-    ctx: rsrc::IopCtx,
-}
-
-impl Future for Sender
-{
-    type Item = rsrc::Event;
-    type Error = rsrc::Event;
-
-    fn poll(&mut self) -> Poll<rsrc::Event, rsrc::Event>
-    {
-        let mut sock: TcpStream = self.ctx.take_rsrc();
-        let msg = self.ctx.take_param(1).unwrap();
-        vout!("tcp::Sender::poll({})\n", msg);
-
-        let write_result = sock.poll_write(msg.str().as_bytes());
-        let nbytes = match write_result {
-            Ok(Async::Ready(nb)) => nb as i64,
-            Ok(Async::NotReady) => {
-                self.ctx.init_rsrc(Box::new(sock));
-                return Ok(Async::NotReady);
-            }
-            Err(e) => {
-                panic!("failed writing to socket: {:?}", e);
-            }
+    Box::pin(async move {
+        vout!("tcp_connect()\n");
+        let sock_addr = {
+            let sock_addr_str = ctx.take_param(0).unwrap();
+            let port = ctx.take_param(1).unwrap().to_int() as u16;
+            SocketAddr::new(
+                IpAddr::from_str(sock_addr_str.str()).unwrap(),
+                port,
+            )
         };
 
-        let result = rsrc::Event::seq(
-            rsrc::Event::ReturnRsrc(Box::new(sock)),
-            rsrc::Event::Result(Val::Int(nbytes)),
-        );
-        Ok(Async::Ready(result))
-    }
-}
-
-
-pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> rsrc::Event
-{
-    vout!("tcp_connect()\n");
-    let sock_addr = {
-        let sock_addr_str = ctx.take_param(0).unwrap();
-        let port = ctx.take_param(1).unwrap().to_int() as u16;
-        SocketAddr::new(IpAddr::from_str(sock_addr_str.str()).unwrap(), port)
-    };
-
-    let fut = TcpStream::connect(&sock_addr)
-        .map(move |sock| {
-            vout!("tcp connected\n");
-            rsrc::Event::NewRsrc(Box::new(sock))
-        })
-        .map_err(move |_| {
-            rsrc::Event::Result(Val::failure(
-                Val::Hashtag(Lstr::Sref("connection_failure")),
-                Val::Str(Lstr::Sref("Failure to connect")),
-                FrameTrace::new_root(),
-                val::FAILURE_MISSINGDATA,
-            ))
-        });
-    rsrc::Event::Future(Box::new(fut))
-}
-
-pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> rsrc::Event
-{
-    vout!("tcp_listen()\n");
-    let ip_str = ctx.take_param(0).unwrap();
-    let port = ctx.take_param(1).unwrap().to_int() as u16;
-    let sock_addr =
-        SocketAddr::new(IpAddr::from_str(ip_str.str()).unwrap(), port);
-    let listen_result = TcpListener::bind(&sock_addr);
-    let listener: TcpListener = listen_result.unwrap();
-    rsrc::Event::NewRsrc(Box::new(listener))
-}
-
-pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> rsrc::Event
-{
-    vout!("tcp_accept()\n");
-    let listener: TcpListener = ctx.take_rsrc();
-    let acc = Acceptor {
-        listener: Some(listener),
-    }
-    .map(|(ilistener, sock, _addr)| {
-        rsrc::Event::seq(
-            rsrc::Event::ReturnRsrc(Box::new(ilistener)),
-            rsrc::Event::NewRsrc(Box::new(sock)),
-        )
+        let sock = TcpStream::connect(&sock_addr).await.unwrap();
+        ctx.return_rsrc(Box::new(sock));
+        ctx
     })
-    .map_err(|_| rsrc::Event::Result(Val::Str(Lstr::Sref("accept error"))));
-    rsrc::Event::Future(Box::new(acc))
+}
+
+pub fn tcp_listen(mut ctx: rsrc::IopCtx) -> IopFuture
+{
+    Box::pin(async move {
+        vout!("tcp_listen()\n");
+        let ip_str = ctx.take_param(0).unwrap();
+        let port = ctx.take_param(1).unwrap().to_int() as u16;
+        let sock_addr =
+            SocketAddr::new(IpAddr::from_str(ip_str.str()).unwrap(), port);
+        let listen_result = TcpListener::bind(&sock_addr).await;
+        let listener: TcpListener = listen_result.unwrap();
+        ctx.return_rsrc(Box::new(listener));
+        ctx
+    })
+}
+
+/// really should return the connecting address too
+pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> IopFuture
+{
+    Box::pin(async move {
+        vout!("tcp_accept()\n");
+        let listener: &mut TcpListener = ctx.rsrc_mut(0).unwrap();
+        let (sock, _addr) = listener.accept().await.unwrap();
+        ctx.return_rsrc(Box::new(sock));
+        // also tho, return addr
+        ctx
+    })
 }
 
 
 /**
  * tcp_recv(sock)
  */
-pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn tcp_recv(mut ctx: rsrc::IopCtx) -> IopFuture
 {
-    vout!("tcp_recv()\n");
+    Box::pin(async move {
+        vout!("tcp_recv()\n");
 
-    let sock: TcpStream = ctx.take_rsrc();
-    let fut = Receiver { sock: Some(sock) }
-        .map(|(isock, data)| {
-            rsrc::Event::seq(
-                rsrc::Event::ReturnRsrc(Box::new(isock)),
-                rsrc::Event::Result(data),
-            )
-        })
-        .map_err(|(isock, _err)| {
-            let errval = Val::Str(Lstr::Sref("recv failure"));
-            rsrc::Event::seq(
-                rsrc::Event::ReturnRsrc(Box::new(isock)),
-                rsrc::Event::Result(errval),
-            )
-        });
-    rsrc::Event::Future(Box::new(fut))
+        let sock: &mut TcpStream = ctx.rsrc_mut(0).unwrap();
+        let mut result = String::new();
+        sock.read_to_string(&mut result).await.unwrap();
+        ctx.set_result(Val::Str(Lstr::from(result)));
+        ctx
+    })
 }
 
-pub fn tcp_send(ctx: rsrc::IopCtx) -> rsrc::Event
+pub fn tcp_send(mut ctx: rsrc::IopCtx) -> IopFuture
 {
-    vout!("tcp_send()\n");
-    let fut = Sender { ctx };
-    rsrc::Event::Future(Box::new(fut))
+    Box::pin(async move {
+        vout!("tcp_send()\n");
+        let msg = ctx.take_param(1).unwrap();
+        let sock: &mut TcpStream = ctx.rsrc_mut(0).unwrap();
+        vout!("tcp::Sender::poll({})\n", msg);
+
+        sock.write_all(msg.str().as_bytes()).await.unwrap();
+        ctx
+    })
 }
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
