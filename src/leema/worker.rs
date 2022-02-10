@@ -444,7 +444,7 @@ impl Worker
                         panic!("cannot handle a future now");
                     }
                 };
-                fib.head.e.stack_push(result_val);
+                fib.head.e.set_result(result_val);
                 self.return_from_call(fib);
             }
             WorkerMsg::Done => {

@@ -226,6 +226,7 @@ class TestScripts(unittest.TestCase):
             result['stderr'])
 
     def test_anon_func(self):
+        self.skipTest("not reimplemented yet")
         result = run_leema('test_anon_func')
         self.assertEqual(0, result['code'])
         exp = b"triple i = [3,6,9,12,]\n"
