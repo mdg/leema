@@ -12,6 +12,8 @@ pub mod canonical;
 pub mod ast2;
 #[macro_use]
 pub mod val;
+#[macro_use]
+pub mod rsrc;
 
 pub mod application;
 pub mod code;
@@ -28,7 +30,6 @@ pub mod pratt;
 pub mod program;
 pub mod proto;
 pub mod reg;
-pub mod rsrc;
 pub mod semantic;
 pub mod semantics;
 pub mod sendclone;

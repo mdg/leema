@@ -145,6 +145,7 @@ pub enum Mode
     TypeFailure,
     CodeFailure,
     // dynamic user-space execution errors
+    Io,
     Timeout,
     Overflow,
     Underflow,
@@ -173,6 +174,7 @@ impl Mode
             Mode::CodeFailure => 11,
             Mode::Overflow => 12,
             Mode::Underflow => 13,
+            Mode::Io => 14,
             // leema-space errors
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
@@ -196,6 +198,7 @@ impl Mode
             Mode::TypeFailure => "type_failure",
             Mode::CodeFailure => "code_failure",
             // runtime user-space errors
+            Mode::Io => "io",
             Mode::Timeout => "timeout",
             Mode::Overflow => "overflow",
             Mode::Underflow => "underflow",
@@ -381,6 +384,36 @@ impl SendClone for Failure
             status: self.status,
             code: self.code,
             context,
+        }
+    }
+}
+
+impl From<std::io::Error> for Failure
+{
+    fn from(e: std::io::Error) -> Failure
+    {
+        Failure {
+            tag: Val::Hashtag(Lstr::Sref("#io")),
+            msg: Val::Str(ldisplay!(e)),
+            trace: None,
+            status: Mode::Io,
+            code: 0,
+            context: vec![],
+        }
+    }
+}
+
+impl From<std::string::FromUtf8Error> for Failure
+{
+    fn from(e: std::string::FromUtf8Error) -> Failure
+    {
+        Failure {
+            tag: Val::Hashtag(Lstr::Sref("#utf8")),
+            msg: Val::Str(ldisplay!(e)),
+            trace: None,
+            status: Mode::InvalidUserInput,
+            code: 0,
+            context: vec![],
         }
     }
 }

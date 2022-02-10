@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{self, Lresult};
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::io::Io;
 // pub use crate::leema::io::RunQueue;
 use crate::leema::val::{Fref, Type, Val};
@@ -31,6 +31,45 @@ pub trait Rsrc: mopa::Any + fmt::Debug
 }
 
 mopafy!(Rsrc);
+
+macro_rules! iotry {
+    ($ctx:ident, $r:expr) => {
+        match $r {
+            Ok(x) => x,
+            Err(f) => {
+                $ctx.return_failure(f.rloc(file!(), line!()));
+                return $ctx;
+            }
+        }
+    };
+    ($ctx:ident, $r:expr, $key:literal : $val:expr $(,)?) => {
+        match $r {
+            Ok(success) => success,
+            Err(f) => {
+                $ctx.return_failure(f.with_context(vec![
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref($key), $val),
+                ]));
+                return $ctx;
+            }
+        }
+    };
+    ($ctx:ident, $r:expr, $($key:literal : $val:expr),+, $(,)?) => {
+        match $r {
+            Ok(success) => success,
+            Err(f) => {
+                $ctx.return_failure(f.with_context(vec![
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rfile"), Lstr::Sref(file!())),
+                    crate::leema::struple::StrupleItem::new(Lstr::Sref("rline"), lstrf!("{}", line!())),
+                    $(crate::leema::struple::StrupleItem::new(Lstr::Sref($key), $val)),+
+                ]));
+                return $ctx;
+            }
+        }
+    };
+}
+
 
 pub enum Event
 {
@@ -111,6 +150,16 @@ impl IopCtx
     pub fn set_result(&mut self, r: Val)
     {
         self.result = r;
+    }
+
+    pub fn return_val(&mut self, r: Val)
+    {
+        self.result = r;
+    }
+
+    pub fn return_failure(&mut self, f: Failure)
+    {
+        self.result = Val::Failure2(Box::new(f));
     }
 
     /// Return a new resource

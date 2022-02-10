@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::{Failure, Lresult};
+use crate::leema::failure::{self, Failure, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame;
 use crate::leema::list;
@@ -268,12 +268,19 @@ pub fn load_code(
 {
     Box::pin(async move {
         vout!("load_code()\n");
-        let fref = match ctx.take_param(1).unwrap() {
-            Val::Func(fr) => fr,
-            what => panic!("what is this? {:?}", what),
+        let fref = match ctx.take_param(1) {
+            Some(Val::Func(fr)) => fr,
+            None => {
+                ctx.return_failure(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "parameter is None"
+                ));
+                return ctx;
+            }
+            Some(what) => panic!("what is this? {:?}", what),
         };
-        let prog: &mut program::Lib = ctx.rsrc_mut(0).unwrap();
-        let code = prog.load_code(&fref).map(|c| (*c).clone()).unwrap();
+        let prog: &mut program::Lib = iotry!(ctx, ctx.rsrc_mut(0));
+        let code = iotry!(ctx, prog.load_code(&fref).map(|c| (*c).clone()));
         ctx.return_code(fref, code);
         ctx
     })

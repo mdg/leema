@@ -1,4 +1,5 @@
 use crate::leema::code::Code;
+use crate::leema::failure::Failure;
 use crate::leema::lstr::Lstr;
 use crate::leema::rsrc;
 use crate::leema::val::{Type, Val};
@@ -27,7 +28,10 @@ pub fn file_read_file(
         vout!("file_read_file()\n");
         let pathval = ctx.take_param(0).unwrap();
         let path = Path::new(pathval.str());
-        let mut f = File::open(path).await.unwrap();
+        let mut f = iotry!(
+            ctx,
+            File::open(path).await.map_err(|e| { Failure::from(e) })
+        );
         let mut s = String::new();
         f.read_to_string(&mut s)
             .await
@@ -52,13 +56,16 @@ pub fn file_write_file(
         let pathval = ctx.take_param(0).unwrap();
         let output = ctx.take_param(1).unwrap();
         let path = Path::new(pathval.str());
-        let mut f = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)
-            .await
-            .unwrap();
+        let mut f = iotry!(
+            ctx,
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)
+                .await
+                .map_err(|e| Failure::from(e))
+        );
         f.write_all(output.str().as_bytes())
             .await
             .expect("write_all failure");
