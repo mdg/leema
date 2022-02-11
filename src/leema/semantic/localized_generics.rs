@@ -29,7 +29,7 @@ impl LocalizeGenerics
         &self.current_local
     }
 
-    fn localize_type(&mut self, t: &mut Type, loc: Loc)
+    pub fn localize_type(&mut self, t: &mut Type, loc: Loc)
     {
         if !t.contains_open() {
             return;

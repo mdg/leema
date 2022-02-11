@@ -200,6 +200,7 @@ struct AnonFuncDef
     m: ModKey,
     name: &'static str,
     func_type: Type,
+    args: Xlist,
     body: AstNode,
     loc: Loc,
 }
@@ -210,14 +211,24 @@ impl AnonFuncDef
         proto: &ProtoModule,
         name: &'static str,
         func_type: Type,
+        mut args: Xlist,
         body: AstNode,
         loc: Loc,
     ) -> Lresult<AnonFuncDef>
     {
+        let ft = ltry!(func_type.try_func_ref());
+        for a in args.iter_mut().zip(ft.args.iter()) {
+            if let Ast::Id(id) = &*a.0.v.node {
+                a.0.k = Some(id);
+                *a.0.v.node = Ast::Type(a.1.v.clone());
+            }
+            a.0.v.typ = a.1.v.clone();
+        }
         Ok(AnonFuncDef {
             m: proto.key.clone(),
             name,
             func_type,
+            args,
             body,
             loc,
         })
@@ -227,7 +238,12 @@ impl AnonFuncDef
     {
         let fval = Val::Func(self.fref());
         let cval = if true {
-            AstNode::new_constval(fval, self.loc)
+            AstNode {
+                node: Box::new(Ast::ConstVal(fval)),
+                typ: self.func_type.clone(),
+                loc: self.loc,
+                dst: Reg::Undecided,
+            }
         } else {
             return Err(lfail!(
                 failure::Mode::LeemaTodoFailure,
@@ -245,11 +261,11 @@ impl AnonFuncDef
         let name = self.name_node();
         let func_type = self.func_type().clone();
         let loc = self.loc;
+        let result_t = ltry!(func_type.try_func_ref()).result.clone();
+        let result = AstNode::new(Ast::Type(result_t), loc);
+        let args = self.args;
         let body = self.body;
-        let mut dfn = AstNode::new(
-            Ast::DefFunc(name, vec![], AstNode::void(), body),
-            loc,
-        );
+        let mut dfn = AstNode::new(Ast::DefFunc(name, args, result, body), loc);
         dfn.typ = func_type;
         Ok(dfn)
     }
@@ -427,6 +443,7 @@ impl<'p> ScopeCheck<'p>
     fn new_anon_func_def(
         &mut self,
         func_type: Type,
+        args: Xlist,
         body: AstNode,
         loc: Loc,
     ) -> Lresult<AnonFuncDef>
@@ -435,7 +452,7 @@ impl<'p> ScopeCheck<'p>
         let name = format!("anon_fn_{}_{}", loc.lineno, loc.column);
         let name = Interloader::static_str(name);
 
-        AnonFuncDef::new(&self.local_mod, name, func_type, body, loc)
+        AnonFuncDef::new(&self.local_mod, name, func_type, args, body, loc)
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
@@ -886,9 +903,7 @@ impl<'p> ScopeCheck<'p>
                     return Ok(AstStep::Rewrite);
                 }
             }
-            Ast::ConstVal(Val::Func(fref)) => {
-                node.typ = ltry!(self.lib.func_type(fref)).clone();
-            }
+            Ast::ConstVal(Val::Func(_fref)) => {}
             Ast::ConstVal(Val::Str(escaped)) => {
                 // escaped strings
                 if let Some(raw) = ESCAPED_STR.get(escaped.as_str()) {
@@ -948,11 +963,13 @@ impl<'p> ScopeCheck<'p>
                 return Ok(AstStep::Rewrite);
             }
             Ast::DefFunc(_ref_name, ref_args, ref_result, ref_body) => {
+                let args = mem::take(ref_args);
                 let body = mem::take(ref_body);
                 let func_type =
-                    self.pre_anon_functype(&ref_result, &ref_args, loc)?;
+                    self.pre_anon_functype(&ref_result, &args, loc)?;
                 let fn_def =
-                    ltry!(self.new_anon_func_def(func_type, body, node.loc,));
+                    ltry!(self
+                        .new_anon_func_def(func_type, args, body, node.loc,));
 
                 // collect all the undefined variables in body
                 // validate their scope in this func
@@ -1100,8 +1117,10 @@ impl<'p> TypeCheck<'p>
         Ok(check)
     }
 
-    pub fn add_anon_func_args(&mut self, ftyp: &FuncTypeRef<'p>)
-        -> Lresult<()>
+    pub fn add_anon_func_args<'a, 'b, 'c>(
+        &'a mut self,
+        ftyp: &'b FuncTypeRef<'c>,
+    ) -> Lresult<()>
     {
         for arg in ftyp.args.iter() {
             let argname = arg.k.sref()?;
@@ -1149,7 +1168,11 @@ impl<'p> TypeCheck<'p>
 
     /// match one type to another
     /// should be no open type vars
-    pub fn match_type(&mut self, t0: &Type, t1: &Type) -> Lresult<Type>
+    pub fn match_type<'a, 'b>(
+        &'a mut self,
+        t0: &'b Type,
+        t1: &'b Type,
+    ) -> Lresult<Type>
     {
         if t0.contains_open() {
             return Err(lfail!(
@@ -2223,7 +2246,7 @@ impl Semantics
 
         let (func_typ, f) = {
             let mut f = fp.clone();
-            let t = lib.func_type_closed(&mut f).unwrap();
+            let t = ltry!(lib.func_type_closed(&mut f));
             (t, f)
         };
 
@@ -2327,19 +2350,25 @@ impl Semantics
                     "f": ldebug!(f),
                 );
 
-                let anon_ftyp = an.v.typ.func_ref().unwrap();
-                ltry!(type_check.add_anon_func_args(&anon_ftyp));
-                ltry!(
-                    ast2::walk_ref_mut(body, &mut type_check),
-                    "module": f.m.name.to_lstr(),
-                    "function": Lstr::Sref(f.f),
-                    "closure": Lstr::Sref(an.k),
-                );
-                ltry!(
-                    type_check.match_type(&anon_ftyp.result, &body.typ),
-                    "anon_result": ldebug!(&anon_ftyp.result),
-                    "anon_body_type": ldebug!(&body.typ),
-                );
+                {
+                    let mut anon_t = an.v.typ.clone();
+                    localizer.localize_type(&mut anon_t, an.v.loc);
+                    let anon_ftyp = anon_t.func_ref().unwrap();
+                    // is this necessary?
+                    ltry!(type_check.add_anon_func_args(&anon_ftyp));
+
+                    ltry!(
+                        ast2::walk_ref_mut(body, &mut type_check),
+                        "module": f.m.name.to_lstr(),
+                        "function": Lstr::Sref(f.f),
+                        "closure": Lstr::Sref(an.k),
+                    );
+                    ltry!(
+                        type_check.match_type(&anon_ftyp.result, &body.typ),
+                        "anon_result": ldebug!(&anon_ftyp.result),
+                        "anon_body_type": ldebug!(&body.typ),
+                    );
+                }
             } else {
                 panic!("not a func: {:?}", an);
             }

@@ -100,7 +100,7 @@ impl<'a> fmt::Display for FuncTypeRef<'a>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         if !self.type_args.is_empty() {
-            write!(f, "<(")?;
+            write!(f, "<")?;
         }
         write!(f, "({} ::", self.result)?;
         for a in self.args.iter() {
@@ -112,7 +112,6 @@ impl<'a> fmt::Display for FuncTypeRef<'a>
         }
         write!(f, ")")?;
         if !self.type_args.is_empty() {
-            write!(f, ")")?;
             for ta in self.type_args.iter() {
                 write!(f, " {}", ta.v)?;
             }
@@ -132,9 +131,9 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
         write!(f, "{:?} ::", self.result)?;
         for a in self.args.iter() {
             if a.v.is_func() {
-                write!(f, " ({:?})", a.v)?;
+                write!(f, " {}:({:?})", a.k, a.v)?;
             } else {
-                write!(f, " {:?}", a.v)?;
+                write!(f, " {}:{:?}", a.k, a.v)?;
             }
             if f.alternate() {
                 writeln!(f, "")?;
@@ -731,16 +730,24 @@ impl Type
     /// replace any open variable in this type with the new type
     pub fn localize_generics(&mut self, local_id: &str)
     {
-        if self.path.as_str() == Self::PATH_OPENVAR {
-            if let Some(open) = self.args.first() {
-                *self = Self::local(lstrf!("{}-{}", local_id, open.k));
-            } else {
-                // else this is an invalid openvar (bad)
-                panic!("invalid open type variable");
+        match self.path.as_str() {
+            Self::PATH_OPENVAR => {
+                if let Some(open) = self.args.first() {
+                    *self = Self::local(lstrf!("{}-{}", local_id, open.k));
+                } else {
+                    // else this is an invalid openvar (bad)
+                    panic!("invalid open type variable");
+                }
             }
-        } else {
-            for a in self.args.iter_mut() {
-                a.v.localize_generics(local_id);
+            Self::PATH_TYPECALL => {
+                let mut inner = self.args.swap_remove(0);
+                inner.v.localize_generics(local_id);
+                *self = inner.v;
+            }
+            _ => {
+                for a in self.args.iter_mut() {
+                    a.v.localize_generics(local_id);
+                }
             }
         }
     }
