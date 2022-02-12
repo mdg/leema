@@ -1,5 +1,5 @@
 use crate::leema::code::{Op, OpVec};
-use crate::leema::failure::{self, Failure, Lresult};
+use crate::leema::failure::{self, Lresult};
 use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::list;
 use crate::leema::lmap::Lmap;
@@ -532,12 +532,7 @@ impl Fiber
                     ltry!(self.head.function()),
                     line as i16,
                 );
-                Err(Failure::leema_new(
-                    failure.tag.clone(),
-                    failure.msg.clone(),
-                    Some(new_trace),
-                    failure.code,
-                ))
+                Err(failure.propagate(new_trace))
             }
             _ => Ok(Event::Uneventful),
         }

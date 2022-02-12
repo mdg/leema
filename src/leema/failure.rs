@@ -276,6 +276,18 @@ impl Failure
         }
     }
 
+    pub fn propagate(&self, trace: Arc<FrameTrace>) -> Failure
+    {
+        Failure {
+            tag: self.tag.clone(),
+            msg: self.tag.clone(),
+            trace: Some(trace),
+            status: self.status,
+            code: self.code,
+            context: self.context.clone(),
+        }
+    }
+
     /// Return a static, compile-time leema code error
     pub fn static_leema(
         status: Mode,
