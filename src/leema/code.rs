@@ -126,7 +126,7 @@ pub enum Op
 
     /// Reserve .0 registers for locals
     ReserveLocal(i16),
-    PropagateFailure(Reg, u16),
+    PropagateFailure(u16),
     /// Is this necessary? Just PushConst(VOID) isn't it?
     StackPush,
 
@@ -151,9 +151,7 @@ impl Clone for Op
             &Op::Return => Op::Return,
             &Op::PushResult => Op::PushResult,
             &Op::ReserveLocal(n) => Op::ReserveLocal(n),
-            &Op::PropagateFailure(ref src, lineno) => {
-                Op::PropagateFailure(src.clone(), lineno)
-            }
+            &Op::PropagateFailure(lineno) => Op::PropagateFailure(lineno),
             &Op::StackPush => Op::StackPush,
             &Op::PushConst(ref src) => Op::PushConst(src.clone_for_send()),
             &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
@@ -520,6 +518,7 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
         argc,
         line: lineno as i16,
     });
+    call_ops.push(Op::PropagateFailure(lineno));
     call_ops
 }
 

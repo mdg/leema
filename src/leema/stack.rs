@@ -182,7 +182,7 @@ impl Ref
         Ok(stack_ref.drain(start..).collect())
     }
 
-    pub fn stack_top(&mut self) -> Lresult<&Val>
+    pub fn stack_top(&self) -> Lresult<&Val>
     {
         let stack_ref = unsafe { &mut *self.stack };
         stack_ref.data.last().map(|i| &i.v).ok_or_else(|| {

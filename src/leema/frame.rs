@@ -140,7 +140,7 @@ impl FrameTrace
     }
 
     pub fn propagate_down(
-        trace: &Arc<FrameTrace>,
+        parent: Arc<FrameTrace>,
         func: &Fref,
         line: i16,
     ) -> Arc<FrameTrace>
@@ -149,7 +149,7 @@ impl FrameTrace
             direction: FrameTraceDirection::ReturnDown,
             function: func.clone(),
             line,
-            parent: Some(trace.clone()),
+            parent: Some(parent),
         })
     }
 
