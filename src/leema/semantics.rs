@@ -273,21 +273,20 @@ impl AnonFuncDef
     pub fn name_node(&self) -> AstNode
     {
         let fname = AstNode::new(Ast::Id(self.name), self.loc);
-        if !self.func_type.is_generic() {
-            return fname;
+        if let Some(gr) = self.func_type.generic_ref() {
+            let type_args =
+                gr.1.iter()
+                    .map(|a| {
+                        StrupleItem::new(
+                            a.k.sref().ok(),
+                            AstNode::new(Ast::Type(a.v.clone()), self.loc),
+                        )
+                    })
+                    .collect();
+            AstNode::new(Ast::Generic(fname, type_args), self.loc)
+        } else {
+            fname
         }
-        let type_args = self
-            .func_type
-            .args
-            .iter()
-            .map(|a| {
-                StrupleItem::new(
-                    a.k.sref().ok(),
-                    AstNode::new(Ast::Type(a.v.clone()), self.loc),
-                )
-            })
-            .collect();
-        AstNode::new(Ast::Generic(fname, type_args), self.loc)
     }
 
     pub fn fref(&self) -> Fref
@@ -2247,7 +2246,11 @@ impl Semantics
 
         let (func_typ, f) = {
             let mut f = fp.clone();
-            let t = ltry!(lib.func_type_closed(&mut f));
+            let t = ltry!(lib.func_type_closed(&mut f),
+                "file": fp.m.best_path(),
+                "module": fp.m.name.to_lstr(),
+                "function": ldebug!(f),
+            );
             (t, f)
         };
 

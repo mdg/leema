@@ -655,8 +655,10 @@ impl Type
                     return Err(lfail!(
                         failure::Mode::TypeFailure,
                         "function type arg mismatch",
+                        "out": ldebug!(out),
+                        "args": ldebug!(args),
                         "type": ldebug!(self),
-                        "args": ldebug!(type_args),
+                        "type_args": ldebug!(type_args),
                     ));
                 }
                 let mut result = out
