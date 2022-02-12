@@ -64,9 +64,11 @@ impl Application
         spawn_rx: Receiver<SpawnMsg>,
     )
     {
+        vout!("Application::run\n");
         let spawn = msg::SpawnReceiver::new(spawn_rx);
         self.start_io(inter, io_rx);
         let _wh0 = self.start_worker(spawn);
+        // let _wh1 = self.start_worker(spawn);
         self.spawn_app_loop();
     }
 

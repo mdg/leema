@@ -2220,6 +2220,7 @@ impl Semantics
 
     pub fn compile_call(lib: &mut ProtoLib, fp: &Fref) -> Lresult<Semantics>
     {
+        vout!("compile_call {}\n", fp);
         let mut sem = Semantics::new();
         if fp.contains_open() {
             return Err(lfail!(

@@ -280,7 +280,11 @@ pub fn load_code(
             Some(what) => panic!("what is this? {:?}", what),
         };
         let prog: &mut program::Lib = iotry!(ctx, ctx.rsrc_mut(0));
-        let code = iotry!(ctx, prog.load_code(&fref).map(|c| (*c).clone()));
+        let code = iotry!(
+            ctx,
+            prog.load_code(&fref).map(|c| (*c).clone()),
+            "func": ldisplay!(fref),
+        );
         ctx.return_code(fref, code);
         ctx
     })
