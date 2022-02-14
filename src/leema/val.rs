@@ -248,7 +248,7 @@ impl Type
     pub const UNKNOWN: Type = Type::named(Type::PATH_UNKNOWN);
 
     /// function struple key names
-    pub const FNKEY_RESULT: Lstr = Lstr::Sref("result");
+    pub const FNKEY_RESULT: Lstr = Lstr::Sref("result_v");
 
     /// Create a type w/ the given path name and no type arguments
     pub const fn new(path: Canonical, args: TypeArgs) -> Type
@@ -366,7 +366,7 @@ impl Type
     /// Create a generic typecall
     pub fn typecall(result: Type, mut args: TypeArgs) -> Type
     {
-        args.insert(0, StrupleItem::new(Lstr::Sref("result"), result));
+        args.insert(0, StrupleItem::new(Lstr::Sref("result_t"), result));
         Type::t(Type::PATH_TYPECALL, args)
     }
 
