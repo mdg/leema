@@ -31,6 +31,13 @@ macro_rules! ldebug {
     };
 }
 
+/// format a value with Debug and return as Lstr
+macro_rules! ldebuga {
+    ($val:expr) => {
+        crate::leema::lstr::Lstr::from(format!("{:#?}", $val))
+    };
+}
+
 #[derive(Clone)]
 #[derive(Eq)]
 pub enum Lstr

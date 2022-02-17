@@ -1139,7 +1139,11 @@ impl fmt::Debug for Fref
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        write!(f, "({}.{}: {:?})", self.m.name, self.f, self.t)
+        if f.alternate() {
+            write!(f, "({}.{}: {:#?})", self.m.name, self.f, self.t)
+        } else {
+            write!(f, "({}.{}: {:?})", self.m.name, self.f, self.t)
+        }
     }
 }
 
@@ -1843,7 +1847,13 @@ impl fmt::Debug for Val
                 write!(f, "EnumToken({:?}.{:?})", typ, var_name)
             }
             Val::Token(ref name) => write!(f, "Token({:?})", name),
-            Val::Func(ref fref) => write!(f, "Func({:?})", fref),
+            Val::Func(ref fref) => {
+                if f.alternate() {
+                    write!(f, "Func({:#?})", fref)
+                } else {
+                    write!(f, "Func({:?})", fref)
+                }
+            }
             Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
             Val::ResourceRef(rid) => write!(f, "ResourceRef({})", rid),

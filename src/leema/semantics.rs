@@ -2012,7 +2012,7 @@ impl<'l> ast2::Op for ResolveTypes<'l>
                 failure::Mode::TypeFailure,
                 "unknown node type",
                 "type": ldisplay!(node.typ),
-                "node": ldebug!(node.node),
+                "node": ldebuga!(node.node),
             ));
         }
         match &mut *node.node {
@@ -2053,7 +2053,7 @@ impl<'l> ast2::Op for ResolveTypes<'l>
             other if node.typ.contains_local() => {
                 ltry!(
                     node.typ.replace_localvars(&self.infers),
-                    "node": ldebug!(other),
+                    "node": ldebuga!(other),
                     "type": ldisplay!(node.typ),
                     "file": self.func.m.best_path(),
                     "func": ldisplay!(self.func),
@@ -2548,7 +2548,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn scopecheck_anon_func()
     {
         let input = r#"
@@ -2563,7 +2562,7 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let sem = prog.read_semantics(&fref).unwrap();
         println!("infers: {:#?}\n", sem.infers);
-        assert_eq!(5, sem.infers.len());
+        assert_eq!(4, sem.infers.len());
     }
 
     #[test]
