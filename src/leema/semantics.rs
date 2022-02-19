@@ -2566,8 +2566,7 @@ mod tests
     }
 
     #[test]
-    #[ignore]
-    fn test_compile_closure()
+    fn test_compile_closure1()
     {
         let input = r#"
         func bar:Int ->
@@ -2583,6 +2582,27 @@ mod tests
         let sem = prog.read_semantics(&fref).unwrap();
         println!("infers: {:#?}\n", sem.infers);
         assert_eq!(5, sem.infers.len());
+    }
+
+    #[test]
+    fn test_compile_closure2()
+    {
+        let input = r#"
+        import /list
+
+        func bar:Int ->
+            let items := [1,2,3]
+            let mult := 4
+            let i_mult := list.map(items, fn::i -> i * mult --)
+            list.head(i_mult)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::with_modules(From::from("/foo"), "bar");
+        let sem = prog.read_semantics(&fref).unwrap();
+        println!("infers: {:#?}\n", sem.infers);
     }
 
     #[test]
