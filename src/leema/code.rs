@@ -890,10 +890,7 @@ mod tests
     #[test]
     fn test_code_constval()
     {
-        let loc = Loc {
-            lineno: 8,
-            column: 7,
-        };
+        let loc = Loc::new(8, 7);
         let mut node = AstNode::new(Ast::ConstVal(Val::Int(9)), loc);
         node.dst = Reg::local(3);
         let code = code::make_ops2(node);

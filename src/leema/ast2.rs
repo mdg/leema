@@ -4,8 +4,9 @@ use crate::leema::lstr::Lstr;
 use crate::leema::module::{ImportedMod, ModKey};
 use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
-use crate::leema::token::TokenSrc;
 use crate::leema::val::{Fref, Type, TypeArgs, Val};
+
+use pest::Span;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -15,18 +16,36 @@ use std::path::{Path, PathBuf};
 #[derive(Copy)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-#[derive(PartialOrd)]
 pub struct Loc
 {
     pub lineno: u16,
     pub column: u8,
+    pub span: Span<'static>,
 }
 
 impl Loc
 {
     pub fn new(lineno: u16, column: u8) -> Loc
     {
-        Loc { lineno, column }
+        let span = Span::new("", 0, 0).unwrap();
+        Loc {
+            lineno,
+            column,
+            span,
+        }
+    }
+}
+
+impl From<Span<'static>> for Loc
+{
+    fn from(span: Span<'static>) -> Loc
+    {
+        let (line, col) = span.start_pos().line_col();
+        Loc {
+            lineno: line as u16,
+            column: col as u8,
+            span,
+        }
     }
 }
 
@@ -37,6 +56,7 @@ impl Default for Loc
         Loc {
             lineno: 0,
             column: 0,
+            span: Span::new("", 0, 0).unwrap(),
         }
     }
 }
@@ -107,7 +127,6 @@ pub enum ModAction
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-#[derive(PartialOrd)]
 pub enum ModTree
 {
     All(Loc),
@@ -270,14 +289,6 @@ impl Ast
     pub const fn canonical(c: &'static str) -> Ast
     {
         Ast::Canonical(Canonical::new(Lstr::Sref(c)))
-    }
-
-    pub fn loc(t: &TokenSrc) -> Loc
-    {
-        Loc {
-            lineno: t.begin.lineno,
-            column: t.begin.column,
-        }
     }
 
     pub fn is_const(&self) -> bool
@@ -461,10 +472,7 @@ impl AstNode
     {
         AstNode {
             node: Box::new(Ast::ConstVal(Val::VOID)),
-            loc: Loc {
-                lineno: 0,
-                column: 0,
-            },
+            loc: Loc::default(),
             typ: Type::VOID,
             dst: Reg::Undecided,
         }
@@ -474,10 +482,7 @@ impl AstNode
     {
         AstNode {
             node: Box::new(Ast::NOTOKEN),
-            loc: Loc {
-                lineno: 0,
-                column: 0,
-            },
+            loc: Loc::default(),
             typ: Type::NOTOKEN,
             dst: Reg::Undecided,
         }

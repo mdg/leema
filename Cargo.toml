@@ -19,7 +19,7 @@ libc = "0.2"
 log = "0.4"
 matches = "0.1"
 mopa = "0.2"
-pest = "2.1"
+pest = { git = "https://github.com/pest-parser/pest", rev = "d06a1e441b5b9c6f8e25e539e9644412eca86b2e" }
 pest_derive = "2.1"
 rand = "0.8"
 rustc-serialize = "0.3"

@@ -161,10 +161,9 @@ pub fn parse(r: Rule, text: &'static str) -> Lresult<Vec<AstNode>>
     it.map(|i| prec.primary(Mode::Value, i)).collect()
 }
 
-pub fn nodeloc(pair: &Pair<Rule>) -> ast2::Loc
+pub fn nodeloc(pair: &Pair<'static, Rule>) -> ast2::Loc
 {
-    let (line, col) = pair.as_span().start_pos().line_col();
-    ast2::Loc::new(line as u16, col as u8)
+    ast2::Loc::from(pair.as_span())
 }
 
 pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
