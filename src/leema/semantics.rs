@@ -738,7 +738,6 @@ impl<'p> ScopeCheck<'p>
                     "line": ldisplay!(node.loc.lineno),
                 );
                 node.typ = Type::local(Lstr::Sref(id));
-                *node.node = Ast::ConstVal(Val::Reg(node.dst));
             }
             Ast::Id(id) if mode == AstMode::Type => {
                 let found = self.local_mod.find_type(id);
@@ -2074,6 +2073,9 @@ impl ast2::Op for RemoveExtraCode
     fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
+            Ast::Id(_) if mode.is_pattern() => {
+                *node.node = Ast::ConstVal(Val::Reg(node.dst));
+            }
             Ast::Block(items) => {
                 match items.len() {
                     0 => {
@@ -2086,11 +2088,14 @@ impl ast2::Op for RemoveExtraCode
                 }
             }
             Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                if let Ast::Id(_name) = &*lhs.node {
-                    // if single assignment, replace the let w/
-                    // rhs assigned to lhs name
-                    rhs.dst = lhs.dst;
-                    *node = mem::take(rhs);
+                match &*lhs.node {
+                    Ast::Id(_) | Ast::ConstVal(Val::Reg(_)) => {
+                        // if single assignment, replace the let w/
+                        // rhs assigned to lhs name
+                        rhs.dst = lhs.dst;
+                        *node = mem::take(rhs);
+                    }
+                    _ => {} // leave as is
                 }
             }
             Ast::Tuple(items) if mode.is_pattern() => {
