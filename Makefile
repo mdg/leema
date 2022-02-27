@@ -15,7 +15,7 @@ run: build
 lib:
 	cargo build --lib
 
-test: unit T format
+test: format unit T
 
 unit:
 	cargo test --bin leema
