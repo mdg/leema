@@ -2087,17 +2087,6 @@ impl ast2::Op for RemoveExtraCode
                     _ => {} // leave as-is
                 }
             }
-            Ast::Let(ref mut lhs, _, ref mut rhs) => {
-                match &*lhs.node {
-                    Ast::Id(_) | Ast::ConstVal(Val::Reg(_)) => {
-                        // if single assignment, replace the let w/
-                        // rhs assigned to lhs name
-                        rhs.dst = lhs.dst;
-                        *node = mem::take(rhs);
-                    }
-                    _ => {} // leave as is
-                }
-            }
             Ast::Tuple(items) if mode.is_pattern() => {
                 let mut vitems = Vec::with_capacity(items.len());
                 for i in items.drain(..) {
