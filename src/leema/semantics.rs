@@ -2323,22 +2323,6 @@ impl Semantics
 
         for an in anons.iter_mut() {
             if let Ast::DefFunc(_name, args, result, body) = &mut *an.v.node {
-                if let Ast::Type(rt) = &mut *result.node {
-                    let newt = ltry!(type_check.inferred_type(&rt));
-                    result.typ = newt.clone();
-                    *rt = newt;
-                } else {
-                    panic!("weird result type: {:#?}", result);
-                }
-                for a in args.iter_mut() {
-                    if let Ast::Type(at) = &mut *a.v.node {
-                        let newt = ltry!(type_check.inferred_type(&at));
-                        a.v.typ = newt.clone();
-                        *at = newt;
-                    } else {
-                        panic!("weird arg type: {:#?}", a.v);
-                    }
-                }
                 // localize generics in the anons too
                 ltry!(
                     ast2::walk_ref_mut(body, &mut localizer),
@@ -2363,6 +2347,23 @@ impl Semantics
                         "anon_result": ldebug!(&anon_ftyp.result),
                         "anon_body_type": ldebug!(&body.typ),
                     );
+                }
+
+                if let Ast::Type(rt) = &mut *result.node {
+                    let newt = ltry!(type_check.inferred_type(&rt));
+                    result.typ = newt.clone();
+                    *rt = newt;
+                } else {
+                    panic!("weird result type: {:#?}", result);
+                }
+                for a in args.iter_mut() {
+                    if let Ast::Type(at) = &mut *a.v.node {
+                        let newt = ltry!(type_check.inferred_type(&at));
+                        a.v.typ = newt.clone();
+                        *at = newt;
+                    } else {
+                        panic!("weird arg type: {:#?}", a.v);
+                    }
                 }
             } else {
                 panic!("not a func: {:?}", an);
