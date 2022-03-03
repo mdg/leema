@@ -1205,8 +1205,8 @@ impl<'p> TypeCheck<'p>
                 let v0p = Type::is_punctuated(v0);
                 let v1p = Type::is_punctuated(v1);
                 match (v0p, v1p) {
-                    (false, true) => return Ok(ltry!(self.infer_type(v0, t1))),
-                    (true, false) => return Ok(ltry!(self.infer_type(v1, t0))),
+                    (false, true) => return Ok(ltry!(self.infer_type(v1, t0))),
+                    (true, false) => return Ok(ltry!(self.infer_type(v0, t1))),
                     _ => {} // fall through to alpha comparison
                 }
                 match Ord::cmp(v0, v1) {
@@ -2322,7 +2322,23 @@ impl Semantics
         }
 
         for an in anons.iter_mut() {
-            if let Ast::DefFunc(_name, _args, _result, body) = &mut *an.v.node {
+            if let Ast::DefFunc(_name, args, result, body) = &mut *an.v.node {
+                if let Ast::Type(rt) = &mut *result.node {
+                    let newt = ltry!(type_check.inferred_type(&rt));
+                    result.typ = newt.clone();
+                    *rt = newt;
+                } else {
+                    panic!("weird result type: {:#?}", result);
+                }
+                for a in args.iter_mut() {
+                    if let Ast::Type(at) = &mut *a.v.node {
+                        let newt = ltry!(type_check.inferred_type(&at));
+                        a.v.typ = newt.clone();
+                        *at = newt;
+                    } else {
+                        panic!("weird arg type: {:#?}", a.v);
+                    }
+                }
                 // localize generics in the anons too
                 ltry!(
                     ast2::walk_ref_mut(body, &mut localizer),
@@ -2494,7 +2510,10 @@ mod tests
                 .unwrap();
 
             let anon_fref = anon_t.try_func_ref().unwrap();
-            assert_eq!(Type::open(Lstr::Sref("A.0")), *anon_fref.result);
+            assert_eq!(
+                Type::local(Lstr::Sref("anon_func_result")),
+                *anon_fref.result
+            );
 
             /*
             let expected_name_node = AstNode::new(
@@ -2537,7 +2556,7 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "main");
         let sem = prog.read_semantics(&fref).unwrap();
         println!("infers: {:#?}\n", sem.infers);
-        assert_eq!(4, sem.infers.len());
+        assert_eq!(3, sem.infers.len());
     }
 
     #[test]
@@ -2556,7 +2575,7 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "bar");
         let sem = prog.read_semantics(&fref).unwrap();
         println!("infers: {:#?}\n", sem.infers);
-        assert_eq!(5, sem.infers.len());
+        assert_eq!(4, sem.infers.len());
     }
 
     #[test]
