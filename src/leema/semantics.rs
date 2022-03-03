@@ -272,21 +272,7 @@ impl AnonFuncDef
 
     pub fn name_node(&self) -> AstNode
     {
-        let fname = AstNode::new(Ast::Id(self.name), self.loc);
-        if let Some(gr) = self.func_type.generic_ref() {
-            let type_args =
-                gr.1.iter()
-                    .map(|a| {
-                        StrupleItem::new(
-                            a.k.sref().ok(),
-                            AstNode::new(Ast::Type(a.v.clone()), self.loc),
-                        )
-                    })
-                    .collect();
-            AstNode::new(Ast::Generic(fname, type_args), self.loc)
-        } else {
-            fname
-        }
+        AstNode::new(Ast::Id(self.name), self.loc)
     }
 
     pub fn fref(&self) -> Fref
@@ -481,17 +467,14 @@ impl<'p> ScopeCheck<'p>
             }
         }
 
-        // iterator for generating undeclared typbs
-        let mut next_type_it = ANON_FUNC_TYPES.iter();
-
         // result type is optional for anon funcs,
         // so create a type var to infer later if it's undeclared
         let result_t: Type;
         if *result.node == Ast::NOTOKEN {
-            let next_type = next_type_it.next().unwrap();
-            result_t = Type::open(Lstr::Sref(*next_type));
+            let next_type = "anon_func_result";
+            result_t = Type::local(Lstr::Sref(next_type));
             type_args_t.push(StrupleItem::new(
-                Lstr::Sref(*next_type),
+                Lstr::Sref(next_type),
                 result_t.clone(),
             ));
         } else {
@@ -510,20 +493,13 @@ impl<'p> ScopeCheck<'p>
                 ));
             } else if let Ast::Id(var) = &*a.v.node {
                 // convert arg name to k and add open type var
-                let next_type_name = next_type_it.next().unwrap();
-                let open_t = Type::open(Lstr::Sref(*next_type_name));
-                arg_t.push(StrupleItem::new(Lstr::Sref(var), open_t.clone()));
-                type_args_t.push(StrupleItem::new(
-                    Lstr::Sref(*next_type_name),
-                    open_t,
-                ));
+                let var_t = Type::local(Lstr::Sref(var));
+                arg_t.push(StrupleItem::new(Lstr::Sref(var), var_t.clone()));
+                type_args_t.push(StrupleItem::new(Lstr::Sref(var), var_t));
             }
         }
 
-        if type_args_t.len() == 0 {
-            return Ok(Type::f(result_t, arg_t));
-        }
-        Ok(Type::generic_f(type_args_t, result_t, arg_t))
+        Ok(Type::f(result_t, arg_t))
     }
     /*
         let closure_t = ltry!(self.local_mod.ast_to_ftype(result, &args, type_arg_t.as_slice()));
@@ -2056,7 +2032,7 @@ impl<'l> ast2::Op for ResolveTypes<'l>
                     "type": ldisplay!(node.typ),
                     "file": self.func.m.best_path(),
                     "func": ldisplay!(self.func),
-                    "line": ldisplay!(node.loc.lineno),
+                    "loc": ldebug!(node.loc),
                 );
                 Ok(AstStep::Rewrite)
             }
