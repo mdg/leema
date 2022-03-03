@@ -440,9 +440,14 @@ impl<'p> ScopeCheck<'p>
         AnonFuncDef::new(&self.local_mod, name, func_type, args, body, loc)
     }
 
-    fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
+    fn push_anon_func(&mut self, mut anon_f: AnonFuncDef) -> Lresult<()>
     {
         let name = anon_f.name;
+        {
+            let ftyp = anon_f.func_type.try_func_ref()?;
+            let mut closure_scope = self.closure(&ftyp);
+            ltry!(ast2::walk_ref_mut(&mut anon_f.body, &mut closure_scope));
+        }
         let def_func_node = anon_f.into_def_func_node()?;
         self.anons.push(StrupleItem::new(name, def_func_node));
         Ok(())
