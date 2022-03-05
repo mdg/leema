@@ -31,3 +31,6 @@ datatype RustBlock -RUST-
 ## The type initially assigned to any types when the type checker
 ## doesn't yet know what type it is
 datatype Unknown -RUST-
+
+### construct a closure w/ a given env
+func <make_closure F C E>:F :: impl_f:C env:E -RUST-

@@ -10,7 +10,7 @@ use crate::leema::rsrc::Rsrc;
 use crate::leema::semantics::Semantics;
 use crate::leema::val::{Fref, Type};
 use crate::leema::{
-    file, lib_core, lib_io, lib_json, lib_list, lib_math, prefab,
+    file, lib_core, lib_io, lib_json, lib_leema, lib_list, lib_math, prefab,
 };
 
 use std::collections::HashMap;
@@ -49,6 +49,10 @@ impl Lib
         // eventually will move everything to core and delete prefab
         lfailoc!(proglib
             .protos
+            .load_absolute(&mut proglib.loader, Path::new("/leema")))
+        .unwrap();
+        lfailoc!(proglib
+            .protos
             .load_absolute(&mut proglib.loader, Path::new("/core")))
         .unwrap();
         lfailoc!(proglib
@@ -56,6 +60,9 @@ impl Lib
             .load_absolute(&mut proglib.loader, Path::new("/prefab")))
         .unwrap();
 
+        proglib
+            .rust_load
+            .insert(canonical!("/leema"), lib_leema::load_rust_func);
         proglib
             .rust_load
             .insert(canonical!("/core"), lib_core::load_rust_func);

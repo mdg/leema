@@ -41,6 +41,7 @@ pub mod worker;
 // libraries
 pub mod file;
 pub mod lib_core;
+pub mod lib_leema;
 // pub mod lib_hyper;
 pub mod lib_io;
 pub mod lib_json;

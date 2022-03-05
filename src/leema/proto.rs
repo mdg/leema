@@ -466,7 +466,7 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
+    fn add_struct(&mut self, name: AstNode, mut fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
         if self.trait_t.is_some() {
@@ -480,6 +480,7 @@ impl ProtoModule
                 ));
             }
             let construct = self.trait_t.as_ref().unwrap().t.clone();
+            ltry!(self.make_fields_local(&construct, &mut fields));
             // this is a struct for a trait, set its data_t now
             self.data_t = self.trait_t.clone();
             self.add_typed_struct(construct, fields, loc)
@@ -493,6 +494,7 @@ impl ProtoModule
                 ));
             }
             let data_t = self.make_proto_type(name)?;
+            ltry!(self.make_fields_local(&data_t.t, &mut fields));
             let construct = data_t.t.clone();
             // create a module for holding the constructor
             let subp = ltry!(self.add_selfmod(
@@ -504,6 +506,20 @@ impl ProtoModule
             ));
             subp.add_typed_struct(construct, fields, loc)
         }
+    }
+
+    fn make_fields_local(&self, t: &Type, fields: &mut Xlist) -> Lresult<()>
+    {
+        let opens = if let Some(gen_t) = t.generic_ref() {
+            gen_t.1
+        } else {
+            &[]
+        };
+        for f in fields.iter_mut() {
+            let t = ltry!(self.ast_to_type(&f.v, opens));
+            *f.v.node = Ast::Type(t);
+        }
+        Ok(())
     }
 
     fn add_typed_struct(
@@ -2023,5 +2039,39 @@ mod tests
             "/core/Int",
             burrito.data_t.as_ref().unwrap().t.path.as_str()
         );
+    }
+
+    #[test]
+    fn type_with_local_types()
+    {
+        let proto = new_proto(
+            r#"
+        datatype Taco :: Int Str --
+        datatype Burrito :: Int Str Str --
+        datatype Order ::
+            t:Taco
+            b:Burrito
+        --
+        "#,
+        );
+        let _taco =
+            struple::find(&proto.submods, "Taco").expect("no Taco type");
+        let burrito =
+            struple::find(&proto.submods, "Burrito").expect("no Burrito type");
+        let order =
+            struple::find(&proto.submods, "Order").expect("no Order type");
+
+        assert_eq!(
+            "/foo/Burrito",
+            burrito.data_t.as_ref().unwrap().t.path.as_str()
+        );
+
+        // validate order fields
+        let order_t = order.find_modelem("t").unwrap();
+        assert_eq!(Ast::DataMember(0), *order_t.node,);
+        assert_eq!(user_type!("/foo/Taco"), order_t.typ,);
+        let order_b = order.find_modelem("b").unwrap();
+        assert_eq!(Ast::DataMember(1), *order_b.node,);
+        assert_eq!(user_type!("/foo/Burrito"), order_b.typ,);
     }
 }

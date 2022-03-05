@@ -1201,6 +1201,7 @@ pub enum Val
     EnumToken(Type, Lstr),
     Token(Type),
     Func(Fref),
+    FuncWithData(Fref, Box<Val>),
     Map(LmapNode),
     Failure2(Box<Failure>),
     Type(Type),
@@ -1449,6 +1450,7 @@ impl Val
             &Val::EnumToken(ref typ, _) => typ.clone(),
             &Val::Token(ref typ) => typ.clone(),
             &Val::Func(_) => Type::FREF,
+            &Val::FuncWithData(_, _) => Type::FREF,
             &Val::Buffer(_) => Type::STR,
             &Val::Lib(ref lv) => lv.get_type(),
             &Val::ResourceRef(_) => {
@@ -1738,6 +1740,12 @@ impl sendclone::SendClone for Val
             }
             &Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
             &Val::Func(ref fref) => Val::Func(fref.clone_for_send()),
+            &Val::FuncWithData(ref fref, ref d) => {
+                Val::FuncWithData(
+                    fref.clone_for_send(),
+                    Box::new(d.clone_for_send()),
+                )
+            }
             &Val::Failure2(ref f) => {
                 Val::Failure2(Box::new(f.clone_for_send()))
             }
@@ -1796,6 +1804,7 @@ impl fmt::Display for Val
             Val::EnumToken(_, ref var_name) => write!(f, "{}", var_name),
             Val::Token(ref typename) => write!(f, "{}", typename),
             Val::Func(ref fref) => write!(f, "{}", fref),
+            Val::FuncWithData(ref fref, ref d) => write!(f, "({} {})", fref, d),
             Val::Map(ref map) => write!(f, "Map({:?})", map),
             Val::Buffer(ref _buf) => write!(f, "Buffer"),
             Val::Lib(ref lv) => write!(f, "LibVal({:?})", lv),
@@ -1852,6 +1861,13 @@ impl fmt::Debug for Val
                     write!(f, "Func({:#?})", fref)
                 } else {
                     write!(f, "Func({:?})", fref)
+                }
+            }
+            Val::FuncWithData(ref fref, ref d) => {
+                if f.alternate() {
+                    write!(f, "FuncD({:#?}, {:#?})", fref, d)
+                } else {
+                    write!(f, "FuncD({:?}, {:?})", fref, d)
                 }
             }
             Val::Map(ref map) => write!(f, "Map({:?})", map),
