@@ -41,6 +41,7 @@ use lazy_static::lazy_static;
 const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
 
+const CLOSURE_ENV: &'static str = "$env";
 const CLOSED_VAR: &'static str = "closed-var";
 
 lazy_static! {
@@ -211,6 +212,7 @@ impl AnonFuncDef
         proto: &ProtoModule,
         name: &'static str,
         func_type: Type,
+        _env: TypeArgs,
         mut args: Xlist,
         body: AstNode,
         loc: Loc,
@@ -440,8 +442,26 @@ impl<'p> ScopeCheck<'p>
         let ftyp = func_type.try_func_ref()?;
         let mut closure_scope = self.closure(&ftyp);
         ltry!(ast2::walk_ref_mut(&mut body, &mut closure_scope));
+        let env: TypeArgs;
+        if !closure_scope.blocks.out_of_scope().is_empty() {
+            // this is a closure, generate its type
+            env = closure_scope
+                .blocks
+                .out_of_scope()
+                .iter()
+                .map(|var| {
+                    self.blocks.access_var(var.0, *var.1);
+                    StrupleItem::new(
+                        Lstr::Sref(*var.0),
+                        Type::local(Lstr::Sref(var.0)),
+                    )
+                })
+                .collect();
+        } else {
+            env = TypeArgs::new();
+        }
 
-        AnonFuncDef::new(&self.local_mod, name, func_type, args, body, loc)
+        AnonFuncDef::new(&self.local_mod, name, func_type, env, args, body, loc)
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
@@ -1522,6 +1542,26 @@ impl<'p> TypeCheck<'p>
     ) -> Lresult<AstStep>
     {
         match (base_typ.type_ref(), &*fld.node) {
+            (TypeRef(Type::PATH_TUPLE, flds), Ast::Id(f))
+                if !flds.is_empty() =>
+            {
+                for (i, fldi) in flds.iter().enumerate() {
+                    if fldi.k.as_str() == *f {
+                        fld.replace(Ast::DataMember(i as u8), fldi.v.clone());
+                        // return here to avoid borrow errors on fld
+                        return Ok(AstStep::Ok);
+                    }
+                }
+                // tuple field not found, report an error
+                return Err(lfail!(
+                    failure::Mode::TypeFailure,
+                    "tuple has no named field",
+                    "field": Lstr::Sref(f),
+                    "type": ldisplay!(base_typ),
+                    "file": self.local_mod.key.name.to_lstr(),
+                    "line": ldisplay!(fld.loc.lineno),
+                ));
+            }
             (TypeRef(tname, targs), Ast::Id(f)) if targs.is_empty() => {
                 // find a field in a struct or interface or
                 // whatever else
@@ -3014,6 +3054,21 @@ mod tests
 
         let mut prog = core_program(&[("/baz", baz_input)]);
         let fref = Fref::from(("/baz", "main"));
+        prog.read_semantics(&fref).unwrap();
+    }
+
+    #[test]
+    fn tuple_field_names()
+    {
+        let baz_input = r#"
+        func area:Int :: rect:(x:Int y:Int) ->
+            rect.x * rect.y
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/baz", baz_input)]);
+        let fref = Fref::from(("/baz", "area"));
         prog.read_semantics(&fref).unwrap();
     }
 

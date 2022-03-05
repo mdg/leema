@@ -297,6 +297,12 @@ class TestScripts(unittest.TestCase):
         expected = b"empty: /empty_struct/Empty\n"
         self.assertEqual(expected, result['output'])
 
+    def test_tuple_named_fields(self):
+        result = run_leema('tuple_named_fields')
+        self.assertEqual(0, result['code'])
+        expected = b"""area is: 12\n"""
+        self.assertEqual(expected, result['output'])
+
     def test_named_tuple(self):
         result = run_leema('named_tuple')
         self.assertEqual(0, result['code'])

@@ -1,0 +1,10 @@
+import /io
+
+func area:Int :: rect:(x:Int y:Int) ->
+    rect.x * rect.y
+--
+
+func main ->
+    let a := area((3, 4))
+    io.print("area is: $a\n")
+--
