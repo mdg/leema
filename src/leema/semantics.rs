@@ -202,6 +202,8 @@ struct AnonFuncDef
     name: &'static str,
     func_type: Type,
     impl_func_type: Type,
+    env_name: &'static str,
+    env_size: usize,
     env_t: Type,
     env_v: AstNode,
     args: Xlist,
@@ -229,8 +231,11 @@ impl AnonFuncDef
             }
             a.0.v.typ = a.1.v.clone();
         }
-        let (env_v, env_t, clos_t) = match env.as_slice() {
-            &[] => (AstNode::void(), Type::VOID, Type::VOID),
+        let env_size = env.len();
+        let (env_name, env_v, env_t, clos_t) = match env.as_slice() {
+            &[] => {
+                (CLOSURE_ENV, AstNode::void(), Type::VOID, func_type.clone())
+            }
             &[one] => {
                 let typ = Type::local(Lstr::Sref(one));
                 let val = AstNode {
@@ -242,12 +247,12 @@ impl AnonFuncDef
                 let mut clos_args = Vec::with_capacity(ft.args.len() + 1);
                 clos_args.push(StrupleItem::new(Lstr::Sref(one), typ.clone()));
                 clos_args.extend_from_slice(ft.args);
-                (val, typ, Type::f(ft.result.clone(), clos_args))
+                (one, val, typ, Type::f(ft.result.clone(), clos_args))
             }
             _many => {
                 return Err(lfail!(
                     failure::Mode::LeemaTodoFailure,
-                    "closures not implemented",
+                    "multivariable closures not implemented",
                     "module": proto.key.name.as_lstr().clone(),
                     "function": Lstr::Sref(name),
                     "type": ldisplay!(func_type),
@@ -259,6 +264,8 @@ impl AnonFuncDef
             name,
             func_type,
             impl_func_type: clos_t,
+            env_name,
+            env_size,
             env_t,
             env_v,
             args,
@@ -272,12 +279,12 @@ impl AnonFuncDef
         // get the reference to the closure/anon_f implementation
         let impl_f = AstNode {
             node: Box::new(Ast::ConstVal(Val::Func(self.fref()))),
-            typ: self.func_type.clone(),
+            typ: self.impl_func_type.clone(),
             loc: self.loc,
             dst: Reg::Undecided,
         };
         // if there are no closed env vars, just return the function
-        if self.env_t == Type::VOID {
+        if !self.is_closure() {
             return Ok(impl_f);
         }
 
@@ -308,14 +315,20 @@ impl AnonFuncDef
         })
     }
 
-    pub fn into_def_func_node(self) -> Lresult<AstNode>
+    pub fn into_def_func_node(mut self) -> Lresult<AstNode>
     {
+        let is_closure = self.is_closure();
         let name = self.name_node();
         let func_type = self.func_type().clone();
         let loc = self.loc;
         let result_t = ltry!(func_type.try_func_ref()).result.clone();
         let result = AstNode::new(Ast::Type(result_t), loc);
-        let args = self.args;
+        let mut args = Vec::with_capacity(self.args.len() + 1);
+        let env_node = AstNode::new(Ast::Type(self.env_t), loc);
+        if is_closure {
+            args.push(StrupleItem::new(Some(self.env_name), env_node));
+        }
+        args.append(&mut self.args);
         let body = self.body;
         let mut dfn = AstNode::new(Ast::DefFunc(name, args, result, body), loc);
         dfn.typ = func_type;
@@ -335,6 +348,11 @@ impl AnonFuncDef
     pub fn func_type(&self) -> &Type
     {
         &self.func_type
+    }
+
+    pub fn is_closure(&self) -> bool
+    {
+        self.env_size > 0
     }
 }
 
@@ -1446,7 +1464,7 @@ impl<'p> TypeCheck<'p>
         Ok(ltry!(
             self.match_argtypes(&mut funcref, args),
             "calltype": ldisplay!(calltype),
-            "args": ldebug!(args),
+            "args": ldebuga!(args),
         ))
     }
 
@@ -2642,7 +2660,6 @@ mod tests
     }
 
     #[test]
-    #[ignore]
     fn test_compile_closure1()
     {
         let input = r#"
@@ -2656,13 +2673,16 @@ mod tests
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "bar");
-        let sem = prog.read_semantics(&fref).unwrap();
-        println!("infers: {:#?}\n", sem.infers);
-        assert_eq!(4, sem.infers.len());
+        let sem = dbg!(prog.read_semantics(&fref)).unwrap();
+        assert_eq!(4, dbg!(sem.infers).len());
+        let anon = Fref::with_modules(From::from("/foo"), "anon_fn_4_27");
+        let sem_anon = dbg!(prog.read_semantics(&anon)).unwrap();
+        assert_eq!(0, dbg!(sem_anon.infers).len());
+        let foo = prog.find_proto(&canonical!("/foo")).unwrap();
+        assert_eq!(2, dbg!(&foo.funcseq).len());
     }
 
     #[test]
-    #[ignore]
     fn test_compile_closure2()
     {
         let input = r#"
