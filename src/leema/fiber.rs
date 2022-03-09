@@ -115,6 +115,7 @@ impl Fiber
             &Op::PopIntoField(fld_idx) => self.execute_pop_into_field(fld_idx),
             &Op::PushField(fld) => self.execute_push_field(fld),
             &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
+            &Op::PushFuncData => self.execute_push_func_data(),
             &Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
                 self.head.pc += 1;
@@ -208,6 +209,43 @@ impl Fiber
         -> Lresult<Event>
     {
         Ok(Event::PushCall { argc, line })
+    }
+
+    /// Take a FuncWithData and push the data field as the first
+    /// argument to the function
+    pub fn execute_push_func_data(&mut self)
+        -> Lresult<Event>
+    {
+        match ltry!(self.head.e.stack_pop()) {
+            Val::Func(f) => {
+                // put the func back
+                self.head.e.stack_push(Val::Func(f));
+                // TODO: erase this unnecessary VOID subject arg
+                self.head.e.stack_push(Val::VOID);
+            }
+            Val::FuncWithData(f, d) => {
+                // put the func val back, then the data separately
+                self.head.e.stack_push(Val::Func(f));
+                // TODO: erase this unnecessary VOID subject arg
+                // replaced w/ the value from FuncWithData
+                self.head.e.stack_push(Val::VOID);
+                // push the func data as the first arg
+                self.head.e.stack_push(*d);
+            }
+            other => {
+                // well this isn't good, put the other back and fail
+                let f = lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "expected func, found non-func",
+                    "found": ldebug!(other),
+                );
+                self.head.e.stack_push(other);
+                return Err(f);
+            }
+
+        }
+        self.head.pc += 1;
+        Ok(Event::Uneventful)
     }
 
     pub fn execute_push_const(&mut self, v: &Val) -> Lresult<Event>

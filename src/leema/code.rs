@@ -121,6 +121,9 @@ pub enum Op
     /// Pop a value off the stack and set it as the result
     PushResult,
 
+    /// Convert a func w/ data (closure, method) to func + stacked val
+    PushFuncData,
+
     /// Return to the calling function
     Return,
 
@@ -150,6 +153,7 @@ impl Clone for Op
             &Op::PushCall { argc, line } => Op::PushCall { argc, line },
             &Op::Return => Op::Return,
             &Op::PushResult => Op::PushResult,
+            &Op::PushFuncData => Op::PushFuncData,
             &Op::ReserveLocal(n) => Op::ReserveLocal(n),
             &Op::PropagateFailure(lineno) => Op::PropagateFailure(lineno),
             &Op::StackPush => Op::StackPush,
@@ -491,7 +495,7 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     vout!("make_call_ops: {:?}\n", f);
 
     let lineno = f.loc.lineno;
-    let mut call_ops = OpVec::new();
+    let mut call_ops = OpVec::with_capacity(args.len() + 6);
 
     // push the result
     call_ops.push(Op::PushConst(Val::VOID));
@@ -499,10 +503,8 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     // push the call
     let mut fops = make_sub_ops2(f, opm);
     call_ops.append(&mut fops.ops);
-
-    // push the subject
-    // void for now, should this go in the call later?
-    call_ops.push(Op::PushConst(Val::VOID));
+    // flatten any function data onto the stack
+    call_ops.push(Op::PushFuncData);
 
     // push the args
     let argc = args.len() as i16;
