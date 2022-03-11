@@ -246,7 +246,6 @@ class TestScripts(unittest.TestCase):
             result['output'])
 
     def test_chess960(self):
-        self.skipTest("not ready for testing")
         result = run_leema('chess960')
         self.assertEqual(0, result['code'])
         output = result['output'].strip().decode("utf-8")
