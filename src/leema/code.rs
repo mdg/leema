@@ -121,9 +121,6 @@ pub enum Op
     /// Pop a value off the stack and set it as the result
     PushResult,
 
-    /// Convert a func w/ data (closure, method) to func + stacked val
-    PushFuncData,
-
     /// Return to the calling function
     Return,
 
@@ -153,7 +150,6 @@ impl Clone for Op
             &Op::PushCall { argc, line } => Op::PushCall { argc, line },
             &Op::Return => Op::Return,
             &Op::PushResult => Op::PushResult,
-            &Op::PushFuncData => Op::PushFuncData,
             &Op::ReserveLocal(n) => Op::ReserveLocal(n),
             &Op::PropagateFailure(lineno) => Op::PropagateFailure(lineno),
             &Op::StackPush => Op::StackPush,
