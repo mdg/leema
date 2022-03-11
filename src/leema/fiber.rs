@@ -213,8 +213,7 @@ impl Fiber
 
     /// Take a FuncWithData and push the data field as the first
     /// argument to the function
-    pub fn execute_push_func_data(&mut self)
-        -> Lresult<Event>
+    pub fn execute_push_func_data(&mut self) -> Lresult<Event>
     {
         match ltry!(self.head.e.stack_pop()) {
             Val::Func(f) => {
@@ -242,7 +241,6 @@ impl Fiber
                 self.head.e.stack_push(other);
                 return Err(f);
             }
-
         }
         self.head.pc += 1;
         Ok(Event::Uneventful)

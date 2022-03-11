@@ -79,9 +79,6 @@ impl Buffer
         // push func
         self.data.push(StrupleItem::new_v(Val::Func(f)));
 
-        // push subject
-        self.data.push(StrupleItem::new_v(Val::VOID));
-
         // push args
         let arg_0 = self.data.len();
         // push args
@@ -122,16 +119,33 @@ impl Ref
 {
     const RESULT_INDEX: usize = 0;
     const FUNC_INDEX: usize = 1;
-    const SUBJ_INDEX: usize = 2;
-    const PARAM_INDEX: usize = 3;
+    const PARAM_INDEX: usize = 2;
     const BASE_STACK_SIZE: usize = Self::PARAM_INDEX;
 
     pub fn push_new_call(&self, iargc: i16) -> Ref
     {
-        let argc = iargc as usize;
+        let mut argc = iargc as usize;
         let stack: &mut Buffer = unsafe { &mut *self.stack };
         let new_sp = stack.data.len() - Self::BASE_STACK_SIZE - argc;
         let paramp = new_sp + Self::PARAM_INDEX;
+        // if there's an env from a closure, push it onto the stack
+        let e = stack
+            .data
+            .get(new_sp + Self::FUNC_INDEX)
+            .or_else(|| None)
+            .and_then(|i| {
+                if let Val::FuncWithData(_, d) = &i.v {
+                    Some((**d).clone())
+                } else {
+                    None
+                }
+            });
+        if let Some(env) = e {
+            stack
+                .data
+                .push(StrupleItem::new(Some(Lstr::Sref("env")), env));
+            argc += 1;
+        }
         let localp = paramp + argc;
         stack.data[new_sp].k = Some(Lstr::Sref("result"));
         Ref {
@@ -141,12 +155,6 @@ impl Ref
             localp: localp,
             stackp: localp,
         }
-    }
-
-    pub fn push_frame_args(&mut self, func: Fref, args: Struple2<Val>) -> Ref
-    {
-        let stack: &mut Buffer = unsafe { &mut *self.stack };
-        stack.push_frame_args(func, args)
     }
 
     /// does this need to return a Result? push doesn't return anything.
@@ -341,6 +349,7 @@ impl Ref
     {
         match self.func_val() {
             Val::Func(ref fref) => Ok(fref),
+            Val::FuncWithData(ref fref, _) => Ok(fref),
             other => {
                 Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,

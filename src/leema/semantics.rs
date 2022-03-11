@@ -160,14 +160,42 @@ impl<'a> ast2::Op for MacroReplacement<'a>
 
 struct CloseVars
 {
-    closed: TypeArgs,
+    closed: Vec<&'static str>,
+    env_t: Type,
+    env_c: usize,
 }
 
 impl CloseVars
 {
-    pub fn new(closed: TypeArgs) -> CloseVars
+    pub fn new(closed: Vec<&'static str>) -> CloseVars
     {
-        CloseVars { closed }
+        let (env_t, env_c) = match closed.as_slice() {
+            &[] => (Type::VOID, 0),
+            &[one] => (Type::local(Lstr::Sref(one)), 1),
+            many => {
+                let env_c = many.len();
+                let many_t: TypeArgs = many
+                    .iter()
+                    .map(|m| {
+                        StrupleItem::new(
+                            Lstr::Sref(m),
+                            Type::local(Lstr::Sref(m)),
+                        )
+                    })
+                    .collect();
+                (Type::tuple(many_t), env_c)
+            }
+        };
+        CloseVars {
+            closed,
+            env_t,
+            env_c,
+        }
+    }
+
+    fn find_var(&self, var: &'static str) -> Option<usize>
+    {
+        self.closed.iter().position(|v| *v == var)
     }
 }
 
@@ -177,15 +205,14 @@ impl ast2::Op for CloseVars
     {
         match &mut *node.node {
             Ast::Id(ref idname) if mode == AstMode::Value => {
-                let found = struple::find_idx(&self.closed, idname);
-                if let Some(typ) = found {
+                if let Some(_var_idx) = self.find_var(idname) {
                     let mut closed =
                         AstNode::new(Ast::Id(CLOSED_VAR), node.loc);
-                    closed.typ = Type::tuple(self.closed.clone());
+                    closed.typ = self.env_t.clone();
                     let mut field = AstNode::new(Ast::Id(idname), node.loc);
-                    field.typ = typ.1.clone();
+                    field.typ = Type::local(Lstr::Sref(idname));
+                    node.typ = field.typ.clone();
                     *node.node = Ast::Op2(".", closed, field);
-                    node.typ = typ.1.clone();
                 }
             }
             Ast::Id(_idname) if mode.is_pattern() => {}
@@ -219,7 +246,7 @@ impl AnonFuncDef
         func_type: Type,
         env: Vec<&'static str>,
         mut args: Xlist,
-        body: AstNode,
+        mut body: AstNode,
         loc: Loc,
     ) -> Lresult<AnonFuncDef>
     {
@@ -259,6 +286,10 @@ impl AnonFuncDef
                 ));
             }
         };
+        if env_size > 1 {
+            let mut closed_step = CloseVars::new(env);
+            ltry!(ast2::walk_ref_mut(&mut body, &mut closed_step));
+        }
         Ok(AnonFuncDef {
             m: proto.key.clone(),
             name,
@@ -309,7 +340,7 @@ impl AnonFuncDef
         let call_node = Ast::Call(fnode, call_args);
         Ok(AstNode {
             node: Box::new(call_node),
-            typ: dbg!(self.func_type.clone()),
+            typ: self.func_type.clone(),
             loc: self.loc,
             dst: Reg::Undecided,
         })
@@ -324,11 +355,11 @@ impl AnonFuncDef
         let result_t = ltry!(func_type.try_func_ref()).result.clone();
         let result = AstNode::new(Ast::Type(result_t), loc);
         let mut args = Vec::with_capacity(self.args.len() + 1);
-        let env_node = AstNode::new(Ast::Type(self.env_t), loc);
+        args.append(&mut self.args);
         if is_closure {
+            let env_node = AstNode::new(Ast::Type(self.env_t), loc);
             args.push(StrupleItem::new(Some(self.env_name), env_node));
         }
-        args.append(&mut self.args);
         let body = self.body;
         let mut dfn = AstNode::new(Ast::DefFunc(name, args, result, body), loc);
         dfn.typ = func_type;
@@ -1184,10 +1215,7 @@ impl<'p> TypeCheck<'p>
             let argname = arg.k.sref()?;
             if self.vartypes.contains_key(argname) {
                 let old_arg = self.vartypes.get(argname).unwrap().clone();
-                dbg!(ltry!(
-                    self.match_type(&arg.v, &old_arg),
-                    "ftyp": ldebug!(ftyp),
-                ));
+                ltry!(self.match_type(&arg.v, &old_arg), "ftyp": ldebug!(ftyp),);
             } else {
                 let argt = ltry!(self.inferred_type(&arg.v));
                 self.vartypes.insert(argname, argt);

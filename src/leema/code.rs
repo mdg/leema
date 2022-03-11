@@ -503,8 +503,6 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     // push the call
     let mut fops = make_sub_ops2(f, opm);
     call_ops.append(&mut fops.ops);
-    // flatten any function data onto the stack
-    call_ops.push(Op::PushFuncData);
 
     // push the args
     let argc = args.len() as i16;

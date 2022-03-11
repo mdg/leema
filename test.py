@@ -232,12 +232,9 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_closures(self):
-        self.skipTest("not reimplemented yet")
         result = run_leema('test_closures')
         self.assertEqual(0, result['code'])
-        exp = b"double i = [2,4,6,8,]\n" \
-            + b"triple i = [3,6,9,12,]\n" \
-            + b"multiplied i = [4,8,12,16,]\n"
+        exp = b"multiplied i = [4,8,12,16,]\n"
         self.assertEqual(exp, result['output'])
 
     def test_destruct(self):

@@ -101,8 +101,6 @@ impl<'a> RustFuncContext<'a>
         self.task.head.e.stack_push(Val::VOID);
         // push func
         self.task.head.e.stack_push(Val::Func(f));
-        // push subject
-        self.task.head.e.stack_push(Val::VOID);
         let argc = args.len() as i16;
         for a in args {
             // push the key too maybe?
