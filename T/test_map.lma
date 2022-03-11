@@ -4,7 +4,7 @@ import /map
 
 
 func main ->
-    let m1 := {}
+    let m1 := map.new()
     let m2 := map.set(m1, "tacos", 4)
     let cont := map.has_key(m2, "tacos")
     print("map contains tacos? $cont\n")

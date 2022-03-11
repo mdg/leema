@@ -132,7 +132,6 @@ impl Ref
         let e = stack
             .data
             .get(new_sp + Self::FUNC_INDEX)
-            .or_else(|| None)
             .and_then(|i| {
                 if let Val::FuncWithData(_, d) = &i.v {
                     Some((**d).clone())

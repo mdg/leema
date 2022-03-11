@@ -3,9 +3,18 @@ import /list
 import /map
 
 
+datatype Val
+|Integer :: Int
+|String :: Str
+|Boolean :: Bool
+|Array :: [Val]
+|Object :: <map.Map Str Val>
+|Null
+--
+
 func <encode T>:Str :: val:T ->
     let fields := *val
-    list.reduce({:}, fields, fn(obj, (k, v)) ->
+    list.reduce(map.new(), fields, fn::obj (k v) ->
         map.put(obj, k, v)
         obj(*k, to_jsonval(v))
     --)
@@ -13,15 +22,9 @@ func <encode T>:Str :: val:T ->
 
 func <decode T>:T :: input:Str ->
     let json_val := decode_val(input)
-    from_jsonval'T(val)
+    <from_jsonval T>(val)
 --
 
-func <from_jsonval T>:T :: input:Val ->
-    let field_types := *T
-    list.map(field_types, default(T), fn((k, v) ->
-        k.$k = from_jsonval'(*V)()
-    --)
---
 
 func <from_jsonval Int>:Int :: input:Val ->
     match
@@ -46,38 +49,29 @@ func <from_jsonval Bool>:Bool :: input:Val ->
 
 func <from_jsonval <Option T>>:<Option T> :: input:Val ->
     match
-    |Null(b) -> None,
-    |other -> Some(from_jsonval'T(other))
+    |Val.Null(b) -> None
+    |other -> Some(<from_jsonval T>(other))
     --
 --
 
-func <from_jsonval [T]>: :: input:Val ->
+func <from_jsonval [T]>:[T] :: input:Val ->
     match
-    |Array(items) ->
-        list.map(items, fn(i) ->
-            from_jsonval'T(i)
+    |Val.Array(items) ->
+        list.map(items, fn::i ->
+            <from_jsonval T>(i)
         --)
     |_ -> fail(#input_error, "json value is not a boolean $input")
     --
 --
 
-datatype Val
-|Integer :: Int
-|String :: Str
-|Boolean :: Bool
-|Array :: [Val]
-|Object :: {Str:Val}
-|Null
---
-
 func decode_val:Val :: input:Str -RUST-
 
-func decode_obj:{Str:Val} :: input:Str -RUST-
+func decode_obj:<map.Map Str Val> :: input:Str -RUST-
 
 func decode_arr:[Val] :: input:Str -RUST-
 
 func obj_val:Val :: v:Val name:Str ->
-    option::unwrap(map::get(object_fields(v), name))
+    option.unwrap(map.get(object_fields(v), name))
 --
 
 func obj_int:Int :: v:Val name:Str ->
@@ -88,11 +82,11 @@ func obj_str:Str :: v:Val name:Str ->
     str_val(object_val(v, name))
 --
 
-func obj_bool:Bool :: v:Val, name:Str ->
+func obj_bool:Bool :: v:Val name:Str ->
     bool_val(object_val(v, name))
 --
 
-func obj_fields:{Str:Val} :: v: Val ->
+func obj_fields:<map.Map Str Val> :: v: Val ->
     match v
     |Object(flds) >> flds
     |_ >> fail(#input_error, "json value is not an object: $v")
