@@ -986,7 +986,7 @@ impl ProtoModule
         let generic = match self.find_modelem(func.f) {
             Some(fconst) => {
                 // check if this is a locally defined function
-                fconst.typ.is_generic()
+                fconst.typ.contains_open()
             }
             None => {
                 return Err(rustfail!(
@@ -1597,7 +1597,7 @@ impl ProtoLib
             ));
         }
         let mut t = ltry!(self.func_type(f));
-        if f.is_generic() {
+        if t.contains_open() {
             // now replace the opens within the type
             t = ltry!(t.apply_typecall(&f.t));
         }
@@ -1658,7 +1658,11 @@ impl ProtoLib
             })
             .and_then(|e| {
                 if let Ast::DataMember(fld_idx) = &*e.node {
-                    let closed_type = ltry!(e.typ.apply_typecall(&t.args));
+                    if !e.typ.contains_open() {
+                        return Ok((e.typ.clone(), *fld_idx as i8));
+                    }
+                    let mut closed_type = e.typ.clone();
+                    closed_type.close_generics(&t.args);
                     Ok((closed_type, *fld_idx as i8))
                 } else {
                     Err(lfail!(

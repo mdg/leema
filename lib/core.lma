@@ -22,12 +22,6 @@ datatype FrameTraceDir
 |ReturnDown
 --
 
-datatype <ClosureImpl F E> -RUST-
-datatype <Closure CallT EnvT> ::
-    f:<ClosureImpl CallT EnvT>
-    env:EnvT
---
-
 datatype <Option T>
 |None
 |Some :: T

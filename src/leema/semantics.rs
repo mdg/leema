@@ -3330,6 +3330,32 @@ mod tests
     }
 
     #[test]
+    fn typecheck_generic_constructor()
+    {
+        let input = r#"
+        datatype <Foo T> ::
+            v:T
+            i:Int
+        --
+        func main ->
+            <Foo Str>("hello", 5)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        // main
+        let m = ModKey::from("/foo");
+        let main = Fref::with_modules(m, "main");
+        dbg!(prog.read_semantics(&main)).unwrap();
+        // constructor
+        let typemod = ModKey::from("/foo/Foo");
+        let mut cons = Fref::with_modules(typemod, "__construct");
+        cons.t = vec![StrupleItem::new(Lstr::Sref("T"), Type::STR)];
+        dbg!(prog.read_semantics(&cons)).unwrap();
+    }
+
+    #[test]
     fn typecheck_option_some()
     {
         let input = r#"

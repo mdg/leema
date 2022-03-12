@@ -129,16 +129,13 @@ impl Ref
         let new_sp = stack.data.len() - Self::BASE_STACK_SIZE - argc;
         let paramp = new_sp + Self::PARAM_INDEX;
         // if there's an env from a closure, push it onto the stack
-        let e = stack
-            .data
-            .get(new_sp + Self::FUNC_INDEX)
-            .and_then(|i| {
-                if let Val::FuncWithData(_, d) = &i.v {
-                    Some((**d).clone())
-                } else {
-                    None
-                }
-            });
+        let e = stack.data.get(new_sp + Self::FUNC_INDEX).and_then(|i| {
+            if let Val::FuncWithData(_, d) = &i.v {
+                Some((**d).clone())
+            } else {
+                None
+            }
+        });
         if let Some(env) = e {
             stack
                 .data
