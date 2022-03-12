@@ -586,8 +586,12 @@ impl ProtoModule
             loc,
         );
 
-        self.append_ast(vec![void_const, constructor_ast])?;
         self.modscope.insert(MODNAME_DATATYPE, type_node);
+        ltry!(
+            self.append_ast(vec![void_const, constructor_ast]),
+            "type": ldisplay!(construct),
+            "line": ldisplay!(loc.lineno),
+        );
         ltry!(self.add_data_fields(fields));
         Ok(())
     }
@@ -720,6 +724,10 @@ impl ProtoModule
             vec![],
             loc
         ));
+        m.modscope.insert(
+            MODNAME_DATATYPE,
+            AstNode::new(Ast::Type(union_typ.clone()), loc),
+        );
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
@@ -738,7 +746,10 @@ impl ProtoModule
                         None,
                         vec![]
                     ));
-                    var_sub.add_typed_struct(var_t, flds, loc)?;
+                    ltry!(
+                        var_sub.add_typed_struct(var_t, flds, loc),
+                        "type": ldisplay!(union_typ),
+                    );
                     struple::push_unique(&mut m.submods, var_name, var_sub)?;
                 }
             } else {
@@ -752,8 +763,6 @@ impl ProtoModule
 
         // TODO: add the __datatype and/or __modshape fields to
         // the union's module scope
-        m.modscope
-            .insert(MODNAME_DATATYPE, AstNode::new(Ast::Type(union_typ), loc));
 
         Ok(())
     }
