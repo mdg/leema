@@ -775,8 +775,9 @@ impl ProtoModule
         let sname_id = data_t.n;
         let union_typ = data_t.t.clone();
         self.imports.insert(sname_id, union_typ.path.clone());
+        self.add_type_to_scope(sname_id, &union_typ, loc);
 
-        let m = ltry!(self.add_selfmod(
+        let mut m = ltry!(self.new_selfmod(
             ModTyp::Data,
             Some(data_t.clone()),
             None,
@@ -789,7 +790,7 @@ impl ProtoModule
         );
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
-            if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
+            if let Ast::DefType(DataType::Struct, _, mut flds) = *var.v.node {
                 if flds.is_empty() {
                     let vval =
                         Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
@@ -805,6 +806,7 @@ impl ProtoModule
                         None,
                         vec![]
                     ));
+                    ltry!(self.make_fields_local(&union_typ, &mut flds));
                     ltry!(
                         var_sub.add_typed_struct(var_t, flds, loc),
                         "type": ldisplay!(union_typ),
@@ -823,6 +825,7 @@ impl ProtoModule
         // TODO: add the __datatype and/or __modshape fields to
         // the union's module scope
 
+        ltry!(self.push_selfmod(m));
         Ok(())
     }
 
@@ -844,14 +847,14 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_selfmod(
+    fn new_selfmod(
         &mut self,
         subtype: ModTyp,
         data_t: Option<ProtoType>,
         trait_t: Option<ProtoType>,
         mut funcs: Vec<AstNode>,
         loc: Loc,
-    ) -> Lresult<&mut ProtoModule>
+    ) -> Lresult<ProtoModule>
     {
         let id = data_t.as_ref().or(trait_t.as_ref()).unwrap().n;
         let subkey = self.key.submod(subtype, id)?;
@@ -873,8 +876,26 @@ impl ProtoModule
                 AstNode::new(Ast::Canonical(subkey.name.clone()), loc),
             );
         }
-        let sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
-        struple::push_unique(&mut self.submods, id, sub)?;
+        Ok(ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs)))
+    }
+
+    fn add_selfmod(
+        &mut self,
+        subtype: ModTyp,
+        data_t: Option<ProtoType>,
+        trait_t: Option<ProtoType>,
+        funcs: Vec<AstNode>,
+        loc: Loc,
+    ) -> Lresult<&mut ProtoModule>
+    {
+        let sub = ltry!(self.new_selfmod(subtype, data_t, trait_t, funcs, loc));
+        self.push_selfmod(sub)
+    }
+
+    fn push_selfmod(&mut self, sub: ProtoModule) -> Lresult<&mut ProtoModule>
+    {
+        let id = sub.data_t.as_ref().or(sub.trait_t.as_ref()).unwrap().n;
+        ltry!(struple::push_unique(&mut self.submods, id, sub));
         Ok(struple::find_mut(&mut self.submods, id).unwrap())
     }
 
@@ -1776,7 +1797,7 @@ mod tests
     fn new_proto(input: &'static str) -> ProtoModule
     {
         let key = ModKey::from("/foo");
-        ProtoModule::new(key, input).expect("ProtoModule load failure")
+        dbg!(ProtoModule::new(key, input)).expect("ProtoModule load failure")
     }
 
     #[test]
@@ -2122,6 +2143,23 @@ mod tests
             "/core/Int",
             burrito.data_t.as_ref().unwrap().t.path.as_str()
         );
+    }
+
+    #[test]
+    fn recursive_enum()
+    {
+        let input = r#"
+        datatype IntList
+        |Nil
+        |Cons :: Int IntList
+        --
+        "#;
+        let proto = new_proto(input);
+
+        assert_eq!(1, proto.imports.len());
+        let il_node = &proto.modscope["IntList"];
+        assert_eq!(Ast::Canonical(canonical!("/foo/IntList")), *il_node.node);
+        assert_eq!(Type::named("/foo/IntList"), il_node.typ);
     }
 
     #[test]
