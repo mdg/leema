@@ -262,12 +262,11 @@ class TestScripts(unittest.TestCase):
         self.assertTrue(pk < pr2)
 
     def test_map(self):
-        self.skipTest("not ready for testing yet")
         result = run_leema('test_map')
         self.assertEqual(0, result['code'])
         expected = b"map contains tacos? true\n" \
             + b"map length is 1\n" \
-            + b"map[tacos] = option::T[Int,].Some(4,)\n"
+            + b"map[tacos] = </core/Option T:/core/Int>.Some(4,)\n"
         self.assertEqual(expected, result['output'])
 
     def test_rgb(self):
