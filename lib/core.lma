@@ -79,3 +79,11 @@ func int_gteq:Bool :: a:Int b:Int ->
 macro new_struct_val :: construct field_names ->
     construct.__void(*field_names)
 --
+
+trait <From T> ::
+    func from:Self :: T --
+--
+
+trait <New T> ::
+    func new:Self :: T --
+--
