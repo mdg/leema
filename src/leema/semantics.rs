@@ -992,7 +992,9 @@ impl<'p> ScopeCheck<'p>
                     return Ok(AstStep::Rewrite);
                 }
             }
-            Ast::ConstVal(Val::Func(_fref)) => {}
+            Ast::ConstVal(Val::Func(_fref)) => {
+                // type should already be set if it's a Val::Func
+            }
             Ast::ConstVal(Val::Str(escaped)) => {
                 // escaped strings
                 if let Some(raw) = ESCAPED_STR.get(escaped.as_str()) {

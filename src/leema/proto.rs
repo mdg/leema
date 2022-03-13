@@ -42,6 +42,7 @@ use crate::leema::module::{
     ImportedMod, ModAlias, ModKey, ModRelativity, ModTyp,
 };
 use crate::leema::parser::parse_file;
+use crate::leema::reg::Reg;
 use crate::leema::struple::{self, StrupleItem, StrupleKV};
 use crate::leema::val::{Fref, Type, TypeArgSlice, TypeArgs, Val};
 
@@ -137,6 +138,14 @@ struct ProtoType
     t: Type,
 }
 
+/// First pass representation of a structure type
+#[derive(Debug)]
+pub struct ProtoStruct
+{
+    data_t: ProtoType,
+    fields: Xlist,
+}
+
 /// Asts separated into their types of components
 /// trait_t will be Some for a trait or data type
 /// data_t will be Some for a data type or impl
@@ -157,6 +166,9 @@ pub struct ProtoModule
     implementors: HashSet<Canonical>,
     /// implementations by this type for other types
     implementations: StrupleKV<Canonical, ProtoModule>,
+
+    /// struct fields
+    struct_fields: HashMap<&'static str, ProtoStruct>,
 }
 
 impl ProtoModule
@@ -188,6 +200,7 @@ impl ProtoModule
             localdef: HashSet::new(),
             implementors: HashSet::new(),
             implementations: Vec::new(),
+            struct_fields: HashMap::new(),
         };
 
         let mut exports = HashMap::new();
@@ -494,6 +507,8 @@ impl ProtoModule
                 ));
             }
             let data_t = self.make_proto_type(name)?;
+            self.add_type_to_scope(&data_t.n, &data_t.t, loc);
+            ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
             ltry!(self.make_fields_local(&data_t.t, &mut fields));
             let construct = data_t.t.clone();
             // create a module for holding the constructor
@@ -618,6 +633,50 @@ impl ProtoModule
         Ok(())
     }
 
+    /// add a type to the module's scope
+    fn add_type_to_scope(&mut self, name: &'static str, t: &Type, loc: Loc)
+    {
+        let node = AstNode {
+            node: Box::new(Ast::Canonical(t.path.clone())),
+            typ: t.clone(),
+            loc,
+            dst: Reg::Undecided,
+        };
+        self.modscope.insert(name, node);
+    }
+
+    /// add a struct and fields
+    fn add_proto_struct(
+        &mut self,
+        name: &'static str,
+        t: &Type,
+        fields: &Xlist,
+    ) -> Lresult<()>
+    {
+        let type_args = t.generic_ref().map(|tr| tr.1).unwrap_or(&[]);
+        let mut sf = Vec::with_capacity(fields.len());
+        for (i, f) in fields.iter().enumerate() {
+            let node = AstNode {
+                node: Box::new(Ast::DataMember(i as u8)),
+                typ: ltry!(self.ast_to_type(&f.v, type_args)),
+                loc: f.v.loc,
+                dst: Reg::Undecided,
+            };
+            sf.push(StrupleItem::new(f.k.clone(), node));
+        }
+        self.struct_fields.insert(
+            name,
+            ProtoStruct {
+                data_t: ProtoType {
+                    n: name,
+                    t: t.clone(),
+                },
+                fields: sf,
+            },
+        );
+        Ok(())
+    }
+
     fn add_token(&mut self, name: AstNode) -> Lresult<()>
     {
         match *name.node {
@@ -731,13 +790,13 @@ impl ProtoModule
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
             if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
-                let var_key = ltry!(m.key.submod(ModTyp::Data, var_name));
                 if flds.is_empty() {
                     let vval =
                         Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
                     let vast = AstNode::new_constval(vval, var.v.loc);
                     m.modscope.insert(var_name, vast);
                 } else {
+                    let var_key = ltry!(m.key.submod(ModTyp::Data, var_name));
                     let var_t =
                         Type::new(var_key.name.clone(), union_typ.args.clone());
                     let mut var_sub = ltry!(ProtoModule::with_ast(
@@ -807,8 +866,13 @@ impl ProtoModule
         );
         funcs.insert(0, alias);
         self.imports.insert(id, subkey.name.clone());
-        self.modscope
-            .insert(id, AstNode::new(Ast::Canonical(subkey.name.clone()), loc));
+        // only set the type if it's not already there
+        if !self.modscope.contains_key(id) {
+            self.modscope.insert(
+                id,
+                AstNode::new(Ast::Canonical(subkey.name.clone()), loc),
+            );
+        }
         let sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
         struple::push_unique(&mut self.submods, id, sub)?;
         Ok(struple::find_mut(&mut self.submods, id).unwrap())
@@ -1219,6 +1283,12 @@ impl ProtoModule
                 }
             }
             Ast::Alias(_, src) => self.ast_to_type(src, opens)?,
+            Ast::Canonical(_) => {
+                // this probably needs to be fixed, super patchy
+                let mut t = node.typ.clone();
+                t.close_generics(opens);
+                t
+            }
             invalid => {
                 return Err(rustfail!(
                     PROTOFAIL,
@@ -2052,6 +2122,23 @@ mod tests
             "/core/Int",
             burrito.data_t.as_ref().unwrap().t.path.as_str()
         );
+    }
+
+    #[test]
+    fn recursive_struct()
+    {
+        let input = r#"
+        datatype IntList ::
+            data: Int
+            next: <Option IntList>
+        --
+        "#;
+        let proto = new_proto(input);
+
+        assert_eq!(1, proto.imports.len());
+        let il_node = &proto.modscope["IntList"];
+        assert_eq!(Ast::Canonical(canonical!("/foo/IntList")), *il_node.node);
+        assert_eq!(Type::named("/foo/IntList"), il_node.typ);
     }
 
     #[test]
