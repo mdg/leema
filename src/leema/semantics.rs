@@ -845,6 +845,8 @@ impl<'p> ScopeCheck<'p>
                         }
                         // else is a regular var in scope
                     }
+                    // nothing to do, already done
+                    (Ast::Id(_), Ast::DataMember(_)) => {}
                     (Ast::Canonical(c), Ast::Id(sub)) => {
                         let me =
                             ltry!(self.lib.exported_elem(c, sub, node.loc));
@@ -1553,6 +1555,10 @@ impl<'p> TypeCheck<'p>
                     "file": self.local_mod.key.name.to_lstr(),
                     "line": ldisplay!(fld.loc.lineno),
                 ));
+            }
+            (TypeRef(Type::PATH_TUPLE, _), Ast::DataMember(_)) => {
+                // hopefully already done
+                Ok(AstStep::Ok)
             }
             (TypeRef(tname, targs), Ast::Id(f)) if targs.is_empty() => {
                 // find a field in a struct or interface or
@@ -2405,12 +2411,47 @@ impl Semantics
         let mut remove_extra = RemoveExtraCode;
         let mut resolve_pipe =
             ast2::Pipeline::new(vec![&mut remove_extra, &mut resolver]);
-        let resolved = ltry!(
-            ast2::walk(result, &mut resolve_pipe),
-            "module": modname.as_lstr().clone(),
-            "function": Lstr::Sref(f.f),
-            "type": ldebug!(ftyp),
-        );
+        let resolved = {
+            let resolved = ltry!(
+                ast2::walk(result, &mut resolve_pipe),
+                "module": modname.as_lstr().clone(),
+                "function": Lstr::Sref(f.f),
+                "type": ldebug!(ftyp),
+            );
+
+            for an in anons.iter_mut() {
+                if let Ast::DefFunc(_, _, _, ref mut body) = &mut *an.v.node {
+                    ltry!(
+                        ast2::walk_ref_mut(body, &mut resolve_pipe),
+                        "module": modname.as_lstr().clone(),
+                        "function": Lstr::Sref(f.f),
+                        "type": ldebug!(ftyp),
+                    );
+                } else {
+                    panic!("not a func: {:?}", an);
+                }
+            }
+            resolved
+        };
+
+        for an in anons.iter_mut() {
+            if let Ast::DefFunc(_name, args, result, _body) = &mut *an.v.node {
+                if let Ast::Type(rt) = &mut *result.node {
+                    ltry!(resolver.infer_local_typevar(rt));
+                    result.typ = rt.clone();
+                } else {
+                    panic!("weird result type: {:#?}", result);
+                }
+                for a in args.iter_mut() {
+                    if let Ast::Type(at) = &mut *a.v.node {
+                        ltry!(resolver.infer_local_typevar(at));
+                        result.typ = at.clone();
+                    } else {
+                        panic!("weird arg type: {:#?}", a.v);
+                    }
+                }
+            }
+        }
 
         if *ftyp.result != resolved.typ && *ftyp.result != Type::VOID {
             return Err(rustfail!(
@@ -2654,6 +2695,10 @@ mod tests
         let fref = Fref::with_modules(From::from("/foo"), "bar");
         let sem = dbg!(prog.read_semantics(&fref)).unwrap();
         println!("infers: {:#?}\n", sem.infers);
+
+        let anon = Fref::with_modules(From::from("/foo"), "anon_fn_8_29");
+        let sem_anon = dbg!(prog.read_semantics(&anon)).unwrap();
+        println!("anon infers: {:#?}\n", sem_anon.infers);
     }
 
     #[test]
