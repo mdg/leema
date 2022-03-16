@@ -42,7 +42,6 @@ const SEMFAIL: &'static str = "semantic_failure";
 const TYPEFAIL: &'static str = "type_failure";
 
 const CLOSURE_ENV: &'static str = "$env";
-const CLOSED_VAR: &'static str = "closed-var";
 
 lazy_static! {
     static ref INFIX_CANONICALS: HashMap<&'static str, Canonical> = {
@@ -207,7 +206,7 @@ impl ast2::Op for CloseVars
             Ast::Id(ref idname) if mode == AstMode::Value => {
                 if let Some(_var_idx) = self.find_var(idname) {
                     let mut closed =
-                        AstNode::new(Ast::Id(CLOSED_VAR), node.loc);
+                        AstNode::new(Ast::Id(CLOSURE_ENV), node.loc);
                     closed.typ = self.env_t.clone();
                     let mut field = AstNode::new(Ast::Id(idname), node.loc);
                     field.typ = Type::local(Lstr::Sref(idname));
@@ -272,18 +271,40 @@ impl AnonFuncDef
                     dst: Reg::Undecided,
                 };
                 let mut clos_args = Vec::with_capacity(ft.args.len() + 1);
-                clos_args.push(StrupleItem::new(Lstr::Sref(one), typ.clone()));
                 clos_args.extend_from_slice(ft.args);
+                clos_args.push(StrupleItem::new(Lstr::Sref(one), typ.clone()));
                 (one, val, typ, Type::f(ft.result.clone(), clos_args))
             }
-            _many => {
-                return Err(lfail!(
-                    failure::Mode::LeemaTodoFailure,
-                    "multivariable closures not implemented",
-                    "module": proto.key.name.as_lstr().clone(),
-                    "function": Lstr::Sref(name),
-                    "type": ldisplay!(func_type),
+            many => {
+                let mut env_t_args = Vec::with_capacity(many.len());
+                let mut env_v_args = Vec::with_capacity(many.len());
+                for i in many.iter() {
+                    let t = Type::local(Lstr::Sref(i));
+                    let v = AstNode {
+                        node: Box::new(Ast::Id(i)),
+                        typ: t.clone(),
+                        loc,
+                        dst: Reg::Undecided,
+                    };
+                    env_t_args.push(StrupleItem::new(Lstr::Sref(i), t));
+                    env_v_args.push(StrupleItem::new_v(v));
+                }
+                let env_t = Type::tuple(env_t_args);
+                let env_v = AstNode {
+                    node: Box::new(Ast::Tuple(env_v_args)),
+                    typ: env_t.clone(),
+                    loc,
+                    dst: Reg::Undecided,
+                };
+
+                let mut clos_args = Vec::with_capacity(ft.args.len() + 1);
+                clos_args.extend_from_slice(ft.args);
+                clos_args.push(StrupleItem::new(
+                    Lstr::Sref(CLOSURE_ENV),
+                    env_t.clone(),
                 ));
+                let ftyp = Type::f(ft.result.clone(), clos_args);
+                (CLOSURE_ENV, env_v, env_t, ftyp)
             }
         };
         if env_size > 1 {
@@ -357,7 +378,13 @@ impl AnonFuncDef
         let mut args = Vec::with_capacity(self.args.len() + 1);
         args.append(&mut self.args);
         if is_closure {
-            let env_node = AstNode::new(Ast::Type(self.env_t), loc);
+            let env_t = self.env_t.clone();
+            let env_node = AstNode {
+                node: Box::new(Ast::Type(self.env_t)),
+                typ: env_t,
+                loc,
+                dst: Reg::Undecided,
+            };
             args.push(StrupleItem::new(Some(self.env_name), env_node));
         }
         let body = self.body;
@@ -615,137 +642,6 @@ impl<'p> ScopeCheck<'p>
         }
 
         Ok(Type::f(result_t, arg_t))
-    }
-    /*
-        let closure_t = ltry!(self.local_mod.ast_to_ftype(result, &args, type_arg_t.as_slice()));
-        let closure_tref = ltry!(closure_t.try_func_ref());
-
-        let mut closure_scope = self.closure(&closure_tref);
-        ltry!(ast2::walk_ref_mut(body, &mut closure_scope));
-        self.anons.append(&mut closure_scope.anons);
-
-        if !closure_scope.blocks.out_of_scope().is_empty() {
-            // this is a closure, generate its type
-            /*
-            let closed_types = closure_scope.blocks.out_of_scope().iter().map(|var| {
-                self.blocks.access_var(var.0, *var.1);
-                StrupleItem::new(*var.0, *next_type_it.next().unwrap())
-            }).collect();
-            */
-        }
-
-        // name: Lstr,
-        // generics: Struple<&str, Ast::Void>,
-        // result: Type,
-        // arg types: Struple<Lstr, Ast::Type>,
-        // closed types: Struple<Lstr, Ast::Type>,
-        // body
-
-        Ok(())
-    }
-    */
-
-    /// define the anonymous function
-    /// define the anonymous function type
-    /// define and return the call or create the closure object
-    /// Closure<
-    fn pre_anon_func(
-        &mut self,
-        _result: AstNode,
-        _args: Xlist,
-        mut _body: AstNode,
-        _loc: Loc,
-    ) -> Lresult<AstNode>
-    {
-        /*
-        let name_str = "test";
-        let ftyp =
-            ltry!(self.local_mod.ast_to_ftype(&result, &args, &type_type_args));
-
-        // scope check the closure/anonymous function
-        let ftyp_ref = ftyp.func_ref().unwrap();
-        let mut closure_scope = self.closure(&ftyp_ref);
-        ltry!(ast2::walk_ref_mut(&mut body, &mut closure_scope));
-        self.anons.append(&mut closure_scope.anons);
-
-        let fref = Fref::new(self.local_mod.key.clone(), name_str, ftyp.clone());
-        let result_node: AstNode;
-
-        if !closure_scope.blocks.out_of_scope().is_empty() {
-            // this is a closure, generate its type
-            let closed_types = closure_scope.blocks.out_of_scope().iter().map(|var| {
-                self.blocks.access_var(var.0, *var.1);
-                StrupleItem::new(*var.0, *next_type_it.next().unwrap())
-            }).collect();
-
-            self.pre_closure(&args, closed_types, loc)?;
-
-            // iterate body again and replace closed vars w/ "closed-arg.<var>"
-            let mut closed_step = CloseVars::new(vars_to_close);
-            ltry!(ast2::walk_ref_mut(&mut body, &mut closed_step));
-
-            // last param of impl func is tuple of vars w/ name "closed var"
-            args.push(StrupleItem::new(
-                Some(CLOSED_VAR),
-                AstNode::new(Ast::Tuple(closed_type), loc),
-            ));
-            // create the impl function by name
-            // create closure struct w/ the impl fref and the closed tuple
-            let closure_impl_t = Type::closure(ftyp.clone(), impl_type_args);
-            let closed_type = Type::tuple(cl_type_args);
-
-            def_name_node = AstNode::void();
-            let cl_type_call = AstNode::new(
-                Ast::Generic(
-                    AstNode::new(
-                        Ast::Canonical(canonical!(Type::PATH_CLOSURE)),
-                        loc,
-                    ),
-                    vec![
-                        StrupleItem::new_v(AstNode::new(
-                            Ast::Type(closure_impl_t.clone()),
-                            loc,
-                        )),
-                        StrupleItem::new_v(AstNode::new(
-                            Ast::Type(closed_type),
-                            loc,
-                        )),
-                    ],
-                ),
-                loc,
-            )
-            .with_type(closure_impl_t.clone());
-            let cl_impl_ref =
-                Fref::new(fref.m.clone(), fref.f, closure_impl_t.clone());
-            let impl_ref_val: Lresult<Val> = From::from(&cl_impl_ref);
-            let impl_ref_ast = Ast::ConstVal(ltry!(impl_ref_val));
-            let closure_args = vec![
-                StrupleItem::new_v(AstNode::new(impl_ref_ast, loc)),
-                StrupleItem::new_v(AstNode::new(Ast::Tuple(closed_vars), loc)),
-            ];
-            result_node =
-                AstNode::new(Ast::Call(cl_type_call, closure_args), loc);
-            result.typ = closure_impl_t;
-            result_node = AstNode::void();
-        } else {
-            // this is an anoymous function w/ no closed vars
-
-            // create the static function by name
-            // return Ast::Const(Val::Call)
-
-            // take the node as a new function, leave a call in its place
-            let call: Lresult<Val> = From::from(&fref);
-            result_node = AstNode::new_constval(ltry!(call), loc);
-        }
-
-        let mut def_func_node =
-            AstNode::new(Ast::DefFunc(name, args, result, body), loc);
-        def_func_node.typ = fref.t;
-        self.localize_node(&mut def_func_node);
-        self.anons.push(StrupleItem::new(name_str, def_func_node));
-        Ok(result_node)
-        */
-        Ok(AstNode::void())
     }
 
     /// Given args and closed types, return closure type info
@@ -1208,18 +1104,24 @@ impl<'p> TypeCheck<'p>
         Ok(check)
     }
 
-    pub fn add_anon_func_args<'a, 'b, 'c>(
+    pub fn add_anon_func_args<'a, 'b>(
         &'a mut self,
-        ftyp: &'b FuncTypeRef<'c>,
+        args: &'b Xlist,
     ) -> Lresult<()>
     {
-        for arg in ftyp.args.iter() {
-            let argname = arg.k.sref()?;
+        for arg in args.iter() {
+            if arg.k.is_none() {
+                continue;
+            }
+            let argname = arg.k.unwrap();
             if self.vartypes.contains_key(argname) {
                 let old_arg = self.vartypes.get(argname).unwrap().clone();
-                ltry!(self.match_type(&arg.v, &old_arg), "ftyp": ldebug!(ftyp),);
+                ltry!(
+                    self.match_type(&arg.v.typ, &old_arg),
+                    "ftyp": ldebug!(args),
+                );
             } else {
-                let argt = ltry!(self.inferred_type(&arg.v));
+                let argt = ltry!(self.inferred_type(&arg.v.typ));
                 self.vartypes.insert(argname, argt);
             }
         }
@@ -2463,7 +2365,7 @@ impl Semantics
                     localizer.localize_type(&mut anon_t, an.v.loc);
                     let anon_ftyp = anon_t.func_ref().unwrap();
                     // is this necessary?
-                    ltry!(type_check.add_anon_func_args(&anon_ftyp));
+                    ltry!(type_check.add_anon_func_args(args));
 
                     ltry!(
                         ast2::walk_ref_mut(body, &mut type_check),
@@ -2730,6 +2632,27 @@ mod tests
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "bar");
         let sem = prog.read_semantics(&fref).unwrap();
+        println!("infers: {:#?}\n", sem.infers);
+    }
+
+    #[test]
+    fn test_compile_closure_multivar()
+    {
+        let input = r#"
+        import /list
+
+        func bar:[Str] ->
+            let items := ["a","b","c"]
+            let prefix := "pre"
+            let suffix := "post"
+            list.map(items, fn::i -> "$prefix $i $suffix" --)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::with_modules(From::from("/foo"), "bar");
+        let sem = dbg!(prog.read_semantics(&fref)).unwrap();
         println!("infers: {:#?}\n", sem.infers);
     }
 
