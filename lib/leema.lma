@@ -52,17 +52,6 @@ datatype Ast
 |Tuple :: items:[Ast] n:Node
 --
 
-datatype Loc ::
-    lineno: Int
-    column: Int
---
-
-datatype Node ::
-    n: Ast
-    t: Type
-    l: Loc
---
-
 
 ### construct a closure w/ a given env
 func <make_closure F C E>:F :: impl_f:C env:E -RUST-

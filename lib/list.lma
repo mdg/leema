@@ -41,7 +41,7 @@ func <head T>:T :: l:[T]
 |_ -> fail(#param_error, "cannot take head from empty list")
 --
 
-func <_filter T>:[T] :: acc:[T] in:[T] pred:(Bool :: T)
+func <_filter T>:[T] :: acc:[T] input:[T] pred:(Bool :: T)
 |(acc, [], _) -> reverse(acc)
 |(acc, h;t, f) ->
     let matcher := f(h)
@@ -53,7 +53,7 @@ func <_filter T>:[T] :: acc:[T] in:[T] pred:(Bool :: T)
     _filter(new_acc, t, f)
 --
 
-func <_reverse T>:[T] :: out:[T] in:[T]
+func <_reverse T>:[T] :: out:[T] input:[T]
 |(out, []) -> out
 |(out, h;t) -> _reverse(h;out, t)
 --
