@@ -15,6 +15,7 @@ datatype # -RUST-
 datatype Tuple -RUST-
 datatype Void --
 datatype NoResult --
+datatype Type -RUST-
 
 datatype FrameTraceDir
 |CallUp

@@ -1,15 +1,12 @@
 ## Copyright 2022 Matthew Graham
 
-import option
-
-
-struple StructFieldVal
-.name: option::T[Str]
-.field_type: TypeRef
+datatype StructField ::
+    name: <Option Str>
+    field_type: Type
 --
 
-struple TypeVal
-.name: Str
-.parameters: [Str]
-.fields: [StructFieldVal]
+datatype StructSpec ::
+    name: Str
+    parameters: [Type]
+    fields: [StructField]
 --

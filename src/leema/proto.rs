@@ -124,6 +124,7 @@ lazy_static! {
         ids.insert("Int", Type::INT);
         ids.insert("Option", Type::option(None));
         ids.insert("Str", Type::STR);
+        ids.insert("Type", Type::TYPE);
         ids.insert("Void", Type::VOID);
         ids.insert("#", Type::HASHTAG);
         ids

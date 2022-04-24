@@ -1451,6 +1451,7 @@ mod tests
         import ../sibling/path
         import child/path
         import child.funky
+        import /mname.TypeName
         ";
         let imps = parse_file(input).unwrap();
         println!("{:#?}", imps);
@@ -1478,7 +1479,7 @@ mod tests
         } else {
             panic!("expected import, found {:?}", imps[0]);
         }
-        assert_eq!(4, imps.len());
+        assert_eq!(5, imps.len());
     }
 
     #[test]
