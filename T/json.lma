@@ -13,19 +13,42 @@ datatype Val
 |Null
 --
 
+## Convert an input value to a json-encoded string
 func <encode T>:Str :: val:T ->
     let fields := *val
-    list.reduce(map.new(), fields, fn::obj (k v) ->
-        map.put(obj, k, v)
-        obj(*k, to_jsonval(v))
+    list.reduce(mapf.new(), fields, fn::obj kv ->
+        let (k, v) := kv
+        let o2 := map.set(obj, k, v)
+        o2(*k, to_jsonval(
     --)
 --
 
+
 func <decode T>:T :: input:Str ->
-    let json_val := decode_val(input)
-    <from_jsonval T>(val)
+    let v := decode_val(input)
+    <from_jsonval T>(v)
 --
 
+macro foreach_structfield :: t f ->
+    #let (name, t) := each structfields(t)
+    #for (name, t) in structfields
+    name: decode_val(obj_val(v, name)),
+--
+
+macro set_json_struct_field :: (name t) ->
+    name: decode_val(obj_val(v, name)),
+--
+
+func <from_jsonval T>:T :: v:Val ->
+    T(
+        #for (name, t) in structfields(T) ->
+            name: <from_val T>(obj_val(v, name)),
+        --
+        #foreach_structfield(T, fn::name t ->
+            name: <from_jsonval T1>(obj_val(v, name))
+        --)
+    )
+--
 
 func <from_jsonval Int>:Int :: input:Val ->
     match
@@ -67,9 +90,8 @@ func <from_jsonval [T]>:[T] :: input:Val ->
 
 func decode_val:Val :: input:Str -RUST-
 
-func decode_obj:<map.Map Str Val> :: input:Str -RUST-
 
-func decode_arr:[Val] :: input:Str -RUST-
+
 
 func obj_val:Val :: v:Val name:Str ->
     option.unwrap(map.get(object_fields(v), name))
