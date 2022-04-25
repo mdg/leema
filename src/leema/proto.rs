@@ -133,18 +133,19 @@ lazy_static! {
 
 #[derive(Clone)]
 #[derive(Debug)]
-struct ProtoType
+pub struct ProtoType
 {
     n: &'static str,
     t: Type,
 }
 
 /// First pass representation of a structure type
+#[derive(Clone)]
 #[derive(Debug)]
 pub struct ProtoStruct
 {
-    data_t: ProtoType,
-    fields: Xlist,
+    pub data_t: ProtoType,
+    pub fields: Xlist,
 }
 
 /// Asts separated into their types of components
@@ -174,6 +175,9 @@ pub struct ProtoModule
 
 impl ProtoModule
 {
+    /// SelfType
+    pub const SELF_TYPE: &'static str = "Self";
+
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
         let items = parse_file(src)?;
@@ -509,7 +513,7 @@ impl ProtoModule
             }
             let data_t = self.make_proto_type(name)?;
             self.add_type_to_scope(&data_t.n, &data_t.t, loc);
-            ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
+            let ps = ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
             ltry!(self.make_fields_local(&data_t.t, &mut fields));
             let construct = data_t.t.clone();
             // create a module for holding the constructor
@@ -520,6 +524,7 @@ impl ProtoModule
                 vec![],
                 loc,
             ));
+            subp.struct_fields.insert("Self", ps);
             subp.add_typed_struct(construct, fields, loc)
         }
     }
@@ -652,7 +657,7 @@ impl ProtoModule
         name: &'static str,
         t: &Type,
         fields: &Xlist,
-    ) -> Lresult<()>
+    ) -> Lresult<ProtoStruct>
     {
         let type_args = t.generic_ref().map(|tr| tr.1).unwrap_or(&[]);
         let mut sf = Vec::with_capacity(fields.len());
@@ -665,17 +670,15 @@ impl ProtoModule
             };
             sf.push(StrupleItem::new(f.k.clone(), node));
         }
-        self.struct_fields.insert(
-            name,
-            ProtoStruct {
-                data_t: ProtoType {
-                    n: name,
-                    t: t.clone(),
-                },
-                fields: sf,
+        let ps = ProtoStruct {
+            data_t: ProtoType {
+                n: name,
+                t: t.clone(),
             },
-        );
-        Ok(())
+            fields: sf,
+        };
+        self.struct_fields.insert(name, ps.clone());
+        Ok(ps)
     }
 
     fn add_token(&mut self, name: AstNode) -> Lresult<()>
@@ -1100,7 +1103,7 @@ impl ProtoModule
         };
         src.ok_or_else(|| {
             lfail!(
-                failure::Mode::ScopeFailure,
+                failure::Mode::Scope,
                 "no function source",
                 "function": ldisplay!(func),
             )
@@ -1168,6 +1171,25 @@ impl ProtoModule
                 }
             })
             .or_else(|| BUILTIN_TYPES.get(name))
+    }
+
+    /// Find a type or report an error
+    pub fn get_type(&self, name: &'static str) -> Lresult<&Type>
+    {
+        self.find_type(name).ok_or_else(|| {
+            lfail!(
+                failure::Mode::Scope,
+                "cannot find type",
+                "module": self.key.name.to_lstr(),
+                "type": Lstr::Sref(name),
+            )
+        })
+    }
+
+    /// Find the protostruct object for a given struct
+    pub fn find_protostruct(&self, name: &str) -> Option<&ProtoStruct>
+    {
+        self.struct_fields.get(name)
     }
 
     pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&Canonical>
@@ -1679,7 +1701,7 @@ impl ProtoLib
         let proto = ltry!(self.path_proto(&f.m.name));
         proto.find_type(f.f).map(|t| t.clone()).ok_or_else(|| {
             lfail!(
-                failure::Mode::StaticLeemaFailure,
+                failure::Mode::Scope,
                 "function type not found",
                 "func": ldebug!(f),
             )

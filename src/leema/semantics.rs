@@ -687,6 +687,64 @@ impl<'p> ScopeCheck<'p>
         Ok(())
     }
 
+    fn replace_structfields(&mut self, tnode: &mut AstNode) -> Lresult<Xlist>
+    {
+        // update tnode to get real, scoped type before proceeding
+        ltry!(ast2::walk_ref_mut(tnode, self));
+        match &*tnode.node {
+            Ast::Id(tname) => {
+                let t = ltry!(self.local_mod.get_type(tname));
+                let tmod = ltry!(self.lib.path_proto(&t.path));
+                tmod.find_protostruct(ProtoModule::SELF_TYPE)
+                    .map(|p| p.fields.clone())
+                    .ok_or_else(|| {
+                        lfail!(
+                            failure::Mode::Scope,
+                            "cannot find ProtoStruct",
+                            "type": t.path.to_lstr(),
+                        )
+                    })
+            }
+            Ast::Canonical(tname) => {
+                let tmod = ltry!(self.lib.path_proto(tname));
+                tmod.find_protostruct(ProtoModule::SELF_TYPE)
+                    .map(|p| p.fields.clone())
+                    .ok_or_else(|| {
+                        lfail!(
+                            failure::Mode::Scope,
+                            "cannot find ProtoStruct",
+                            "type": tname.to_lstr(),
+                        )
+                    })
+            }
+            what => {
+                Err(lfail!(
+                    failure::Mode::CompileFailure,
+                    "expected id",
+                    "found": ldebug!(what),
+                    "loc": ldebug!(tnode.loc),
+                ))
+            }
+        }
+    }
+
+    fn apply_builtin_macro(&mut self, name: &Lstr, args: &mut Xlist) -> Lresult<AstNode>
+    {
+        match (name.as_str(), args.as_mut_slice()) {
+            ("#structfields", &mut [ref mut typename]) => {
+                ltry!(self.replace_structfields(&mut typename.v));
+                Ok(AstNode::void())
+            }
+            _ => {
+                Err(lfail!(
+                    failure::Mode::Scope,
+                    "unknown builtin macro",
+                    "macro": name.clone(),
+                ))
+            }
+        }
+    }
+
     fn pre_scope(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         let loc = node.loc;
@@ -754,7 +812,7 @@ impl<'p> ScopeCheck<'p>
                     self.blocks.access_var(id, node.loc.lineno as i16);
                 }
             }
-            Ast::Call(callx, args) => {
+            Ast::Call(callx, ref mut args) => {
                 // go depth first on the call expression to find any macros
                 // alternatively, maybe apply macros in post?
                 ltry!(ast2::walk_ref_mut(callx, self));
@@ -762,6 +820,13 @@ impl<'p> ScopeCheck<'p>
                     mac @ Ast::DefMacro(_, _, _) => {
                         // should this happen in post?
                         *node = Self::apply_macro(mac, node.loc, args)?;
+                        return Ok(AstStep::Rewrite);
+                    }
+                    // builtin macros
+                    // would be nice to have a better way to handle this
+                    Ast::ConstVal(Val::Hashtag(tag)) => {
+                        let result = ltry!(self.apply_builtin_macro(tag, args));
+                        *node = result;
                         return Ok(AstStep::Rewrite);
                     }
                     _other => {} // do nothing
@@ -2317,7 +2382,7 @@ impl Semantics
             );
             if !scope_check.blocks.out_of_scope().is_empty() {
                 return Err(lfail!(
-                    failure::Mode::ScopeFailure,
+                    failure::Mode::Scope,
                     "undefined variables",
                     "module": modname.as_lstr().clone(),
                     "function": Lstr::Sref(f.f),
@@ -2672,7 +2737,7 @@ mod tests
 
         let mut prog = core_program(&[("/foo", input)]);
         let fref = Fref::with_modules(From::from("/foo"), "bar");
-        let sem = prog.read_semantics(&fref).unwrap();
+        let sem = dbg!(prog.read_semantics(&fref)).unwrap();
         println!("infers: {:#?}\n", sem.infers);
     }
 
@@ -3297,6 +3362,27 @@ mod tests
         let err = prog.read_semantics(&fref);
         assert_matches!(err, Err(_));
         err.unwrap_err();
+    }
+
+    #[test]
+    fn test_type_fields()
+    {
+        let input = r#"
+        import /types.StructField
+
+        datatype Taco ::
+            count: Int
+            filling: Str
+        --
+        func what:[StructField] ->
+            #structfields(Taco)
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let fref = Fref::from(("/foo", "what"));
+        dbg!(prog.read_semantics(&fref)).unwrap();
     }
 
     #[test]

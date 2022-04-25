@@ -22,7 +22,7 @@ func <encode T>:Str :: val:T ->
 
 func <decode T>:T :: input:Str ->
     let v := decode_val(input)
-    <from_jsonval T>(struct_fields(T), v)
+    <from_jsonval T>(#structfields(T), v)
 --
 
 ## func <from_jsonval T>:T :: v:Val ->

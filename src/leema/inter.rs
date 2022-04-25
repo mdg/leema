@@ -108,7 +108,7 @@ impl Blockstack
     {
         if self.not_in_scope.contains_key(id) {
             return Err(lfail!(
-                failure::Mode::ScopeFailure,
+                failure::Mode::Scope,
                 "cannot re-assign variable",
                 "variable": ldisplay!(id),
             ));
@@ -131,7 +131,7 @@ impl Blockstack
             var_data.num_reassignments += 1;
             return self.var_in_scope(id).ok_or_else(|| {
                 lfail!(
-                    failure::Mode::ScopeFailure,
+                    failure::Mode::Scope,
                     "var not in scope",
                     "var": Lstr::Sref(id),
                 )

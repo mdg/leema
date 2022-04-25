@@ -140,14 +140,21 @@ pub enum Mode
     NotFound,
     // programmer-user errors
     ParseFailure,
+    /// rename Semantic
     CompileFailure,
-    ScopeFailure,
+    Scope,
     TypeFailure,
+    /// rename to Logic
     CodeFailure,
+
     // dynamic user-space execution errors
+    /// File, network or other IO based failure
     Io,
+    /// Ran out of time before completion
     Timeout,
+    /// Found too many of something
     Overflow,
+    /// Tried to get something that wasn't there
     Underflow,
     // internal leema errors
     StaticLeemaFailure,
@@ -169,7 +176,7 @@ impl Mode
             Mode::Timeout => 5,
             Mode::ParseFailure => 6,
             Mode::CompileFailure => 7,
-            Mode::ScopeFailure => 9,
+            Mode::Scope => 9,
             Mode::TypeFailure => 10,
             Mode::CodeFailure => 11,
             Mode::Overflow => 12,
@@ -194,7 +201,7 @@ impl Mode
             // programmer-user errors
             Mode::ParseFailure => "parse_failure",
             Mode::CompileFailure => "compile_failure",
-            Mode::ScopeFailure => "scope_failure",
+            Mode::Scope => "scope_failure",
             Mode::TypeFailure => "type_failure",
             Mode::CodeFailure => "code_failure",
             // runtime user-space errors
