@@ -880,6 +880,7 @@ impl ProtoModule
                 AstNode::new(Ast::Canonical(subkey.name.clone()), loc),
             );
         }
+        // TODO: should copy the parent scope in here
         Ok(ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs)))
     }
 
@@ -1863,6 +1864,48 @@ mod tests
         );
 
         // first is exported by default
+        assert_eq!(0, proto.localdef.len());
+        // function definitions do not create new modules
+        assert_eq!(0, proto.submods.len());
+    }
+
+    #[test]
+    fn func_inner_generic()
+    {
+        let input = r#"
+        func <unwrap_1 T>:T :: a:<Option T>
+        |Some(x) -> x
+        |None -> fail
+        --
+        "#;
+
+        let proto = new_proto(input);
+        let t_str = Lstr::Sref("T");
+        let tvt = Type::open(t_str.clone());
+        let opt_t = Type::t(Type::PATH_OPTION, vec![
+            StrupleItem::new(t_str.clone(), tvt.clone()),
+        ]);
+
+        assert_eq!(1, proto.modscope.len());
+        assert!(proto.modscope.contains_key("unwrap_1"));
+        assert_eq!(
+            Type::generic_f(
+                vec![StrupleItem::new(
+                    t_str.clone(),
+                    tvt.clone(),
+                )],
+                tvt.clone(),
+                vec![
+                    StrupleItem::new(
+                        Lstr::Sref("a"),
+                        opt_t,
+                    ),
+                ],
+            ),
+            proto.modscope.get("unwrap_1").unwrap().typ,
+        );
+
+        // unwrap_1 is exported by default
         assert_eq!(0, proto.localdef.len());
         // function definitions do not create new modules
         assert_eq!(0, proto.submods.len());
