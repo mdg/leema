@@ -1,0 +1,41 @@
+## Copyright 2022 Matthew Graham
+
+protocol <Dessert T> ::
+
+    func deserialize:T :: input:Self --
+
+    func serialize: :: input:T --
+
+--
+
+impl Dessert<Json> ->
+--
+
+interface Decoder ::
+    func <decode T>:T :: input:Self --
+    func <decode Int>:Int :: input:Self --
+    func <decode_field T>:T :: input:Self field:Str --
+    func decode_int:Int :: input:Self field:Str --
+    func decode_str:Str :: input:Self field:Str --
+    func decode_bool:Bool :: input:Self field:Str --
+    func decode_obj:Bool :: input:Self field:Str --
+    func <decode_list T> :: input:Self field:Str --
+    func <decode_list T> :: input:Self field:Str --
+--
+
+interface Format ::
+    func <deserialize T>:T :: input:Self --
+    func <serialize T> :: input:T --
+--
+
+interface Value ->
+    func
+--
+
+datatype JsonDessert ::
+--
+
+impl Format for JsonDessert ::
+    func <deserialize T>:T :: input:Self ->
+    --
+--
