@@ -8,98 +8,65 @@ datatype Val
 |Integer :: Int
 |String :: Str
 |Boolean :: Bool
-|Array :: [Str:Val]
+|Array :: [Val]
 |Object :: <map.Map Str Val>
 |Null
 --
 
-trait JsonCoding ::
-    func dencode :: self j:Dencoder --
+## impl JsonCoding with Tacos ::
+##     func json_encode:Val :: self ->
+##         Val/Obj.from [
+##             qty: self.qty.json_encode(),
+##             filling: self.filling.json_encode(),
+##         ]
+##     --
+##
+##     func json_decode:Self :: v:Val
+##     |Val/Obj(items) ->
+##         Tacos.new(
+##             items.qty
+##             items.filling
+##         )
+##     --
+## --
+
+## Convert an input value to a json-encoded string
+func <encode T>:Str :: val:T ->
+    let v := JsonCoding.encode(val)
+    encode_val(v)
 --
 
-trait JsonCoding with Encoder ::
-    func dencode_int :: self i:Int ->
-        self.result = Val.Integer(i)
+func <decode T>:T :: input:Str ->
+    let v := decode_val(input)
+    <JsonCoding.deode T>(v)
+--
+
+trait JsonCoding ::
+    func encode:Val :: self --
+    func decode:Self :: Val --
+--
+
+
+
+impl jsonCoding with <Option T> ::
+    func encode:Val :: self
+    |Some(inner) -> JsonCoding.encode(inner)
+    |None -> Val.Null
     --
 
-    func dencode_obj_int :: self name:Str i:Int ->
-        let result := match self
-        |Val.Object(items) -> Val.Object((name, i);items)
-        |_ -> fail!("expected object, found $self")
-        --
-        result;self
-
-        if failed
-        |#whatever;result ->
-        --
+    func decode:<Option U> :: Val
+    |Val.Null -> None
+    |other -> Some(JsonCoding.decode(other))
     --
 --
 
 impl JsonCoding with Int ::
-    func dencode :: self j:Dencoder ->
-        j.dencode_int(self)
-    --
-
     func encode:Val :: self ->
         Val.Integer(self)
     --
 
     func decode:Self :: v:Val
     |Val/Integer(i) -> i
-    --
---
-
-impl JsonCoding with Tacos ::
-    func json_encode:Val :: self ->
-        Val/Obj.from [
-            qty: self.qty.json_encode(),
-            filling: self.filling.json_encode(),
-        ]
-    --
-
-    func json_decode:Self :: v:Val
-    |Val/Obj(items) ->
-        Tacos.new(
-            items.qty
-            items.filling
-        )
-    --
---
-
-## Convert an input value to a json-encoded string
-func <encode T>:Str :: val:T ->
-    let v := to_jsonval(val)
-    encode_val(v)
---
-
-func <decode T>:T :: input:Str ->
-    let v := decode_val(input)
-    <from_jsonval T>(v)
---
-
-func <from_jsonval T>:T :: v:Val ->
-    let flds := obj_fields(v)
-    set_jsonobj_fields(T.__void, flds)
---
-
-func <from_jsonval Int>:Int :: input:Val ->
-    match
-    |Integer(i) -> i
-    |_ -> fail(#input_error, "json value is not an integer: $input")
-    --
---
-
-func <from_jsonval Str>:Str :: input:Val ->
-    match
-    |String(s) -> s
-    |_ -> fail(#input_error, "json value is not a string: $input")
-    --
---
-
-func <from_jsonval Bool>:Bool :: input:Val ->
-    match
-    |Boolean(b) -> b
-    |_ -> fail(#input_error, "json value is not a boolean $input")
     --
 --
 
@@ -119,8 +86,6 @@ func <from_jsonval Bool>:Bool :: input:Val ->
 ##     |_ -> fail(#input_error, "json value is not a boolean $input")
 ##     --
 ## --
-
-
 
 
 func obj_val:Val :: v:Val name:Str ->

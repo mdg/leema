@@ -1,7 +1,7 @@
 
 import /json
 import /map
-import /io.print
+import /io
 
 
 datatype Item ::
@@ -18,25 +18,25 @@ func test_decode ->
     let s := <json.decode Str>("\"coded  '\"")
     let i := <json.decode Int>("9")
     let b := <json.decode Bool>("true")
-    println("$s $i or $b")
+    io.println("$s $i or $b")
 --
 
 func test_decode_val ->
     let ju := json.decode_val("{\"id\": 8, \"name\": \"Gerald\"}")
     let u := user_from_json(ju)
-    println("$u")
+    io.println("$u")
 --
 
 func test_encode ->
-    println(json.encode(6))
-    println(json.encode(False))
-    println(json.encode("hello"))
-    println(json.encode(#world))
-    println(json.encode(["a", "b"]))
+    io.println(json.encode(6))
+    io.println(json.encode(False))
+    io.println(json.encode("hello"))
+    io.println(json.encode(#world))
+    io.println(json.encode(["a", "b"]))
     ## let m := map.set({}, "x", 4)
     ## print(json.encode(m) \n)
     let u := User(4, "Javier")
-    println(json.encode(u))
+    io.println(json.encode(u))
 --
 
 func main ->
