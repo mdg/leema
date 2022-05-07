@@ -180,7 +180,7 @@ impl ProtoModule
 
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
-        let items = parse_file(src)?;
+        let items = ltry!(parse_file(src));
         Self::with_ast(key, None, None, items)
     }
 
@@ -794,7 +794,7 @@ impl ProtoModule
         );
         for var in variants.into_iter() {
             let var_name = var.k.unwrap();
-            if let Ast::DefType(DataType::Struct, _, mut flds) = *var.v.node {
+            if let Ast::DefType(DataType::Struct, _, flds) = *var.v.node {
                 if flds.is_empty() {
                     let vval =
                         Val::EnumToken(union_typ.clone(), Lstr::Sref(var_name));
@@ -810,7 +810,7 @@ impl ProtoModule
                         None,
                         vec![]
                     ));
-                    ltry!(self.make_fields_local(&union_typ, &mut flds));
+                    var_sub.copy_modscope(&m.modscope);
                     ltry!(
                         var_sub.add_typed_struct(var_t, flds, loc),
                         "type": ldisplay!(union_typ),
@@ -880,8 +880,22 @@ impl ProtoModule
                 AstNode::new(Ast::Canonical(subkey.name.clone()), loc),
             );
         }
-        // TODO: should copy the parent scope in here
-        Ok(ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs)))
+        // copy the modscope from the parent module
+        // everything previously defined should be added
+        let mut sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
+        sub.copy_modscope(&self.modscope);
+        Ok(sub)
+    }
+
+    fn copy_modscope(&mut self, src: &HashMap<&'static str, AstNode>)
+    {
+        for s in src.iter() {
+            if !self.modscope.contains_key(&*s.0) {
+                self.modscope.insert(s.0, s.1.clone());
+            } else {
+                eprintln!("skip scope item: {}", s.0);
+            }
+        }
     }
 
     fn add_selfmod(
@@ -1236,6 +1250,7 @@ impl ProtoModule
                         failure::Mode::TypeFailure,
                         "undefined type",
                         "type": Lstr::Sref(id),
+                        "opens": ldebug!(opens),
                     ));
                 }
             }
@@ -1351,7 +1366,10 @@ impl ProtoModule
         opens: TypeArgs,
     ) -> Lresult<Type>
     {
-        let arg_types = ltry!(self.xlist_to_types(args, &opens));
+        let arg_types = ltry!(
+            self.xlist_to_types(args, &opens),
+            "opens": ldebug!(opens),
+        );
         let result_type = ltry!(self.ast_to_type(&result, &opens));
         if opens.is_empty() {
             Ok(Type::f(result_type, arg_types))
