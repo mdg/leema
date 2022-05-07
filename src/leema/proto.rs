@@ -484,7 +484,7 @@ impl ProtoModule
         Ok(())
     }
 
-    fn add_struct(&mut self, name: AstNode, mut fields: Xlist) -> Lresult<()>
+    fn add_struct(&mut self, name: AstNode, fields: Xlist) -> Lresult<()>
     {
         let loc = name.loc;
         if self.trait_t.is_some() {
@@ -498,7 +498,6 @@ impl ProtoModule
                 ));
             }
             let construct = self.trait_t.as_ref().unwrap().t.clone();
-            ltry!(self.make_fields_local(&construct, &mut fields));
             // this is a struct for a trait, set its data_t now
             self.data_t = self.trait_t.clone();
             self.add_typed_struct(construct, fields, loc)
@@ -514,7 +513,6 @@ impl ProtoModule
             let data_t = self.make_proto_type(name)?;
             self.add_type_to_scope(&data_t.n, &data_t.t, loc);
             let ps = ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
-            ltry!(self.make_fields_local(&data_t.t, &mut fields));
             let construct = data_t.t.clone();
             // create a module for holding the constructor
             let subp = ltry!(self.add_selfmod(
@@ -527,20 +525,6 @@ impl ProtoModule
             subp.struct_fields.insert("Self", ps);
             subp.add_typed_struct(construct, fields, loc)
         }
-    }
-
-    fn make_fields_local(&self, t: &Type, fields: &mut Xlist) -> Lresult<()>
-    {
-        let opens = if let Some(gen_t) = t.generic_ref() {
-            gen_t.1
-        } else {
-            &[]
-        };
-        for f in fields.iter_mut() {
-            let t = ltry!(self.ast_to_type(&f.v, opens));
-            *f.v.node = Ast::Type(t);
-        }
-        Ok(())
     }
 
     fn add_typed_struct(
