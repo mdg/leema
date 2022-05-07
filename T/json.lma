@@ -8,30 +8,79 @@ datatype Val
 |Integer :: Int
 |String :: Str
 |Boolean :: Bool
-|Array :: [Val]
+|Array :: [Str:Val]
 |Object :: <map.Map Str Val>
 |Null
 --
 
+trait JsonCoding ::
+    func dencode :: self j:Dencoder --
+--
+
+trait JsonCoding with Encoder ::
+    func dencode_int :: self i:Int ->
+        self.result = Val.Integer(i)
+    --
+
+    func dencode_obj_int :: self name:Str i:Int ->
+        let result := match self
+        |Val.Object(items) -> Val.Object((name, i);items)
+        |_ -> fail!("expected object, found $self")
+        --
+        result;self
+
+        if failed
+        |#whatever;result ->
+        --
+    --
+--
+
+impl JsonCoding with Int ::
+    func dencode :: self j:Dencoder ->
+        j.dencode_int(self)
+    --
+
+    func encode:Val :: self ->
+        Val.Integer(self)
+    --
+
+    func decode:Self :: v:Val
+    |Val/Integer(i) -> i
+    --
+--
+
+impl JsonCoding with Tacos ::
+    func json_encode:Val :: self ->
+        Val/Obj.from [
+            qty: self.qty.json_encode(),
+            filling: self.filling.json_encode(),
+        ]
+    --
+
+    func json_decode:Self :: v:Val
+    |Val/Obj(items) ->
+        Tacos.new(
+            items.qty
+            items.filling
+        )
+    --
+--
+
 ## Convert an input value to a json-encoded string
 func <encode T>:Str :: val:T ->
-    let v := <Val.from T>(val)
+    let v := to_jsonval(val)
     encode_val(v)
 --
 
-
 func <decode T>:T :: input:Str ->
     let v := decode_val(input)
-    <from_jsonval T>(#structfields(T), v)
+    <from_jsonval T>(v)
 --
 
-## func <from_jsonval T>:T :: v:Val ->
-##     T(
-##         #foreach_structfield(T, fn::name t ->
-##             name: <from_jsonval T1>(obj_val(v, name))
-##         --)
-##     )
-## --
+func <from_jsonval T>:T :: v:Val ->
+    let flds := obj_fields(v)
+    set_jsonobj_fields(T.__void, flds)
+--
 
 func <from_jsonval Int>:Int :: input:Val ->
     match
@@ -54,22 +103,22 @@ func <from_jsonval Bool>:Bool :: input:Val ->
     --
 --
 
-func <from_jsonval <Option T>>:<Option T> :: input:Val ->
-    match
-    |Val.Null -> None
-    |other -> Some(<from_jsonval T>(other))
-    --
---
+## func <from_jsonval U>:<Option U> :: input:Val ->
+##     match
+##     |Val.Null -> None
+##     |other -> Some(<from_jsonval T>(other))
+##     --
+## --
 
-func <from_jsonval [T]>:[T] :: input:Val ->
-    match
-    |Val.Array(items) ->
-        list.map(items, fn::i ->
-            <from_jsonval T>(i)
-        --)
-    |_ -> fail(#input_error, "json value is not a boolean $input")
-    --
---
+## func <from_jsonval [T]>:[T] :: input:Val ->
+##     match
+##     |Val.Array(items) ->
+##         list.map(items, fn::i ->
+##             <from_jsonval T>(i)
+##         --)
+##     |_ -> fail(#input_error, "json value is not a boolean $input")
+##     --
+## --
 
 
 
@@ -120,3 +169,9 @@ func str_val:Str :: v:Val ->
 
 func encode_val:Str :: v:Val -RUST-
 func decode_val:Val :: input:Str -RUST-
+
+func <to_jsonval T>:Val :: input:T -RUST-
+func <from_jsonval T>:T :: input:Val -RUST-
+
+func <get_jsonobj_fields T>:<map.Map Str Val> :: input:T -RUST-
+func <set_jsonobj_fields T>:T :: initial:T fields:<map.Map Str Val> -RUST-
