@@ -944,6 +944,35 @@ impl ProtoModule
         Ok(())
     }
 
+    fn collect_opens(
+        &self,
+        opens: &mut TypeArgs,
+        arg: &StrupleItem<Option<&'static str>, AstNode>,
+    ) -> Lresult<()>
+    {
+        let var = if let Some(v) = &arg.k {
+            Some(v)
+        } else {
+            match &*arg.v.node {
+                Ast::Id(v) => Some(v),
+                Ast::Generic(_base, args) => {
+                    for a in args.iter() {
+                        ltry!(self.collect_opens(opens, &a));
+                    }
+                    None
+                }
+                what => {
+                    panic!("really? {:#?}", what);
+                }
+            }
+        };
+        if let Some(k) = var {
+            let key = Lstr::Sref(k);
+            opens.push(StrupleItem::new(key.clone(), Type::open(key)));
+        }
+        Ok(())
+    }
+
     fn make_func_type(
         &self,
         name: AstNode,
@@ -962,6 +991,7 @@ impl ProtoModule
                     .iter()
                     .enumerate()
                     .map(|(i, a)| {
+                        let t = ltry!(self.collect_opens(&mut opens2, &a));
                         let var = if let Some(v) = a.k {
                             Lstr::Sref(v)
                         } else if let Ast::Id(v) = *a.v.node {
@@ -1309,10 +1339,10 @@ impl ProtoModule
                         match self.imports.get(m) {
                             Some(canonical) => Type::from(canonical.join(id)?),
                             None => {
-                                return Err(rustfail!(
-                                    PROTOFAIL,
-                                    "unknown module {}",
-                                    m,
+                                return Err(lfail!(
+                                    failure::Mode::CompileFailure,
+                                    "unknown module",
+                                    "module": Lstr::Sref(m),
                                 ));
                             }
                         }
@@ -1907,7 +1937,7 @@ mod tests
             proto.modscope.get("unwrap_1").unwrap().typ,
         );
 
-        // unwrap_1 is exported by default
+        // first is exported by default
         assert_eq!(0, proto.localdef.len());
         // function definitions do not create new modules
         assert_eq!(0, proto.submods.len());

@@ -1314,6 +1314,25 @@ mod tests
     }
 
     #[test]
+    #[ignore]
+    fn for_loop_macro()
+    {
+        let input = r#"#for x in struct_fields ->
+            x: x
+        --"#;
+        let actual = parse(Rule::for_macro, input).unwrap();
+        println!("{:#?}", actual);
+        if let Ast::Let(patt, typ, rhs) = &*actual[0].node {
+            assert_eq!(Ast::Id("x"), *patt.node);
+            assert_eq!(Ast::NOTOKEN, *typ.node);
+            assert_eq!(Ast::ConstVal(Val::Int(5)), *rhs.node);
+        } else {
+            panic!("expected Let, found {:?}", actual[0]);
+        }
+        assert_eq!(1, actual.len());
+    }
+
+    #[test]
     fn generic_expr()
     {
         parses_to!(

@@ -3365,6 +3365,7 @@ mod tests
     }
 
     #[test]
+    #[ignore = "not ready yet"]
     fn test_type_fields()
     {
         let input = r#"
