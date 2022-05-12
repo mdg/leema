@@ -465,7 +465,10 @@ impl ProtoModule
 
         let opens = self.type_args();
         let (name_id, ftyp) =
-            ltry!(self.make_func_type(name, &args, result, opens.clone()));
+            ltry!(
+                self.make_func_type(name.clone(), &args, result, opens.clone()),
+                "name": ldebug!(&*name.node),
+            );
 
         let f_typeargs = {
             let funcref = ltry!(ftyp.try_func_ref());
@@ -794,7 +797,7 @@ impl ProtoModule
                         None,
                         vec![]
                     ));
-                    var_sub.copy_modscope(&m.modscope);
+                    var_sub.copy_modscope(&m);
                     ltry!(
                         var_sub.add_typed_struct(var_t, flds, loc),
                         "type": ldisplay!(union_typ),
@@ -867,13 +870,16 @@ impl ProtoModule
         // copy the modscope from the parent module
         // everything previously defined should be added
         let mut sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
-        sub.copy_modscope(&self.modscope);
+        sub.copy_modscope(&self);
         Ok(sub)
     }
 
-    fn copy_modscope(&mut self, src: &HashMap<&'static str, AstNode>)
+    fn copy_modscope(&mut self, src: &ProtoModule)
     {
-        for s in src.iter() {
+        for i in src.imports.iter() {
+            self.imports.insert(i.0, i.1.clone());
+        }
+        for s in src.modscope.iter() {
             if !self.modscope.contains_key(&*s.0) {
                 self.modscope.insert(s.0, s.1.clone());
             } else {
