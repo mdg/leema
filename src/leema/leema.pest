@@ -101,11 +101,18 @@ id = @{
     | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )*)
     | "#"
 }
-def_id = _{ gen_type | id }
+// base has to be typex for module references like foo.T
+typed_id = {
+    "<" ~ as0 ~ typex
+    ~ (as1 ~ txlist)?
+    ~ (as0 ~ "::" ~ as0 ~ txlist)?
+    ~ as0 ~ ">"
+}
+def_id = _{ typed_id | id }
 
 hashtag = @{ "#" ~ id }
 
-term = _{ hashtag | id | number | str | tuple | list | gen_type | canonical }
+term = _{ hashtag | def_id | number | str | tuple | list | canonical }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
@@ -156,14 +163,12 @@ compound_expr = _{
 
 list_type = { "[" ~ typex ~ "]" }
 tuple_type = { "(" ~ txlist? ~ ")" }
-gen_type = { "<" ~ typex ~ as1 ~ txlist ~ ">" }
 
 type_term = _{
     "(" ~ type_func ~ ")"
     | tuple_type
     | list_type
-    | gen_type
-    | id
+    | def_id
 }
 
 type_func = {

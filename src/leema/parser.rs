@@ -401,7 +401,7 @@ impl LeemaPrec
                     .collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
-            Rule::gen_type => {
+            Rule::typed_id => {
                 let mut inner = n.into_inner();
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
                 let args = self.parse_xlist(Mode::Type, inner)?;
@@ -1341,7 +1341,7 @@ mod tests
             rule: Rule::expr,
             tokens: [
                 expr(0, 7, [
-                    gen_type(0, 7, [
+                    typed_id(0, 7, [
                         typex(1, 4, [id(1, 4)]),
                         tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])]),
                     ])
@@ -1359,7 +1359,7 @@ mod tests
             rule: Rule::typex,
             tokens: [
                 typex(0, 7, [
-                    gen_type(0, 7, [
+                    typed_id(0, 7, [
                         typex(1, 4, [id(1, 4)]),
                         tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])]),
                     ])
