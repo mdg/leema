@@ -1271,6 +1271,7 @@ impl ProtoModule
                     return Err(lfail!(
                         failure::Mode::TypeFailure,
                         "undefined type",
+                        "module": self.key.name.to_lstr(),
                         "type": Lstr::Sref(id),
                         "opens": ldebug!(opens),
                     ));
@@ -1344,8 +1345,17 @@ impl ProtoModule
             Ast::Op2(".", module_node, id_node) => {
                 match (&*module_node.node, &*id_node.node) {
                     (Ast::Id(m), Ast::Id(id)) => {
-                        match self.imports.get(m) {
-                            Some(canonical) => Type::from(canonical.join(id)?),
+                        match self.modscope.get(m) {
+                            Some(node) => {
+                                match &*node.node {
+                                    Ast::Canonical(canonical) => {
+                                        Type::from(canonical.join(id)?)
+                                    }
+                                    what => {
+                                        panic!("what? {:#?}", what);
+                                    }
+                                }
+                            }
                             None => {
                                 return Err(lfail!(
                                     failure::Mode::CompileFailure,
