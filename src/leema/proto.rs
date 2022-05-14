@@ -712,7 +712,6 @@ impl ProtoModule
 
         let id = alias_t.n;
         let subkey = self.key.submod(ModTyp::Alias, id)?;
-        self.imports.insert(id, subkey.name.clone());
         self.modscope
             .insert(id, AstNode::new(Ast::Canonical(subkey.name.clone()), loc));
         // can't use add-selfmod b/c it makes an alias which recurses infinitely
@@ -765,7 +764,6 @@ impl ProtoModule
         let data_t = self.make_proto_type(name)?;
         let sname_id = data_t.n;
         let union_typ = data_t.t.clone();
-        self.imports.insert(sname_id, union_typ.path.clone());
         self.add_type_to_scope(sname_id, &union_typ, loc);
 
         let mut m = ltry!(self.new_selfmod(
@@ -859,7 +857,6 @@ impl ProtoModule
             loc,
         );
         funcs.insert(0, alias);
-        self.imports.insert(id, subkey.name.clone());
         // only set the type if it's not already there
         if !self.modscope.contains_key(id) {
             self.modscope.insert(
@@ -876,11 +873,6 @@ impl ProtoModule
 
     fn copy_modscope(&mut self, src: &ProtoModule)
     {
-        for i in src.imports.iter() {
-            if *i.1 != self.key.name {
-                self.imports.insert(i.0, i.1.clone());
-            }
-        }
         for s in src.modscope.iter() {
             if !self.modscope.contains_key(&*s.0) {
                 self.modscope.insert(s.0, s.1.clone());
@@ -1227,18 +1219,6 @@ impl ProtoModule
     pub fn find_protostruct(&self, name: &str) -> Option<&ProtoStruct>
     {
         self.struct_fields.get(name)
-    }
-
-    pub fn imported_module(&self, alias: &ModAlias) -> Lresult<&Canonical>
-    {
-        self.imports.get(alias.as_ref()).ok_or_else(|| {
-            rustfail!(
-                PROTOFAIL,
-                "no module imported as {} from {}",
-                alias,
-                self.key.name,
-            )
-        })
     }
 
     pub fn ast_to_type(
@@ -1713,20 +1693,6 @@ impl ProtoLib
                 loc.lineno,
             )
         })
-    }
-
-    pub fn imported_proto(
-        &self,
-        proto: &Canonical,
-        alias: &ModAlias,
-    ) -> Lresult<&ProtoModule>
-    {
-        let modpath = proto.as_path();
-        let protomod = self.protos.get(modpath).ok_or_else(|| {
-            rustfail!(PROTOFAIL, "module not loaded: {:?}", proto)
-        })?;
-        let new_path = ltry!(protomod.imported_module(alias));
-        Ok(ltry!(self.path_proto(&new_path)))
     }
 
     pub fn path_proto(&self, path: &Canonical) -> Lresult<&ProtoModule>
@@ -2272,7 +2238,7 @@ mod tests
         "#;
         let proto = new_proto(input);
 
-        assert_eq!(1, proto.imports.len());
+        assert_eq!(0, proto.imports.len());
         let il_node = &proto.modscope["IntList"];
         assert_eq!(Ast::Canonical(canonical!("/foo/IntList")), *il_node.node);
         assert_eq!(Type::named("/foo/IntList"), il_node.typ);
@@ -2289,7 +2255,7 @@ mod tests
         "#;
         let proto = new_proto(input);
 
-        assert_eq!(1, proto.imports.len());
+        assert_eq!(0, proto.imports.len());
         let il_node = &proto.modscope["IntList"];
         assert_eq!(Ast::Canonical(canonical!("/foo/IntList")), *il_node.node);
         assert_eq!(Type::named("/foo/IntList"), il_node.typ);
