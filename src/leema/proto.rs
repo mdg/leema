@@ -877,7 +877,9 @@ impl ProtoModule
     fn copy_modscope(&mut self, src: &ProtoModule)
     {
         for i in src.imports.iter() {
-            self.imports.insert(i.0, i.1.clone());
+            if *i.1 != self.key.name {
+                self.imports.insert(i.0, i.1.clone());
+            }
         }
         for s in src.modscope.iter() {
             if !self.modscope.contains_key(&*s.0) {
