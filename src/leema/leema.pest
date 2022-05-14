@@ -103,11 +103,13 @@ id = @{
 }
 // base has to be typex for module references like foo.T
 typed_id = {
-    "<" ~ as0 ~ typex
-    ~ (as1 ~ txlist)?
-    ~ (as0 ~ "::" ~ as0 ~ txlist)?
-    ~ as0 ~ ">"
+    "<" ~ as0 ~ typex ~ typed_id_args ~ typed_id_vars ~ as0 ~ ">"
 }
+// defined types as arguments to a call
+typed_id_args = { (as1 ~ txlist)? }
+// type variables defined by this id
+typed_id_vars = { (as0 ~ "::" ~ as0 ~ txlist)? }
+
 def_id = _{ typed_id | id }
 
 hashtag = @{ "#" ~ id }

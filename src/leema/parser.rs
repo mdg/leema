@@ -1343,7 +1343,10 @@ mod tests
                 expr(0, 7, [
                     typed_id(0, 7, [
                         typex(1, 4, [id(1, 4)]),
-                        tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])]),
+                        typed_id_args(4, 6, [
+                            tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])])
+                        ]),
+                        typed_id_vars(6, 6)
                     ])
                 ])
             ]
@@ -1351,7 +1354,7 @@ mod tests
     }
 
     #[test]
-    fn generic_typex()
+    fn generic_typex_call()
     {
         parses_to!(
             parser: LeemaParser,
@@ -1361,7 +1364,31 @@ mod tests
                 typex(0, 7, [
                     typed_id(0, 7, [
                         typex(1, 4, [id(1, 4)]),
-                        tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])]),
+                        typed_id_args(4, 6, [
+                            tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])])
+                        ]),
+                        typed_id_vars(6, 6)
+                    ])
+                ])
+            ]
+        )
+    }
+
+    #[test]
+    fn generic_typex_func()
+    {
+        parses_to!(
+            parser: LeemaParser,
+            input: "<foo :: A>",
+            rule: Rule::typex,
+            tokens: [
+                typex(0, 10, [
+                    typed_id(0, 10, [
+                        typex(1, 4, [id(1, 4)]),
+                        typed_id_args(4, 4),
+                        typed_id_vars(4, 9, [
+                            tx_maybe_k(8, 9, [typex(8, 9, [id(8, 9)])])
+                        ])
                     ])
                 ])
             ]
