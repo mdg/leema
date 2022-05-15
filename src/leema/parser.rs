@@ -401,20 +401,25 @@ impl LeemaPrec
                     .collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
-            Rule::typed_id => {
+            Rule::def_id => {
+                let mut inner = n.into_inner();
+                let base = self.primary(Mode::Type, inner.next().unwrap())?;
+                if let Some(vars_opt) = inner.next() {
+                    let vars_it = vars_opt.into_inner();
+                    let vars: Xlist =
+                        ltry!(self.parse_xlist(Mode::Type, vars_it));
+                    Ok(AstNode::new(Ast::Generic(base, vars), loc))
+                } else {
+                    Ok(base)
+                }
+            }
+            Rule::type_call => {
                 let mut inner = n.into_inner();
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
                 let args_it = inner.next().unwrap().into_inner();
                 let args: Xlist =
                     ltry!(self.parse_xlist(Mode::Type, args_it));
-                let vars_it = inner.next().unwrap().into_inner();
-                let vars: Xlist =
-                    ltry!(self.parse_xlist(Mode::Type, vars_it));
-                if args.is_empty() {
-                    Ok(AstNode::new(Ast::TypeFunc(base, vars), loc))
-                } else {
-                    Ok(AstNode::new(Ast::TypeCall(base, args), loc))
-                }
+                Ok(AstNode::new(Ast::TypeCall(base, args), loc))
             }
             Rule::let_stmt => {
                 let mut inner = n.into_inner();
@@ -1218,7 +1223,7 @@ mod tests
         let actual = parse(Rule::def_func, input).unwrap();
         println!("{:#?}", actual);
         if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
-            if let Ast::TypeFunc(first, type_args) = &*name.node {
+            if let Ast::Generic(first, type_args) = &*name.node {
                 assert_eq!(Ast::Id("first"), *first.node);
                 assert_eq!(None, type_args[0].k);
                 assert_eq!(None, type_args[1].k);
@@ -1342,7 +1347,7 @@ mod tests
     }
 
     #[test]
-    fn generic_expr()
+    fn generic_expr_type_call()
     {
         parses_to!(
             parser: LeemaParser,
@@ -1350,12 +1355,9 @@ mod tests
             rule: Rule::expr,
             tokens: [
                 expr(0, 7, [
-                    typed_id(0, 7, [
+                    type_call(0, 7, [
                         typex(1, 4, [id(1, 4)]),
-                        typed_id_args(4, 6, [
-                            tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])])
-                        ]),
-                        typed_id_vars(6, 6)
+                        tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])])
                     ])
                 ])
             ]
@@ -1371,33 +1373,9 @@ mod tests
             rule: Rule::typex,
             tokens: [
                 typex(0, 7, [
-                    typed_id(0, 7, [
+                    type_call(0, 7, [
                         typex(1, 4, [id(1, 4)]),
-                        typed_id_args(4, 6, [
-                            tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])])
-                        ]),
-                        typed_id_vars(6, 6)
-                    ])
-                ])
-            ]
-        )
-    }
-
-    #[test]
-    fn generic_typex_func()
-    {
-        parses_to!(
-            parser: LeemaParser,
-            input: "<foo :: A>",
-            rule: Rule::typex,
-            tokens: [
-                typex(0, 10, [
-                    typed_id(0, 10, [
-                        typex(1, 4, [id(1, 4)]),
-                        typed_id_args(4, 4),
-                        typed_id_vars(4, 9, [
-                            tx_maybe_k(8, 9, [typex(8, 9, [id(8, 9)])])
-                        ])
+                        tx_maybe_k(5, 6, [typex(5, 6, [id(5, 6)])])
                     ])
                 ])
             ]

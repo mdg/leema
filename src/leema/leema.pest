@@ -101,20 +101,24 @@ id = @{
     | !keywords ~ ((LETTER | "_") ~ ( LETTER | NUMBER | "_" )*)
     | "#"
 }
-// base has to be typex for module references like foo.T
-typed_id = {
-    "<" ~ as0 ~ typex ~ typed_id_args ~ typed_id_vars ~ as0 ~ ">"
-}
-// defined types as arguments to a call
-typed_id_args = { (as1 ~ txlist)? }
-// type variables defined by this id
-typed_id_vars = { (as0 ~ "::" ~ as0 ~ txlist)? }
+
+// an ID or a generic ID for defining a new type or function
+// type parameters define new type variables
+// base can be id b/c this is a locally declared id
+typed_id = { "<" ~ as0 ~ id ~ as1 ~ txlist ~ as0 ~ ">" }
 
 def_id = _{ typed_id | id }
 
+// type parameters in a type_call should already be defined
+// as concrete types or declared type variables
+// base has to be typex for module references like foo.T
+type_call = {
+    "<" ~ as0 ~ typex ~ as1 ~ txlist ~ as0 ~ ">"
+}
+
 hashtag = @{ "#" ~ id }
 
-term = _{ hashtag | def_id | number | str | tuple | list | canonical }
+term = _{ hashtag | type_call | number | str | tuple | list | canonical | id }
 
 tx_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ typex }
 x_maybe_k = { (id ~ hs0 ~ ":" ~ as0)? ~ expr }
@@ -170,7 +174,8 @@ type_term = _{
     "(" ~ type_func ~ ")"
     | tuple_type
     | list_type
-    | def_id
+    | type_call
+    | id
 }
 
 type_func = {
@@ -211,7 +216,7 @@ def_alias_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ ":=" ~ as1 ~ typex }
 
 def_interface = !{ "trait" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
 def_impl = !{
-    "impl" ~ hs1 ~ def_id ~ as1 ~ "with" ~ as1 ~ def_id ~ as1 ~ impl_block
+    "impl" ~ hs1 ~ type_call ~ as1 ~ "with" ~ as1 ~ type_call ~ as1 ~ impl_block
 }
 
 def_rust_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ rust_block }
