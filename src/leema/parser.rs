@@ -404,8 +404,17 @@ impl LeemaPrec
             Rule::typed_id => {
                 let mut inner = n.into_inner();
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
-                let args = self.parse_xlist(Mode::Type, inner)?;
-                Ok(AstNode::new(Ast::Generic(base, args), loc))
+                let args_it = inner.next().unwrap().into_inner();
+                let args: Xlist =
+                    ltry!(self.parse_xlist(Mode::Type, args_it));
+                let vars_it = inner.next().unwrap().into_inner();
+                let vars: Xlist =
+                    ltry!(self.parse_xlist(Mode::Type, vars_it));
+                if args.is_empty() {
+                    Ok(AstNode::new(Ast::TypeFunc(base, vars), loc))
+                } else {
+                    Ok(AstNode::new(Ast::TypeCall(base, args), loc))
+                }
             }
             Rule::let_stmt => {
                 let mut inner = n.into_inner();
@@ -516,7 +525,7 @@ impl LeemaPrec
                             self.primary(Mode::Type, inner.next().unwrap())?;
                         let func_arg_it = inner.next().unwrap().into_inner();
                         let func_args: Xlist =
-                            self.parse_xlist(Mode::Type, func_arg_it)?;
+                            ltry!(self.parse_xlist(Mode::Type, func_arg_it));
                         let block =
                             self.primary(Mode::Value, inner.next().unwrap())?;
                         Ast::DefFunc(func_name, func_args, func_result, block)
@@ -561,7 +570,7 @@ impl LeemaPrec
             Rule::type_func => {
                 let mut inner = n.into_inner();
                 let result = self.primary(Mode::Type, inner.next().unwrap())?;
-                let args = self.parse_xlist(Mode::Type, inner)?;
+                let args = ltry!(self.parse_xlist(Mode::Type, inner));
                 Ok(AstNode::new(Ast::FuncType(result, args), loc))
             }
             Rule::anon_func => {
@@ -1203,13 +1212,13 @@ mod tests
     #[test]
     fn def_func_generic_line()
     {
-        let input = "func <first A B>:A :: a:A b:B ->
+        let input = "func <first :: A B>:A :: a:A b:B ->
                 a
             --";
         let actual = parse(Rule::def_func, input).unwrap();
         println!("{:#?}", actual);
         if let Ast::DefFunc(name, args, result, _body) = &*actual[0].node {
-            if let Ast::Generic(first, type_args) = &*name.node {
+            if let Ast::TypeFunc(first, type_args) = &*name.node {
                 assert_eq!(Ast::Id("first"), *first.node);
                 assert_eq!(None, type_args[0].k);
                 assert_eq!(None, type_args[1].k);
