@@ -465,11 +465,10 @@ impl ProtoModule
         }
 
         let opens = self.type_args();
-        let (name_id, ftyp) =
-            ltry!(
-                self.make_func_type(name.clone(), &args, result, opens.clone()),
-                "name": ldebug!(&*name.node),
-            );
+        let (name_id, ftyp) = ltry!(
+            self.make_func_type(name.clone(), &args, result, opens.clone()),
+            "name": ldebug!(&*name.node),
+        );
 
         let f_typeargs = {
             let funcref = ltry!(ftyp.try_func_ref());
@@ -516,7 +515,8 @@ impl ProtoModule
             }
             let data_t = self.make_proto_type(name)?;
             self.add_type_to_scope(&data_t.n, &data_t.t, loc);
-            let ps = ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
+            let ps =
+                ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
             let construct = data_t.t.clone();
             // create a module for holding the constructor
             let subp = ltry!(self.add_selfmod(
@@ -869,7 +869,13 @@ impl ProtoModule
         }
         // copy the modscope from the parent module
         // everything previously defined should be added
-        let sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs, self.modscope.clone()));
+        let sub = ltry!(ProtoModule::with_ast(
+            subkey,
+            data_t,
+            trait_t,
+            funcs,
+            self.modscope.clone()
+        ));
         Ok(sub)
     }
 
@@ -1277,7 +1283,7 @@ impl ProtoModule
             Ast::FuncType(args, result) => {
                 ltry!(self.ast_to_arg_ftype(args, result, opens))
             }
-            Ast::Generic(base, typeargs)|Ast::TypeCall(base, typeargs) => {
+            Ast::Generic(base, typeargs) | Ast::TypeCall(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
                 let genargs: TypeArgs;
                 genargs = if let Some(gen_ref) = genbase.generic_ref() {
@@ -1377,10 +1383,8 @@ impl ProtoModule
         opens: TypeArgs,
     ) -> Lresult<Type>
     {
-        let arg_types = ltry!(
-            self.xlist_to_types(args, &opens),
-            "opens": ldebug!(opens),
-        );
+        let arg_types =
+            ltry!(self.xlist_to_types(args, &opens), "opens": ldebug!(opens),);
         let result_type = ltry!(self.ast_to_type(&result, &opens));
         if opens.is_empty() {
             Ok(Type::f(result_type, arg_types))
@@ -1897,25 +1901,18 @@ mod tests
         let proto = new_proto(input);
         let t_str = Lstr::Sref("T");
         let tvt = Type::open(t_str.clone());
-        let opt_t = Type::t(Type::PATH_OPTION, vec![
-            StrupleItem::new(t_str.clone(), tvt.clone()),
-        ]);
+        let opt_t = Type::t(
+            Type::PATH_OPTION,
+            vec![StrupleItem::new(t_str.clone(), tvt.clone())],
+        );
 
         assert_eq!(1, proto.modscope.len());
         assert!(proto.modscope.contains_key("unwrap_1"));
         assert_eq!(
             Type::generic_f(
-                vec![StrupleItem::new(
-                    t_str.clone(),
-                    tvt.clone(),
-                )],
+                vec![StrupleItem::new(t_str.clone(), tvt.clone(),)],
                 tvt.clone(),
-                vec![
-                    StrupleItem::new(
-                        Lstr::Sref("a"),
-                        opt_t,
-                    ),
-                ],
+                vec![StrupleItem::new(Lstr::Sref("a"), opt_t,),],
             ),
             proto.modscope.get("unwrap_1").unwrap().typ,
         );

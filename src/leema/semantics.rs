@@ -728,7 +728,11 @@ impl<'p> ScopeCheck<'p>
         }
     }
 
-    fn apply_builtin_macro(&mut self, name: &Lstr, args: &mut Xlist) -> Lresult<AstNode>
+    fn apply_builtin_macro(
+        &mut self,
+        name: &Lstr,
+        args: &mut Xlist,
+    ) -> Lresult<AstNode>
     {
         match (name.as_str(), args.as_mut_slice()) {
             ("#structfields", &mut [ref mut typename]) => {
