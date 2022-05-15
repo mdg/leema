@@ -181,7 +181,7 @@ impl ProtoModule
     pub fn new(key: ModKey, src: &'static str) -> Lresult<ProtoModule>
     {
         let items = ltry!(parse_file(src));
-        Self::with_ast(key, None, None, items)
+        Self::with_ast(key, None, None, items, HashMap::new())
     }
 
     fn with_ast(
@@ -189,6 +189,7 @@ impl ProtoModule
         data_t: Option<ProtoType>,
         trait_t: Option<ProtoType>,
         items: Vec<AstNode>,
+        modscope: HashMap<&'static str, AstNode>,
     ) -> Lresult<ProtoModule>
     {
         let modname = key.name.clone();
@@ -201,7 +202,7 @@ impl ProtoModule
             funcseq: Vec::new(),
             funcsrc: HashMap::new(),
             submods: Vec::new(),
-            modscope: HashMap::new(),
+            modscope,
             localdef: HashSet::new(),
             implementors: HashSet::new(),
             implementations: Vec::new(),
@@ -719,7 +720,8 @@ impl ProtoModule
             subkey,
             Some(src_t),
             Some(alias_t),
-            vec![]
+            vec![],
+            HashMap::new(),
         ));
         sub.modscope.insert(MODNAME_DATATYPE, src_node);
         struple::push_unique(&mut self.submods, id, sub)?;
@@ -793,7 +795,8 @@ impl ProtoModule
                         var_key,
                         Some(data_t.clone()),
                         None,
-                        vec![]
+                        vec![],
+                        m.modscope.clone(),
                     ));
                     var_sub.copy_modscope(&m);
                     ltry!(
@@ -866,8 +869,7 @@ impl ProtoModule
         }
         // copy the modscope from the parent module
         // everything previously defined should be added
-        let mut sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs));
-        sub.copy_modscope(&self);
+        let sub = ltry!(ProtoModule::with_ast(subkey, data_t, trait_t, funcs, self.modscope.clone()));
         Ok(sub)
     }
 
@@ -914,11 +916,8 @@ impl ProtoModule
         let id = "impl";
         let loc = trait_node.loc;
         let trait_t = ltry!(self.make_proto_type(trait_node));
-        let data_typ = ltry!(self.ast_to_type(&data_node, &trait_t.t.args));
-        let data_t = ProtoType {
-            n: id,
-            t: data_typ.clone(),
-        };
+        let data_t = ltry!(self.make_proto_type(data_node));
+        let data_typ = data_t.t.clone();
 
         let subkey = self.key.subimpl(trait_t.t.path.clone())?;
         let alias = AstNode::new(
@@ -938,7 +937,8 @@ impl ProtoModule
             subkey,
             Some(data_t),
             Some(trait_t),
-            funcs
+            funcs,
+            self.modscope.clone(),
         ));
         self.submods.push(StrupleItem::new(id, sub));
         Ok(())
