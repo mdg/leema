@@ -1323,6 +1323,7 @@ mod tests
         );
     }
 
+    /*
     #[test]
     #[ignore]
     fn for_loop_macro()
@@ -1341,6 +1342,7 @@ mod tests
         }
         assert_eq!(1, actual.len());
     }
+    */
 
     #[test]
     fn generic_expr_type_call()

@@ -987,13 +987,10 @@ impl ProtoModule
         let id = match *name.node {
             Ast::Id(name_id) => name_id,
             Ast::Generic(gen, gen_args) => {
-                // not sure why opens2 is necessary here
-                let mut opens2 = Vec::new();
                 let open_result: Lresult<TypeArgs> = gen_args
                     .iter()
                     .enumerate()
                     .map(|(i, a)| {
-                        let t = ltry!(self.collect_opens(&mut opens2, &a));
                         let var = if let Some(v) = a.k {
                             Lstr::Sref(v)
                         } else if let Ast::Id(v) = *a.v.node {
