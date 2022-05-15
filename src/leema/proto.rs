@@ -987,6 +987,8 @@ impl ProtoModule
         let id = match *name.node {
             Ast::Id(name_id) => name_id,
             Ast::Generic(gen, gen_args) => {
+                // not sure why opens2 is necessary here
+                let mut opens2 = Vec::new();
                 let open_result: Lresult<TypeArgs> = gen_args
                     .iter()
                     .enumerate()
