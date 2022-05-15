@@ -277,8 +277,6 @@ pub enum Ast
     Type(Type),
     /// A node that has types applied to it
     TypeCall(AstNode, Xlist),
-    /// A node that requies types to be applied
-    TypeFunc(AstNode, Xlist),
     // Xlist(Xlist),
     Wildcard,
 }
@@ -313,13 +311,13 @@ impl Ast
         *self == Ast::VOID
     }
 
-    /// Ast::TypeCall and TypeFunc are kind of broken. Look very specific
+    /// Ast::TypeCall and Generic are kind of broken. Look very specific
     /// to a particular problem, probably passing the type on command line
     pub fn to_fref(&self, m: ModKey) -> Lresult<Fref>
     {
         match self {
             Ast::Id(id) => Ok(Fref::with_modules(m, id)),
-            Ast::TypeCall(base, args) => {
+            Ast::Generic(base, args) => {
                 let id = if let Ast::Id(id) = *base.node {
                     id
                 } else {
@@ -340,7 +338,7 @@ impl Ast
                     .collect();
                 Ok(Fref::new(m, id, type_args?))
             }
-            Ast::TypeFunc(base, args) => {
+            Ast::TypeCall(base, args) => {
                 let id = if let Ast::Id(id) = *base.node {
                     id
                 } else {
@@ -443,9 +441,6 @@ impl Ast
             Ast::Type(inner) => write!(f, "Type {}", inner),
             Ast::TypeCall(id, args) => {
                 write!(f, "<{:?} {:?}>", id, args)
-            }
-            Ast::TypeFunc(id, args) => {
-                write!(f, "<{:?} :: {:?}>", id, args)
             }
             Ast::Wildcard => write!(f, "_"),
         }
@@ -860,14 +855,6 @@ impl Walker
                 self.set_mode(prev);
             }
             Ast::TypeCall(id, args) => {
-                steptry!(self.walk(id, op));
-                let prev = self.set_mode(AstMode::Type);
-                for a in args.iter_mut() {
-                    steptry!(self.walk(&mut a.v, op));
-                }
-                self.set_mode(prev);
-            }
-            Ast::TypeFunc(id, args) => {
                 steptry!(self.walk(id, op));
                 let prev = self.set_mode(AstMode::Type);
                 for a in args.iter_mut() {

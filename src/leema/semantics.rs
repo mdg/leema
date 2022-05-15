@@ -1086,6 +1086,9 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             Ast::Generic(inner, _) if mode == AstMode::Value => {
                 steptry!(self.post_constructor(inner));
             }
+            Ast::TypeCall(inner, _) if mode == AstMode::Value => {
+                steptry!(self.post_constructor(inner));
+            }
             Ast::List(items) if mode == AstMode::Type => {
                 if items.len() != 1 {
                     return Err(lfail!(
@@ -1743,7 +1746,7 @@ impl<'p> TypeCheck<'p>
                         callx.typ = method.typ;
                         return Ok(AstStep::Rewrite);
                     }
-                    Ast::Generic(ref mut base, ref mut type_args) => {
+                    Ast::TypeCall(ref mut base, ref mut type_args) => {
                         return Err(lfail!(
                             failure::Mode::TypeFailure,
                             "generic not previously handled",
@@ -1773,7 +1776,7 @@ impl<'p> TypeCheck<'p>
                     "node": ldebug!(&node),
                 ));
             }
-            Ast::Generic(ref mut callx, ref mut args) => {
+            Ast::TypeCall(ref mut callx, ref mut args) => {
                 if let Ast::ConstVal(Val::Func(ref mut fref)) = &mut *callx.node
                 {
                     let typecall_t = ltry!(
@@ -2617,7 +2620,7 @@ mod tests
         let mut foo_call =
             parser::parse(parser::Rule::expr, foo_call_input).unwrap();
         let (_foo_name, _foo_args) =
-            if let Ast::Generic(fname, fargs) = *foo_call.remove(0).node {
+            if let Ast::TypeCall(fname, fargs) = *foo_call.remove(0).node {
                 (fname, fargs)
             } else {
                 panic!("expected Generic, found {:?}", foo_call);
