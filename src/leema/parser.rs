@@ -401,16 +401,15 @@ impl LeemaPrec
                     .collect();
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
-            Rule::def_id => {
-                let mut inner = n.into_inner();
+            Rule::typed_id => {
+                let mut inner = dbg!(n.into_inner());
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
-                if let Some(vars_opt) = inner.next() {
-                    let vars_it = vars_opt.into_inner();
-                    let vars: Xlist =
-                        ltry!(self.parse_xlist(Mode::Type, vars_it));
-                    Ok(AstNode::new(Ast::Generic(base, vars), loc))
-                } else {
+                let vars: Xlist =
+                    ltry!(self.parse_xlist(Mode::Type, inner));
+                if vars.is_empty() {
                     Ok(base)
+                } else {
+                    Ok(AstNode::new(Ast::Generic(base, vars), loc))
                 }
             }
             Rule::type_call => {
@@ -1217,7 +1216,7 @@ mod tests
     #[test]
     fn def_func_generic_line()
     {
-        let input = "func <first :: A B>:A :: a:A b:B ->
+        let input = "func <first A B>:A :: a:A b:B ->
                 a
             --";
         let actual = parse(Rule::def_func, input).unwrap();
