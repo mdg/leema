@@ -1278,7 +1278,7 @@ impl ProtoModule
             Ast::FuncType(args, result) => {
                 ltry!(self.ast_to_arg_ftype(args, result, opens))
             }
-            Ast::Generic(base, typeargs) => {
+            Ast::Generic(base, typeargs)|Ast::TypeCall(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
                 let genargs: TypeArgs;
                 genargs = if let Some(gen_ref) = genbase.generic_ref() {

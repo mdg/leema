@@ -404,8 +404,7 @@ impl LeemaPrec
             Rule::typed_id => {
                 let mut inner = dbg!(n.into_inner());
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
-                let vars: Xlist =
-                    ltry!(self.parse_xlist(Mode::Type, inner));
+                let vars: Xlist = ltry!(self.parse_xlist(Mode::Type, inner));
                 if vars.is_empty() {
                     Ok(base)
                 } else {
@@ -415,9 +414,7 @@ impl LeemaPrec
             Rule::type_call => {
                 let mut inner = n.into_inner();
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
-                let args_it = inner.next().unwrap().into_inner();
-                let args: Xlist =
-                    ltry!(self.parse_xlist(Mode::Type, args_it));
+                let args: Xlist = ltry!(self.parse_xlist(Mode::Type, inner));
                 Ok(AstNode::new(Ast::TypeCall(base, args), loc))
             }
             Rule::let_stmt => {
