@@ -8,7 +8,6 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::path::{Component, Path, PathBuf};
 
-
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]

@@ -51,7 +51,6 @@ use std::path::{Path, PathBuf};
 
 use lazy_static::lazy_static;
 
-
 /// special module field names
 /// Func
 pub const MODNAME_CONSTRUCT: &'static str = "__construct";
@@ -1820,7 +1819,6 @@ impl ProtoLib
     }
 }
 
-
 #[cfg(test)]
 mod tests
 {
@@ -1835,7 +1833,6 @@ mod tests
     use std::path::Path;
 
     use matches::assert_matches;
-
 
     fn new_proto(input: &'static str) -> ProtoModule
     {

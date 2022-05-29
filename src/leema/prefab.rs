@@ -12,7 +12,6 @@ use std::io::{stderr, stdin, Write};
 // use futures::future::empty;
 // use tokio::timer::Delay;
 
-
 pub fn bool_xor(f: &mut Fiber) -> Lresult<Event>
 {
     let result;
@@ -98,7 +97,6 @@ pub fn get_type(f: &mut Fiber) -> Lresult<Event>
     Event::success()
 }
 
-
 /*
 pub fn leema_sleep(mut ctx: rsrc::IopCtx) -> rsrc::Event
 {
@@ -151,7 +149,6 @@ pub fn printerr(f: &mut Fiber) -> Lresult<Event>
     f.head.e.set_result(Val::VOID);
     Event::success()
 }
-
 
 /*
 macro_rules! load_rust_funcs {

@@ -11,7 +11,6 @@ use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 
-
 static mut TEXTS: Option<Vec<String>> = None;
 
 unsafe fn put_modtxt(val: String) -> &'static str
@@ -191,7 +190,6 @@ impl Default for Interloader
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests

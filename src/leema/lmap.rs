@@ -4,7 +4,6 @@ use crate::leema::val::{Type, Val};
 
 use std::sync::Arc;
 
-
 const TYPEPATH_MAP: &'static str = "/map/T";
 
 pub fn map_type() -> Type
@@ -98,14 +97,12 @@ impl Lmap
     }
 }
 
-
 #[cfg(test)]
 mod tests
 {
     use crate::leema::lmap::Lmap;
     use crate::leema::lstr::Lstr;
     use crate::leema::val::Val;
-
 
     #[test]
     pub fn test_lmap_constructor()

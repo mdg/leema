@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::marker;
 
-
 const CODEFAIL: &'static str = "codegen_failure";
 
 #[derive(Debug)]
@@ -182,7 +181,6 @@ pub struct Oxpr
     ops: OpVec,
     dst: Reg,
 }
-
 
 pub type RustFunc = fn(&mut fiber::Fiber) -> Lresult<frame::Event>;
 
@@ -859,7 +857,6 @@ impl fmt::Debug for Registration
         write!(f, "Registration")
     }
 }
-
 
 #[cfg(test)]
 mod tests

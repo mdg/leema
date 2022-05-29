@@ -12,7 +12,6 @@ use crate::leema::worker::RustFuncContext;
 use std::future::Future;
 use std::pin::Pin;
 
-
 pub fn init_main(ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let _prog = ctx.get_param(0)?;

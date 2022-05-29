@@ -15,7 +15,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Prec(i32);
 
@@ -118,7 +117,6 @@ pub enum Mode
     Value,
     Type,
 }
-
 
 #[derive(Parser)]
 #[grammar = "leema/leema.pest"]
@@ -896,7 +894,6 @@ impl Into<PrecKey> for PrecBuilder
         key
     }
 }
-
 
 #[cfg(test)]
 mod tests

@@ -115,7 +115,6 @@ impl RsrcQueue
     }
 }
 
-
 #[derive(Clone)]
 pub struct RunQueue
 {
@@ -162,7 +161,6 @@ impl Future for RunQueueReceiver
     }
 }
 */
-
 
 pub struct Io
 {
@@ -478,7 +476,6 @@ impl IoLoop
         }
     }
 }
-
 
 #[cfg(test)]
 pub mod tests

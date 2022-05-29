@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
 use std::thread;
 
-
 /// let caller = Application::start(loader);
 /// let call = caller.call(fref, args);
 /// let result = call.wait_for_result();
@@ -302,7 +301,6 @@ enum Itype
 --
 */
 
-
 #[cfg(test)]
 mod tests
 {
@@ -314,7 +312,6 @@ mod tests
 
     use libc::getpid;
     use std::path::PathBuf;
-
 
     #[test]
     fn test_main_func_finishes()

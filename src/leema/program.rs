@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
-
 pub struct Lib
 {
     loader: Interloader,

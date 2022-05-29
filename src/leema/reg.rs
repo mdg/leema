@@ -4,7 +4,6 @@ use crate::leema::val::Val;
 use std::collections::HashMap;
 use std::fmt;
 
-
 #[derive(PartialEq)]
 #[derive(Eq)]
 #[derive(PartialOrd)]
@@ -175,7 +174,6 @@ impl fmt::Debug for Reg
     }
 }
 
-
 /// Table for allocating local registers for a function
 ///
 /// Local registers are allocated for the duration of a function
@@ -235,7 +233,6 @@ impl RegTab
         self.next_local
     }
 }
-
 
 #[cfg(test)]
 mod tests

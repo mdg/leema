@@ -17,7 +17,6 @@ use std::hash::Hash;
 use std::iter::Iterator;
 use std::sync::Arc;
 
-
 #[derive(Debug)]
 pub struct ListIterator<'a>
 {
@@ -392,7 +391,6 @@ pub fn head_ref(l: &Val) -> &Val
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests

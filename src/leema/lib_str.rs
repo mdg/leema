@@ -7,7 +7,6 @@ use crate::leema::lstr::Lstr;
 use crate::leema::val::Val;
 use crate::leema::worker::RustFuncContext;
 
-
 pub fn len(f: &mut Fiber) -> Lresult<frame::Event>
 {
     let result = {
@@ -102,7 +101,6 @@ pub fn to_uppercase(mut ctx: RustFuncContext) -> Lresult<frame::Event>
     ctx.set_result(Val::Str(Lstr::from(result)));
     frame::Event::success()
 }
-
 
 pub fn load_rust_func(func_name: &str) -> Option<Code>
 {

@@ -24,7 +24,6 @@ use std::mem;
 
 use lazy_static::lazy_static;
 
-
 /// Stages
 /// - prewrite
 ///   - apply macros
@@ -2259,7 +2258,6 @@ impl ast2::Op for RemoveExtraCode
     }
 }
 
-
 // 1
 // 2
 // 3
@@ -2569,7 +2567,6 @@ mod tests
     use crate::leema::val::{Fref, Type};
 
     use matches::assert_matches;
-
 
     fn core_program(mods: &[(&'static str, String)]) -> program::Lib
     {

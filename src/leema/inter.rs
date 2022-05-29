@@ -5,7 +5,6 @@ use crate::leema::reg::{Reg, RegTab};
 
 use std::collections::HashMap;
 
-
 #[derive(Debug)]
 pub struct Blockscope
 {

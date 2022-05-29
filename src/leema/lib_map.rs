@@ -7,7 +7,6 @@ use crate::leema::types;
 use crate::leema::val::{Type, Val};
 use crate::leema::worker::RustFuncContext;
 
-
 pub fn new(f: &mut Fiber) -> Lresult<frame::Event>
 {
     f.head.e.set_result(Val::Map(Lmap::new()));

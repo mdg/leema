@@ -9,7 +9,6 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::mpsc;
 
-
 #[derive(Debug)]
 pub struct MsgItem<T>(T);
 

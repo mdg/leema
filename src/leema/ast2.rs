@@ -553,7 +553,6 @@ impl Default for AstNode
     }
 }
 
-
 #[macro_export]
 macro_rules! steptry {
     ($r:expr) => {

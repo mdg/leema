@@ -6,7 +6,6 @@ use crate::leema::worker::RustFuncContext;
 
 use rand;
 
-
 pub fn int_random(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let result = rand::random::<i64>(); // as i64;

@@ -10,7 +10,6 @@ use std::str::FromStr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-
 const SOCKET_TYPE: Type = user_type!("/tcp/Socket");
 const LISTENER_TYPE: Type = user_type!("/tcp/Listener");
 
@@ -29,7 +28,6 @@ impl Rsrc for TcpListener
         LISTENER_TYPE
     }
 }
-
 
 pub fn tcp_connect(mut ctx: rsrc::IopCtx) -> IopFuture
 {
@@ -77,7 +75,6 @@ pub fn tcp_accept(mut ctx: rsrc::IopCtx) -> IopFuture
         ctx
     })
 }
-
 
 /**
  * tcp_recv(sock)

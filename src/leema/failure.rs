@@ -7,7 +7,6 @@ use crate::leema::val::Val;
 use std::fmt;
 use std::sync::Arc;
 
-
 macro_rules! rustfail {
     ($tag:expr, $msg:expr) => {
         crate::leema::failure::Failure::new($tag, crate::leema::lstr::Lstr::from($msg))

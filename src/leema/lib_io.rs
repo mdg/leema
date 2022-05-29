@@ -4,7 +4,6 @@ use crate::leema::frame;
 use crate::leema::val::Val;
 use crate::leema::worker::RustFuncContext;
 
-
 pub fn print(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let v = ctx.get_param(0)?;

@@ -11,7 +11,6 @@ use crate::leema::worker::RustFuncContext;
 
 // use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-
 pub fn lib_from_unix(mut ctx: RustFuncContext) -> Lresult<Event>
 {
     let result = match ctx.get_param(0)? {

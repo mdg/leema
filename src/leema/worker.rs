@@ -23,8 +23,6 @@ use std::time::Duration;
 
 use tokio::task;
 
-
-
 const DEFAULT_STACK_SIZE: usize = 50;
 static NEXT_FIBER_ID: AtomicI64 = AtomicI64::new(0);
 
@@ -42,7 +40,6 @@ enum FiberWait
     Io(Fiber),
     Future(Fiber, Rc<Code>),
 }
-
 
 pub struct RustFuncContext<'a>
 {
@@ -139,7 +136,6 @@ impl<'a> RustFuncContext<'a>
         recv
     }
 }
-
 
 pub struct Worker
 {

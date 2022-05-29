@@ -9,7 +9,6 @@ use std::str::FromStr;
 
 use tokio::net::UdpSocket;
 
-
 const SOCKET_TYPE: Type = user_type!("/udp/Socket");
 
 impl Rsrc for UdpSocket
@@ -19,7 +18,6 @@ impl Rsrc for UdpSocket
         SOCKET_TYPE
     }
 }
-
 
 impl From<std::net::AddrParseError> for Failure
 {

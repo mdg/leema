@@ -20,7 +20,6 @@ use std::clone::Clone;
 use std::fmt;
 use std::iter::{FromIterator, Iterator};
 
-
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
@@ -121,7 +120,6 @@ where
         }
     }
 }
-
 
 pub type StrupleKV<K, V> = Vec<StrupleItem<K, V>>;
 pub type Struple2<T> = Vec<StrupleItem<Option<Lstr>, T>>;
@@ -321,13 +319,11 @@ where
     }
 }
 
-
 #[cfg(test)]
 mod tests
 {
     use crate::leema::struple::{self, StrupleItem};
     use crate::leema::val::Val;
-
 
     #[test]
     fn test_struple_find()

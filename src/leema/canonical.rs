@@ -10,7 +10,6 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-
 #[macro_export]
 macro_rules! canonical {
     ($c:expr) => {
@@ -263,7 +262,6 @@ impl sendclone::SendClone for Canonical
         Canonical(self.0.clone_for_send())
     }
 }
-
 
 #[cfg(test)]
 mod tests

@@ -4,7 +4,6 @@ use crate::leema::ast2::{
 use crate::leema::val::{Type, Val};
 use crate::leema::Lstr;
 
-
 pub struct LocalizeGenerics
 {
     current_local: String,

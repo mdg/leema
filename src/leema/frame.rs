@@ -11,7 +11,6 @@ use std::fmt::{self, Debug};
 use std::rc::Rc;
 use std::sync::Arc;
 
-
 /*
 pub enum Result
 {
@@ -265,7 +264,6 @@ impl Frame
         })
     }
 
-
     pub fn tail_call_args(&mut self, _call: Val, _args: Struple2<Val>)
     {
         /*
@@ -346,7 +344,6 @@ fn execute_fork(curf: &mut Frame,
     Event::Fork
 }
  */
-
 
 /*
 process_set

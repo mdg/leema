@@ -9,7 +9,6 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
-
 /// Return a formatted Lstr
 macro_rules! lstrf {
     ($fmt:expr, $($arg:tt)*) => {
@@ -239,7 +238,6 @@ impl Hash for Lstr
         self.str().hash(state);
     }
 }
-
 
 #[cfg(test)]
 mod tests

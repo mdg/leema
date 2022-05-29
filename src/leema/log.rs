@@ -1,6 +1,5 @@
 static mut VERBOSE: bool = false;
 
-
 pub fn set_verbose()
 {
     unsafe {

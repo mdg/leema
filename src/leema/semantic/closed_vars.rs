@@ -2,7 +2,6 @@ use crate::leema::ast2::{self, Ast, AstMode, AstNode, AstStep, StepResult};
 use crate::leema::struple;
 use crate::leema::val::{Type, TypeArgSlice};
 
-
 pub struct ClosedVars<'p>
 {
     type_args: &'p TypeArgSlice,

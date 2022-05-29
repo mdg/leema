@@ -13,7 +13,6 @@ use serde::ser::{Serialize, SerializeMap, SerializeSeq};
 use serde::Serializer;
 use serde_json::{self, Value};
 
-
 const JSON_VAL_TYPE: Type = user_type!("/json/Val");
 
 impl Serialize for Val

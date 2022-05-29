@@ -12,7 +12,6 @@ use crate::leema::val::{Fref, Type, Val};
 use std::pin::Pin;
 use std::sync::mpsc::SyncSender;
 
-
 #[derive(Debug)]
 pub struct Fiber
 {
@@ -549,7 +548,6 @@ impl Fiber
     }
 }
 
-
 #[cfg(test)]
 mod tests
 {
@@ -558,7 +556,6 @@ mod tests
     use crate::leema::lstr::Lstr;
     use crate::leema::stack;
     use crate::leema::val::{Fref, Val};
-
 
     #[test]
     fn test_normal_strcat()

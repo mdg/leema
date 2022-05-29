@@ -15,7 +15,6 @@ use futures::future;
 // use futures::stream;
 use mopa::mopafy;
 
-
 pub const ID_PROGLIB: i64 = 0;
 pub const ID_INITIAL: i64 = 10;
 static NEXT_RSRC_ID: AtomicI64 = AtomicI64::new(ID_INITIAL);
@@ -69,7 +68,6 @@ macro_rules! iotry {
         }
     };
 }
-
 
 pub enum Event
 {

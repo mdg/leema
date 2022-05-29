@@ -3,7 +3,6 @@ use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
-
 pub const STRUCT_FIELD_TYPE: Type = Type::named("/core/StructFieldVal");
 
 pub fn new_some(v: Val) -> Val
@@ -141,14 +140,12 @@ pub fn new_type_val(name: Lstr, fields: &Vec<(Option<Lstr>, Type)>) -> Val
     Val::Struct(Type::TYPE, struct_fields_struple)
 }
 
-
 #[cfg(test)]
 mod tests
 {
     use crate::leema::lstr::Lstr;
     use crate::leema::types;
     use crate::leema::val::Type;
-
 
     #[test]
     fn test_type_val()

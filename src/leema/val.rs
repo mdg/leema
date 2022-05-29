@@ -19,7 +19,6 @@ use std::sync::{Arc, Mutex};
 
 use mopa::mopafy;
 
-
 #[macro_export]
 macro_rules! leema_type {
     ($t:ident) => {
@@ -1882,7 +1881,6 @@ impl fmt::Debug for Val
     }
 }
 
-
 impl reg::Iregistry for Val
 {
     fn ireg_get(&self, i: Ireg) -> Lresult<&Val>
@@ -2123,7 +2121,6 @@ impl Default for Val
         Val::VOID
     }
 }
-
 
 #[cfg(test)]
 mod tests

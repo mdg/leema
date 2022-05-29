@@ -4,7 +4,6 @@ use crate::leema::frame;
 use crate::leema::list;
 use crate::leema::worker::RustFuncContext;
 
-
 pub fn sort(mut ctx: RustFuncContext) -> Lresult<frame::Event>
 {
     let src = ctx.get_param(0)?;
