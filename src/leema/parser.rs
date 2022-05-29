@@ -400,7 +400,7 @@ impl LeemaPrec
                 Ok(AstNode::new(Ast::Block(inner?), loc))
             }
             Rule::typed_id => {
-                let mut inner = dbg!(n.into_inner());
+                let mut inner = n.into_inner();
                 let base = self.primary(Mode::Type, inner.next().unwrap())?;
                 let vars: Xlist = ltry!(self.parse_xlist(Mode::Type, inner));
                 if vars.is_empty() {

@@ -797,7 +797,6 @@ impl ProtoModule
                         vec![],
                         m.modscope.clone(),
                     ));
-                    var_sub.copy_modscope(&m);
                     ltry!(
                         var_sub.add_typed_struct(var_t, flds, loc),
                         "type": ldisplay!(union_typ),
@@ -876,17 +875,6 @@ impl ProtoModule
             self.modscope.clone()
         ));
         Ok(sub)
-    }
-
-    fn copy_modscope(&mut self, src: &ProtoModule)
-    {
-        for s in src.modscope.iter() {
-            if !self.modscope.contains_key(&*s.0) {
-                self.modscope.insert(s.0, s.1.clone());
-            } else {
-                eprintln!("skip scope item: {}", s.0);
-            }
-        }
     }
 
     fn add_selfmod(
