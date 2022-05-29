@@ -1,6 +1,6 @@
 language: rust
 rust:
-  - 1.57.0
+  - 1.61.0
 python:
   - 3.9
 before_install:
