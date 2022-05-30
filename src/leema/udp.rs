@@ -80,8 +80,7 @@ pub fn udp_recv(mut ctx: rsrc::IopCtx) -> IopFuture
         unsafe {
             buf.set_len(nbytes);
         }
-        let utf8 =
-            iotry!(ctx, String::from_utf8(buf).map_err(|e| Failure::from(e)));
+        let utf8 = iotry!(ctx, String::from_utf8(buf).map_err(Failure::from));
         ctx.set_result(Val::Str(Lstr::from(utf8)));
         ctx
     })
@@ -95,17 +94,15 @@ pub fn udp_send(mut ctx: rsrc::IopCtx) -> IopFuture
         vout!("udp_send({}, {})\n", dst_ip, dst_port);
         let msg = ctx.take_param(3).unwrap().to_string();
 
-        let dst_ip_str = iotry!(
-            ctx,
-            IpAddr::from_str(dst_ip.str()).map_err(|e| Failure::from(e))
-        );
+        let dst_ip_str =
+            iotry!(ctx, IpAddr::from_str(dst_ip.str()).map_err(Failure::from));
         let dst_addr = SocketAddr::new(dst_ip_str, dst_port);
         let sock: &mut UdpSocket = iotry!(ctx, ctx.rsrc_mut(0));
         let nbytes = iotry!(
             ctx,
             sock.send_to(msg.as_bytes(), &dst_addr)
                 .await
-                .map_err(|e| Failure::from(e))
+                .map_err(Failure::from)
         );
         ctx.set_result(Val::Int(nbytes as i64));
         ctx

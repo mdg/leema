@@ -35,13 +35,13 @@ pub fn get(mut ctx: RustFuncContext) -> Lresult<frame::Event>
         let p0 = ctx.get_param(0)?;
         if let &Val::Map(ref m) = p0 {
             let k = ctx.get_param(1)?;
-            Lmap::get(m, k).map(|v| v.clone())
+            Lmap::get(m, k).clone()
         } else {
             panic!("first param to map::has is not a map: {:?}", p0);
         }
     };
     let result = match map_val {
-        Some(inner_val) => types::new_some(inner_val),
+        Some(inner_val) => types::new_some(inner_val.clone()),
         None => types::new_none(Type::VOID),
     };
     ctx.set_result(result);

@@ -42,7 +42,7 @@ pub fn libstr_replace(mut ctx: RustFuncContext) -> Lresult<frame::Event>
         match (src_val, from_val, to_val) {
             (Val::Str(src), Val::Str(from), Val::Str(to)) => {
                 let src_str: &str = src.str();
-                let result_str = src_str.replace(from.str(), &to);
+                let result_str = src_str.replace(from.str(), to);
                 Val::Str(Lstr::from(result_str))
             }
             _ => {

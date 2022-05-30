@@ -147,7 +147,7 @@ fn real_main() -> Lresult<()>
         let mut prog = program::Lib::new(inter);
         let module = match args.flag_mod {
             Some(user_mod) => Canonical::new(Lstr::from(user_mod)),
-            None => main_mod.clone(),
+            None => main_mod,
         };
         prog.load_proto_and_imports(&module)?;
         let proto = prog.find_proto(&module)?;
