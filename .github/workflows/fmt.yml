@@ -1,4 +1,4 @@
-name: leema-unit
+name: leema-fmt
 
 on:
   push:
@@ -16,5 +16,5 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Run unit tests
-      run: cargo t --verbose
+    - name: Run cargo fmt
+      run: cargo +nightly fmt -- --check
