@@ -1,7 +1,7 @@
 leema
 ======
 
-[![Build Status](https://github.com/mdg/leema/workflows/leema-unit/badge.svg)
+[!Build Status](https://github.com/mdg/leema/workflows/leema-unit/badge.svg)
 
 Leema is a concurrent, error-tolerant, functional programming language.
 
