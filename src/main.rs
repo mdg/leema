@@ -54,7 +54,7 @@ struct Args
     flag_repl: bool,
 }
 
-static USAGE: &'static str = "
+static USAGE: &str = "
 leema interpreter
 
 Usage:

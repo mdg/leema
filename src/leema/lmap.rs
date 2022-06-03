@@ -4,7 +4,7 @@ use crate::leema::val::{Type, Val};
 
 use std::sync::Arc;
 
-const TYPEPATH_MAP: &'static str = "/map/T";
+const TYPEPATH_MAP: &str = "/map/T";
 
 pub fn map_type() -> Type
 {

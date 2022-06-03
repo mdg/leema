@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::marker;
 
-const CODEFAIL: &'static str = "codegen_failure";
+const CODEFAIL: &str = "codegen_failure";
 
 #[derive(Debug)]
 #[derive(PartialEq)]

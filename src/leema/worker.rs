@@ -270,17 +270,17 @@ impl Worker
     pub fn execute_frame(&self, f: &mut Fiber, code: &Code) -> Lresult<Event>
     {
         match code {
-            &Code::Leema(ref ops) => f.execute_leema_frame(ops),
-            &Code::Rust(ref rf) => {
+            Code::Leema(ref ops) => f.execute_leema_frame(ops),
+            Code::Rust(ref rf) => {
                 vout!("execute rust code\n");
                 rf(f)
             }
-            &Code::Rust2(ref rf) => {
+            Code::Rust2(ref rf) => {
                 vout!("execute rust code2\n");
                 let ctx = RustFuncContext::new(self, f);
                 rf(ctx)
             }
-            &Code::Iop(_, _) => {
+            Code::Iop(_, _) => {
                 Err(rustfail!(
                     "leema_failure",
                     "cannot execute iop in a worker\n",
@@ -311,8 +311,7 @@ impl Worker
             }
             Event::PushCall { argc, line } => {
                 vout!("push_call({} @{})\n", argc, line);
-                fbr.head =
-                    fbr.head.push_call(code.clone(), argc, line).unwrap();
+                fbr.head = fbr.head.push_call(code, argc, line).unwrap();
                 self.load_code(fbr).unwrap();
             }
             Event::TailCall(func, args) => {
@@ -454,7 +453,7 @@ impl Worker
             msg::SpawnMsg::Spawn(result_dst, func, args) => {
                 vout!("worker spawn {}\n", func);
                 let (stack, e) =
-                    stack::Buffer::new(DEFAULT_STACK_SIZE, func.clone(), args);
+                    stack::Buffer::new(DEFAULT_STACK_SIZE, func, args);
                 let root = Frame::new_root(e);
                 self.spawn_fiber(stack, root, Some(result_dst));
             }

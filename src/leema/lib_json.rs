@@ -181,9 +181,7 @@ pub fn json_to_leema(jv: Value) -> Val
             let inner = Val::Str(Lstr::from(s));
             new_json_val("String", inner)
         }
-        Value::Null => {
-            Val::EnumToken(JSON_VAL_TYPE.clone(), Lstr::Sref("Null"))
-        }
+        Value::Null => Val::EnumToken(JSON_VAL_TYPE, Lstr::Sref("Null")),
         Value::Array(items) => {
             // array stuff
             let inner = items.into_iter().rev().fold(Val::Nil, |acc, i| {
@@ -209,7 +207,7 @@ pub fn json_to_leema(jv: Value) -> Val
 fn new_json_val(variant: &'static str, inner: Val) -> Val
 {
     Val::EnumStruct(
-        JSON_VAL_TYPE.clone(),
+        JSON_VAL_TYPE,
         Lstr::Sref(variant),
         vec![StrupleItem::new(None, inner)],
     )

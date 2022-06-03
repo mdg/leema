@@ -40,7 +40,7 @@ macro_rules! user_type {
     };
 }
 
-const UNNAMED_NAMES: [&'static str; 16] = [
+const UNNAMED_NAMES: [&str; 16] = [
     "__unnamed_0",
     "__unnamed_1",
     "__unnamed_2",
@@ -135,7 +135,7 @@ impl<'a> fmt::Debug for FuncTypeRef<'a>
                 write!(f, " {}:{:?}", a.k, a.v)?;
             }
             if f.alternate() {
-                writeln!(f, "")?;
+                writeln!(f)?;
             }
         }
         if !self.type_args.is_empty() {
@@ -469,7 +469,7 @@ impl Type
                 Some(FuncTypeRef {
                     path: Type::PATH_FN,
                     type_args: &[],
-                    result: result,
+                    result,
                     args: &args[1..],
                 })
             }
@@ -955,7 +955,7 @@ impl fmt::Debug for Type
                     for a in self.args.iter() {
                         write!(f, "{:?},", a)?;
                         if f.alternate() {
-                            writeln!(f, "")?;
+                            writeln!(f)?;
                         }
                     }
                     write!(f, ")")

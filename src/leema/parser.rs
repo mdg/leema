@@ -345,12 +345,8 @@ impl LeemaPrec
                 let result = match s.len() {
                     0 => AstNode::new_constval(Val::Str(Lstr::Sref("")), loc),
                     1 => {
-                        let is_id;
-                        is_id = if let Ast::Id(_) = *s.first().unwrap().node {
-                            true
-                        } else {
-                            false
-                        };
+                        let is_id =
+                            matches!(*s.first().unwrap().node, Ast::Id(_));
                         if is_id {
                             AstNode::new(Ast::StrExpr(s), loc)
                         } else {

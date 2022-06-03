@@ -25,8 +25,8 @@ pub fn get_named_struct_field<'a, 'b>(
 ) -> Option<(i16, &'a Val)>
 {
     let fields = match sv {
-        &Val::Struct(_, ref fld_struple) => fld_struple,
-        &Val::EnumStruct(_, _, ref fld_struple) => fld_struple,
+        Val::Struct(_, ref fld_struple) => fld_struple,
+        Val::EnumStruct(_, _, ref fld_struple) => fld_struple,
         _ => {
             return None;
         }
@@ -50,8 +50,8 @@ pub fn get_indexed_struct_field(
 ) -> Option<&StrupleItem<Option<Lstr>, Val>>
 {
     let fields = match sv {
-        &Val::Struct(_, ref fld_struple) => fld_struple,
-        &Val::EnumStruct(_, _, ref fld_struple) => fld_struple,
+        Val::Struct(_, ref fld_struple) => fld_struple,
+        Val::EnumStruct(_, _, ref fld_struple) => fld_struple,
         _ => {
             return None;
         }
@@ -81,7 +81,7 @@ pub fn get_field_type<'a, 'b>(
 {
     let fields = get_named_struct_field(sv, &Lstr::Sref("fields"))
         .expect("cannot find 'fields' field in structure");
-    for (fld_index, f) in list::iter(&fields.1).enumerate() {
+    for (fld_index, f) in list::iter(fields.1).enumerate() {
         let opt_fld_name = get_named_struct_field(f, &Lstr::Sref("name"));
         if opt_fld_name.is_none() {
             // this struct has no name field? wtf!
@@ -113,17 +113,17 @@ pub fn get_field_type<'a, 'b>(
 pub fn new_struct_field(name: Option<Lstr>, typ: &Type) -> Val
 {
     let name_val = match name {
-        Some(inner_name) => new_some(Val::Str(inner_name.clone())),
+        Some(inner_name) => new_some(Val::Str(inner_name)),
         None => new_none(Type::STR),
     };
     let fields = vec![
         StrupleItem::new(Some(Lstr::Sref("name")), name_val),
         StrupleItem::new(Some(Lstr::Sref("type")), Val::Type(typ.clone())),
     ];
-    Val::Struct(STRUCT_FIELD_TYPE.clone(), fields)
+    Val::Struct(STRUCT_FIELD_TYPE, fields)
 }
 
-pub fn new_type_val(name: Lstr, fields: &Vec<(Option<Lstr>, Type)>) -> Val
+pub fn new_type_val(name: Lstr, fields: &[(Option<Lstr>, Type)]) -> Val
 {
     let mut struct_fields_acc = Val::Nil;
     for f in fields.iter() {

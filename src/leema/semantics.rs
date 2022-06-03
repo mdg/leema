@@ -37,10 +37,10 @@ use lazy_static::lazy_static;
 ///   - optimization / constant folding / code removal
 ///   - assign registers
 
-const SEMFAIL: &'static str = "semantic_failure";
-const TYPEFAIL: &'static str = "type_failure";
+const SEMFAIL: &str = "semantic_failure";
+const TYPEFAIL: &str = "type_failure";
 
-const CLOSURE_ENV: &'static str = "$env";
+const CLOSURE_ENV: &str = "$env";
 
 lazy_static! {
     static ref INFIX_CANONICALS: HashMap<&'static str, Canonical> = {
@@ -75,7 +75,7 @@ lazy_static! {
     };
 }
 
-const ANON_FUNC_TYPES: [&'static str; 5] = ["A.0", "A.1", "A.2", "A.3", "A.4"];
+const ANON_FUNC_TYPES: [&str; 5] = ["A.0", "A.1", "A.2", "A.3", "A.4"];
 
 #[derive(Debug)]
 struct MacroReplacement<'a>
@@ -2363,18 +2363,17 @@ impl Semantics
             .collect();
 
         // replace closed generics from this function's definition
-        let closed_body: AstNode;
-        if f.is_generic() {
+        let closed_body: AstNode = if f.is_generic() {
             let mut closed_vars = ClosedVars::new(&f.t);
-            closed_body = ltry!(
+            ltry!(
                 ast2::walk(body, &mut closed_vars),
                 "module": modname.as_lstr().clone(),
                 "function": Lstr::Sref(f.f),
                 "type": ldebug!(ftyp),
-            );
+            )
         } else {
-            closed_body = body;
-        }
+            body
+        };
 
         // check scope and apply macros
         let (scoped, mut anons) = {
@@ -2450,14 +2449,14 @@ impl Semantics
                         "closure": Lstr::Sref(an.k),
                     );
                     ltry!(
-                        type_check.match_type(&anon_ftyp.result, &body.typ),
+                        type_check.match_type(anon_ftyp.result, &body.typ),
                         "anon_result": ldebug!(&anon_ftyp.result),
                         "anon_body_type": ldebug!(&body.typ),
                     );
                 }
 
                 if let Ast::Type(rt) = &mut *result.node {
-                    let newt = ltry!(type_check.inferred_type(&rt));
+                    let newt = ltry!(type_check.inferred_type(rt));
                     result.typ = newt.clone();
                     *rt = newt;
                 } else {
@@ -2465,7 +2464,7 @@ impl Semantics
                 }
                 for a in args.iter_mut() {
                     if let Ast::Type(at) = &mut *a.v.node {
-                        let newt = ltry!(type_check.inferred_type(&at));
+                        let newt = ltry!(type_check.inferred_type(at));
                         a.v.typ = newt.clone();
                         *at = newt;
                     } else {

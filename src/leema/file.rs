@@ -11,7 +11,7 @@ use std::pin::Pin;
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-const TYPEPATH_FILE: &'static str = "/file/File";
+const TYPEPATH_FILE: &str = "/file/File";
 const TYPE_FILE: Type = Type::named(TYPEPATH_FILE);
 
 pub fn file_open(ctx: rsrc::IopCtx) -> rsrc::Event
@@ -64,7 +64,7 @@ pub fn file_write_file(
                 .truncate(true)
                 .open(path)
                 .await
-                .map_err(|e| Failure::from(e))
+                .map_err(Failure::from)
         );
         f.write_all(output.str().as_bytes())
             .await

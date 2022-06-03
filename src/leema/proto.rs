@@ -53,27 +53,27 @@ use lazy_static::lazy_static;
 
 /// special module field names
 /// Func
-pub const MODNAME_CONSTRUCT: &'static str = "__construct";
+pub const MODNAME_CONSTRUCT: &str = "__construct";
 /// Type
-pub const MODNAME_DATATYPE: &'static str = "__datatype";
+pub const MODNAME_DATATYPE: &str = "__datatype";
 /// Bool
-pub const MODNAME_EXPORTALL: &'static str = "__exportall";
+pub const MODNAME_EXPORTALL: &str = "__exportall";
 /// Struple2<Type>
-pub const MODNAME_FIELDS: &'static str = "__fields";
+pub const MODNAME_FIELDS: &str = "__fields";
 /// Str
-pub const MODNAME_FILE: &'static str = "__file";
+pub const MODNAME_FILE: &str = "__file";
 /// ModTyp Enum
-pub const MODNAME_MODTYP: &'static str = "__modtyp";
+pub const MODNAME_MODTYP: &str = "__modtyp";
 /// Str
-pub const MODNAME_NAME: &'static str = "__name";
+pub const MODNAME_NAME: &str = "__name";
 /// Struple2<Type>
-pub const MODNAME_VARIANTS: &'static str = "__variants";
+pub const MODNAME_VARIANTS: &str = "__variants";
 /// Struple2<Type>
-pub const MODNAME_VOID: &'static str = "__void";
+pub const MODNAME_VOID: &str = "__void";
 
 const NUM_MODNAMES: usize = 7;
 
-const PROTOFAIL: &'static str = "prototype_failure";
+const PROTOFAIL: &str = "prototype_failure";
 
 lazy_static! {
     static ref BUILTIN_SCOPE: HashMap<&'static str, Ast> = {
@@ -194,8 +194,8 @@ impl ProtoModule
         let modname = key.name.clone();
         let mut proto = ProtoModule {
             key,
-            data_t: data_t,
-            trait_t: trait_t,
+            data_t,
+            trait_t,
             imports: HashMap::new(),
             exports_all: None,
             funcseq: Vec::new(),

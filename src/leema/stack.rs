@@ -148,7 +148,7 @@ impl Ref
             stack: self.stack,
             sp: new_sp,
             paramp,
-            localp: localp,
+            localp,
             stackp: localp,
         }
     }

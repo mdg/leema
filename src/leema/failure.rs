@@ -374,7 +374,7 @@ impl fmt::Display for Failure
     {
         write!(f, "Failure({} ", self.tag)?;
         for c in &self.context {
-            write!(f, "   {:?}\n", c)?;
+            writeln!(f, "   {:?}", c)?;
         }
         write!(f, "'{}')", self.msg)
     }
