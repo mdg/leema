@@ -166,7 +166,7 @@ where
     Lresult::from_iter(m_result_items)
 }
 
-pub fn find<'s, S, V, K>(s: &'s [StrupleItem<S, V>], key: K) -> Option<&'s V>
+pub fn find<S, V, K>(s: &[StrupleItem<S, V>], key: K) -> Option<&V>
 where
     S: AsRef<str>,
     K: AsRef<str>,
@@ -176,10 +176,7 @@ where
         .map(|item| &item.v)
 }
 
-pub fn find_mut<'s, S, V, K>(
-    s: &'s mut [StrupleItem<S, V>],
-    key: K,
-) -> Option<&'s mut V>
+pub fn find_mut<S, V, K>(s: &mut [StrupleItem<S, V>], key: K) -> Option<&mut V>
 where
     S: AsRef<str>,
     K: AsRef<str>,
@@ -189,10 +186,7 @@ where
         .map(|item| &mut item.v)
 }
 
-pub fn find_idx<'s, S, V, K>(
-    s: &'s [StrupleItem<S, V>],
-    key: K,
-) -> Option<(usize, &'s V)>
+pub fn find_idx<S, V, K>(s: &[StrupleItem<S, V>], key: K) -> Option<(usize, &V)>
 where
     S: AsRef<str>,
     K: AsRef<str>,

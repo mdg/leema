@@ -101,9 +101,9 @@ impl Reg
     pub fn sub(&self, sub: i8) -> Reg
     {
         match self {
-            &Reg::Param(ref r) => Reg::Param(r.sub(sub)),
-            &Reg::Local(ref r) => Reg::Local(r.sub(sub)),
-            &Reg::Void => Reg::Void,
+            Reg::Param(ref r) => Reg::Param(r.sub(sub)),
+            Reg::Local(ref r) => Reg::Local(r.sub(sub)),
+            Reg::Void => Reg::Void,
             _ => {
                 panic!("Can't make a sub reg for {:?}", self);
             }
@@ -123,9 +123,9 @@ impl Reg
     pub fn is_primary(&self) -> bool
     {
         match self {
-            &Reg::Param(Ireg::Reg(_)) => true,
-            &Reg::Local(Ireg::Reg(_)) => true,
-            &Reg::Top => true,
+            Reg::Param(Ireg::Reg(_)) => true,
+            Reg::Local(Ireg::Reg(_)) => true,
+            Reg::Top => true,
             _ => false,
         }
     }
@@ -133,8 +133,8 @@ impl Reg
     pub fn is_sub(&self) -> bool
     {
         match self {
-            &Reg::Param(Ireg::Sub(_, _)) => true,
-            &Reg::Local(Ireg::Sub(_, _)) => true,
+            Reg::Param(Ireg::Sub(_, _)) => true,
+            Reg::Local(Ireg::Sub(_, _)) => true,
             _ => false,
         }
     }
@@ -142,8 +142,8 @@ impl Reg
     pub fn next_sibling(&self) -> Reg
     {
         match self {
-            &Reg::Param(ref r) => Reg::Param(r.next_sibling()),
-            &Reg::Local(ref r) => Reg::Local(r.next_sibling()),
+            Reg::Param(ref r) => Reg::Param(r.next_sibling()),
+            Reg::Local(ref r) => Reg::Local(r.next_sibling()),
             _ => {
                 panic!("register has no sibling: {:?}", self);
             }
@@ -156,12 +156,12 @@ impl fmt::Display for Reg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Reg::Param(ref r) => write!(f, "Param{}", r),
-            &Reg::Local(ref r) => write!(f, "Local{}", r),
-            &Reg::Top => write!(f, "Reg::Top"),
-            &Reg::Lib => write!(f, "Reg::Lib"),
-            &Reg::Void => write!(f, "Reg::Void"),
-            &Reg::Undecided => write!(f, "Reg::Undecided"),
+            Reg::Param(ref r) => write!(f, "Param{}", r),
+            Reg::Local(ref r) => write!(f, "Local{}", r),
+            Reg::Top => write!(f, "Reg::Top"),
+            Reg::Lib => write!(f, "Reg::Lib"),
+            Reg::Void => write!(f, "Reg::Void"),
+            Reg::Undecided => write!(f, "Reg::Undecided"),
         }
     }
 }
@@ -217,7 +217,7 @@ impl RegTab
 
     pub fn with_name(&self, id: &'static str) -> Option<Reg>
     {
-        self.ids.get(id).map(|r| r.clone())
+        self.ids.get(id).copied()
     }
 
     pub fn unnamed(&mut self) -> Reg

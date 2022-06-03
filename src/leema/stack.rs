@@ -254,7 +254,7 @@ impl Ref
         self.param_frame().data
     }
 
-    pub fn get_reg<'a>(&'a self, r: Reg) -> Lresult<&'a Val>
+    pub fn get_reg(&self, r: Reg) -> Lresult<&Val>
     {
         match r {
             Reg::Param(i) => {
@@ -297,12 +297,13 @@ impl Ref
     {
         match r {
             Reg::Local(i) => {
-                Ok(ltry!(
+                ltry!(
                     self.local_frame_mut().ireg_set(i, v),
                     "reg": ldisplay!(r),
                     "stack_size": ldisplay!(self.stack_data().len()),
                     "sp": ldisplay!(self.sp),
-                ))
+                );
+                Ok(())
             }
             Reg::Param(_) => {
                 // debatable whether param should allow writes
@@ -331,17 +332,17 @@ impl Ref
         &unsafe { &*self.stack }.data
     }
 
-    fn stack_data_mut(&self) -> &mut Struple2Slice<Val>
+    fn stack_data_mut(&mut self) -> &mut Struple2Slice<Val>
     {
         &mut unsafe { &mut *self.stack }.data
     }
 
-    pub fn func_val<'a>(&'a self) -> &'a Val
+    pub fn func_val(&self) -> &Val
     {
         &self.stack_data()[self.sp + Self::FUNC_INDEX].v
     }
 
-    pub fn fref<'a>(&'a self) -> Lresult<&'a Fref>
+    pub fn fref(&self) -> Lresult<&Fref>
     {
         match self.func_val() {
             Val::Func(ref fref) => Ok(fref),
@@ -357,22 +358,22 @@ impl Ref
         }
     }
 
-    fn param_frame<'a>(&'a self) -> FrameRef<'a>
+    fn param_frame(&self) -> FrameRef<'_>
     {
         FrameRef::new("param", self.stack, self.paramp..self.localp)
     }
 
-    fn local_frame<'a>(&'a self) -> FrameRef<'a>
+    fn local_frame(&self) -> FrameRef<'_>
     {
         FrameRef::new("local", self.stack, self.localp..self.stackp)
     }
 
-    fn stack_frame<'a>(&'a self) -> FrameRef<'a>
+    fn stack_frame(&self) -> FrameRef<'_>
     {
         FrameRef::new_from("stack", self.stack, self.stackp..)
     }
 
-    fn result_mut<'a>(&'a self) -> FrameRef<'a>
+    fn result_mut(&self) -> FrameRef<'_>
     {
         FrameRef::new("param", self.stack, self.paramp..self.localp)
     }

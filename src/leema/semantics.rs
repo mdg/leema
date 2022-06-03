@@ -202,7 +202,7 @@ impl ast2::Op for CloseVars
     fn post(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
         match &mut *node.node {
-            Ast::Id(ref idname) if mode == AstMode::Value => {
+            Ast::Id(idname) if mode == AstMode::Value => {
                 if let Some(_var_idx) = self.find_var(idname) {
                     let mut closed =
                         AstNode::new(Ast::Id(CLOSURE_ENV), node.loc);
@@ -448,7 +448,7 @@ impl<'p> ScopeCheck<'p>
             blocks: Blockstack::with_args(args),
             anons: vec![],
             ftyp,
-            type_args: &ftyp.type_args,
+            type_args: ftyp.type_args,
         })
     }
 
@@ -471,7 +471,7 @@ impl<'p> ScopeCheck<'p>
             blocks: Blockstack::with_args(args),
             anons: vec![],
             ftyp,
-            type_args: &ftyp.type_args,
+            type_args: ftyp.type_args,
         }
     }
 
@@ -544,7 +544,7 @@ impl<'p> ScopeCheck<'p>
         }
         vout!("replace_ids({:?})\n", arg_map);
         let mut macro_replace = MacroReplacement { arg_map, loc };
-        Ok(ast2::walk(body.clone(), &mut macro_replace)?)
+        ast2::walk(body.clone(), &mut macro_replace)
     }
 
     fn new_anon_func_def(
@@ -562,23 +562,23 @@ impl<'p> ScopeCheck<'p>
         let ftyp = func_type.try_func_ref()?;
         let mut closure_scope = self.closure(&ftyp);
         ltry!(ast2::walk_ref_mut(&mut body, &mut closure_scope));
-        let env: Vec<&'static str>;
-        if !closure_scope.blocks.out_of_scope().is_empty() {
-            // this is a closure, generate its environment / closed vars
-            env = closure_scope
-                .blocks
-                .out_of_scope()
-                .iter()
-                .map(|var| {
-                    self.blocks.access_var(var.0, *var.1);
-                    *var.0
-                })
-                .collect();
-        } else {
-            env = vec![];
-        }
+        let env: Vec<&'static str> =
+            if !closure_scope.blocks.out_of_scope().is_empty() {
+                // this is a closure, generate its environment / closed vars
+                closure_scope
+                    .blocks
+                    .out_of_scope()
+                    .iter()
+                    .map(|var| {
+                        self.blocks.access_var(var.0, *var.1);
+                        *var.0
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
 
-        AnonFuncDef::new(&self.local_mod, name, func_type, env, args, body, loc)
+        AnonFuncDef::new(self.local_mod, name, func_type, env, args, body, loc)
     }
 
     fn push_anon_func(&mut self, anon_f: AnonFuncDef) -> Lresult<()>
@@ -619,7 +619,7 @@ impl<'p> ScopeCheck<'p>
                 result_t.clone(),
             ));
         } else {
-            result_t = self.local_mod.ast_to_type(&result, &type_args_t)?;
+            result_t = self.local_mod.ast_to_type(result, &type_args_t)?;
         }
 
         // arg types also optional for anon funcs. iterate thru
@@ -983,11 +983,11 @@ impl<'p> ScopeCheck<'p>
                     .drain(..)
                     .enumerate()
                     .map(|i| {
-                        let k_lstr = i.1.k.map(|ik| Lstr::Sref(ik));
+                        let k_lstr = i.1.k.map(Lstr::Sref);
                         let k = Type::unwrap_name(&k_lstr, i.0);
                         let t = ltry!(self
                             .local_mod
-                            .ast_to_type(&i.1.v, &self.type_args));
+                            .ast_to_type(&i.1.v, self.type_args));
                         Ok(TypeArg::new(k, t))
                     })
                     .collect();
@@ -1023,7 +1023,7 @@ impl<'p> ScopeCheck<'p>
                 let args = mem::take(ref_args);
                 let body = mem::take(ref_body);
                 let func_type =
-                    self.pre_anon_functype(&ref_result, &args, loc)?;
+                    self.pre_anon_functype(ref_result, &args, loc)?;
                 let fn_def =
                     ltry!(self
                         .new_anon_func_def(func_type, args, body, node.loc,));
@@ -1173,14 +1173,11 @@ impl<'p> TypeCheck<'p>
             let argt = ltry!(check.inferred_type(&arg.v));
             check.vartypes.insert(argname, argt);
         }
-        check.result = ltry!(check.inferred_type(&ftyp.result));
+        check.result = ltry!(check.inferred_type(ftyp.result));
         Ok(check)
     }
 
-    pub fn add_anon_func_args<'a, 'b>(
-        &'a mut self,
-        args: &'b Xlist,
-    ) -> Lresult<()>
+    pub fn add_anon_func_args(&mut self, args: &Xlist) -> Lresult<()>
     {
         for arg in args.iter() {
             if arg.k.is_none() {
@@ -1205,7 +1202,7 @@ impl<'p> TypeCheck<'p>
     {
         self.infers
             .get(local_tvar.as_ref())
-            .map(|t| t.clone())
+            .cloned()
             .unwrap_or_else(|| Type::local(local_tvar.clone()))
     }
 
@@ -1319,8 +1316,7 @@ impl<'p> TypeCheck<'p>
             }
             // type names match
             (p0, p1) if p0 == p1 && t0.argc() == t1.argc() => {
-                let im: Lresult<TypeArgs>;
-                im = t0
+                let im: Lresult<TypeArgs> = t0
                     .args
                     .iter()
                     .zip(t1.args.iter())
@@ -1451,7 +1447,7 @@ impl<'p> TypeCheck<'p>
             a.0.v = ltry!(self.match_type(&a.0.v, next_type));
         }
 
-        let calltype = ltry!(self.lib.func_type_closed(fref)).clone();
+        let calltype = ltry!(self.lib.func_type_closed(fref));
         Ok(ltry!(self.inferred_type(&calltype)))
     }
 
@@ -1522,11 +1518,11 @@ impl<'p> TypeCheck<'p>
             arg.1.v.typ = inferred;
         }
 
-        *ftyp.result = ltry!(self.inferred_type(&ftyp.result));
+        *ftyp.result = ltry!(self.inferred_type(ftyp.result));
         Ok((*ftyp.result).clone())
     }
 
-    fn match_case_types(&mut self, cases: &Vec<ast2::Case>) -> Lresult<Type>
+    fn match_case_types(&mut self, cases: &[ast2::Case]) -> Lresult<Type>
     {
         let mut prev_typ: Option<Type> = None;
         for case in cases.iter() {
@@ -1565,7 +1561,7 @@ impl<'p> TypeCheck<'p>
         // the args in the Val::Call const? <--
 
         // get call type from proto
-        let mut ftyp = ltry!(self.lib.func_type_closed(fref)).clone();
+        let mut ftyp = ltry!(self.lib.func_type_closed(fref));
         *result_typ = ltry!(self.applied_call_type(&mut ftyp, args),
             "function": ldisplay!(fref),
             "file": self.local_mod.key.best_path(),
@@ -1801,7 +1797,7 @@ impl<'p> TypeCheck<'p>
             Ast::StrExpr(ref _items) => {
                 // check items, but not necessary yet b/c everything
                 // converts to strings right now
-                node.typ = Type::STR.clone();
+                node.typ = Type::STR;
             }
             Ast::Ifx(ref mut cases) => {
                 // all if cases should be boolean
@@ -1844,7 +1840,7 @@ impl<'p> TypeCheck<'p>
                 if *let_typ.node == Ast::NOTOKEN {
                     // no type was given, stick w/ patt <=> x
                 } else if let Ast::ConstVal(Val::Type(t)) = &*let_typ.node {
-                    typ = ltry!(self.match_type(&t, &typ));
+                    typ = ltry!(self.match_type(t, &typ));
                     let_typ.typ = Type::KIND;
                 } else {
                     return Err(lfail!(
@@ -1871,7 +1867,7 @@ impl<'p> TypeCheck<'p>
                     .iter()
                     .enumerate()
                     .map(|(idx, i)| {
-                        let klstr = i.k.map(|k| Lstr::Sref(k));
+                        let klstr = i.k.map(Lstr::Sref);
                         Ok(StrupleItem::new(
                             Type::unwrap_name(&klstr, idx),
                             i.v.typ.clone(),
@@ -2085,7 +2081,7 @@ impl<'l> ResolveTypes<'l>
     pub fn infer_local_typevar(&self, t: &mut Type) -> Lresult<()>
     {
         if t.contains_local() {
-            t.replace_localvars(&self.infers)?;
+            t.replace_localvars(self.infers)?;
         }
         Ok(())
     }
@@ -2105,32 +2101,32 @@ impl<'l> ast2::Op for ResolveTypes<'l>
         }
         match &mut *node.node {
             Ast::Type(t) if t.contains_local() => {
-                ltry!(t.replace_localvars(&self.infers));
+                ltry!(t.replace_localvars(self.infers));
                 Ok(AstStep::Rewrite)
             }
             Ast::ConstVal(cv) => {
                 match cv {
                     Val::Func(f) => {
                         if f.contains_local() {
-                            ltry!(f.replace_localvars(&self.infers));
+                            ltry!(f.replace_localvars(self.infers));
                             return Ok(AstStep::Rewrite);
                         }
                     }
                     Val::Struct(t, _fields) => {
                         if t.contains_local() {
-                            ltry!(t.replace_localvars(&self.infers));
+                            ltry!(t.replace_localvars(self.infers));
                             return Ok(AstStep::Rewrite);
                         }
                     }
                     Val::EnumStruct(t, _var, _fields) => {
                         if t.contains_local() {
-                            ltry!(t.replace_localvars(&self.infers));
+                            ltry!(t.replace_localvars(self.infers));
                             return Ok(AstStep::Rewrite);
                         }
                     }
                     Val::EnumToken(t, _var) => {
                         if t.contains_local() {
-                            ltry!(t.replace_localvars(&self.infers));
+                            ltry!(t.replace_localvars(self.infers));
                             return Ok(AstStep::Rewrite);
                         }
                     }
@@ -2140,7 +2136,7 @@ impl<'l> ast2::Op for ResolveTypes<'l>
             }
             other if node.typ.contains_local() => {
                 ltry!(
-                    node.typ.replace_localvars(&self.infers),
+                    node.typ.replace_localvars(self.infers),
                     "node": ldebuga!(other),
                     "type": ldisplay!(node.typ),
                     "file": self.func.m.best_path(),
@@ -2180,7 +2176,7 @@ impl ast2::Op for RemoveExtraCode
                 let mut vitems = Vec::with_capacity(items.len());
                 for i in items.drain(..) {
                     if let Ast::ConstVal(v) = *i.v.node {
-                        let k = i.k.map(|k| Lstr::Sref(k));
+                        let k = i.k.map(Lstr::Sref);
                         vitems.push(StrupleItem::new(k, v));
                     } else {
                         return Err(lfail!(
@@ -2213,7 +2209,7 @@ impl ast2::Op for RemoveExtraCode
                         let mut cargs = Vec::with_capacity(args.len());
                         for a in args.drain(..) {
                             if let Ast::ConstVal(v) = *a.v.node {
-                                let k = a.k.map(|k| Lstr::Sref(k));
+                                let k = a.k.map(Lstr::Sref);
                                 cargs.push(StrupleItem::new(k, v));
                             } else {
                                 return Err(lfail!(
@@ -2311,7 +2307,7 @@ impl Semantics
             ));
         }
 
-        let (modname, body) = lib.take_func(&fp)?;
+        let (modname, body) = lib.take_func(fp)?;
         if *body.node == Ast::BLOCK_ABSTRACT {
             return Err(rustfail!(
                 "compile_failure",
@@ -2322,13 +2318,13 @@ impl Semantics
         }
         let proto = lib.path_proto(&modname)?;
 
-        let func_ref = proto.find_method(&fp.f).ok_or_else(|| {
+        let func_ref = proto.find_method(fp.f).ok_or_else(|| {
             rustfail!(SEMFAIL, "cannot find func ref for {}", fp,)
         })?;
 
         let (func_typ, f) = {
-            let mut f = fp.clone();
-            let t = ltry!(lib.func_type_closed(&mut f),
+            let f = fp.clone();
+            let t = ltry!(lib.func_type_closed(&f),
                 "file": fp.m.best_path(),
                 "module": fp.m.name.to_lstr(),
                 "function": ldebug!(f),
@@ -2419,7 +2415,7 @@ impl Semantics
             result.typ = Type::VOID;
         } else {
             result.typ = ltry!(
-                type_check.match_type(&ftyp.result, &result.typ),
+                type_check.match_type(ftyp.result, &result.typ),
                 "module": modname.as_lstr().clone(),
                 "function": Lstr::Sref(f.f),
                 "ftyp_result": ldisplay!(&ftyp.result),

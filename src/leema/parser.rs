@@ -179,9 +179,8 @@ pub fn parse_mxline(pair: Pair<'static, Rule>) -> Lresult<ModTree>
                     if next.as_rule() != Rule::mxblock {
                         panic!("unexpected import line block: {:?}", next);
                     }
-                    let block: Lresult<Vec<ModTree>>;
-                    block =
-                        next.into_inner().map(|i| parse_mxline(i)).collect();
+                    let block: Lresult<Vec<ModTree>> =
+                        next.into_inner().map(parse_mxline).collect();
                     Ok(ModTree::branch(head.as_str(), block?))
                 }
                 un => panic!("unexpected import line: {:?}", un),

@@ -19,13 +19,13 @@ impl<'p> ast2::Op for ClosedVars<'p>
 {
     fn pre(&mut self, node: &mut AstNode, mode: AstMode) -> StepResult
     {
-        node.typ.close_generics(&self.type_args);
+        node.typ.close_generics(self.type_args);
         match &mut *node.node {
             Ast::Type(t) => {
-                t.close_generics(&self.type_args);
+                t.close_generics(self.type_args);
             }
             Ast::Id(id) if mode == AstMode::Type => {
-                if let Some(new_type) = struple::find(&self.type_args, id) {
+                if let Some(new_type) = struple::find(self.type_args, id) {
                     *node.node = Ast::Type(new_type.clone());
                     node.typ = Type::KIND;
                 }
