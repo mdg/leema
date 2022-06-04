@@ -146,29 +146,34 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            &Op::PushCall { argc, line } => Op::PushCall { argc, line },
-            &Op::Return => Op::Return,
-            &Op::PushResult => Op::PushResult,
-            &Op::ReserveLocal(n) => Op::ReserveLocal(n),
-            &Op::PropagateFailure(lineno) => Op::PropagateFailure(lineno),
-            &Op::StackPush => Op::StackPush,
-            &Op::PushConst(ref src) => Op::PushConst(src.clone_for_send()),
-            &Op::Copy(ref dst, ref src) => Op::Copy(dst.clone(), src.clone()),
-            &Op::BranchMatch(j, ref patt) => {
-                Op::BranchMatch(j, patt.clone_for_send())
+            Op::PushCall { argc, line } => {
+                Op::PushCall {
+                    argc: *argc,
+                    line: *line,
+                }
             }
-            &Op::BranchIf(j) => Op::BranchIf(j),
-            &Op::Jump(j) => Op::Jump(j),
-            &Op::Label(j) => Op::Label(j),
-            &Op::IfFailure(ref src, j) => Op::IfFailure(src.clone(), j),
-            &Op::PushReg(src) => Op::PushReg(src),
-            &Op::PopReg(dst) => Op::PopReg(dst),
-            &Op::PopIntoField(fld) => Op::PopIntoField(fld),
-            &Op::PushField(fld) => Op::PushField(fld),
-            &Op::PopMatch(ref patt) => Op::PopMatch(patt.clone_for_send()),
-            &Op::PopListCons => Op::PopListCons,
-            &Op::PopStrCat => Op::PopStrCat,
-            &Op::PushTuple(n) => Op::PushTuple(n),
+            Op::Return => Op::Return,
+            Op::PushResult => Op::PushResult,
+            Op::ReserveLocal(n) => Op::ReserveLocal(*n),
+            Op::PropagateFailure(lineno) => Op::PropagateFailure(*lineno),
+            Op::StackPush => Op::StackPush,
+            Op::PushConst(src) => Op::PushConst(src.clone_for_send()),
+            Op::Copy(dst, src) => Op::Copy(*dst, *src),
+            Op::BranchMatch(j, patt) => {
+                Op::BranchMatch(*j, patt.clone_for_send())
+            }
+            Op::BranchIf(j) => Op::BranchIf(*j),
+            Op::Jump(j) => Op::Jump(*j),
+            Op::Label(j) => Op::Label(*j),
+            Op::IfFailure(src, j) => Op::IfFailure(*src, *j),
+            Op::PushReg(src) => Op::PushReg(*src),
+            Op::PopReg(dst) => Op::PopReg(*dst),
+            Op::PopIntoField(fld) => Op::PopIntoField(*fld),
+            Op::PushField(fld) => Op::PushField(*fld),
+            Op::PopMatch(patt) => Op::PopMatch(patt.clone_for_send()),
+            Op::PopListCons => Op::PopListCons,
+            Op::PopStrCat => Op::PopStrCat,
+            Op::PushTuple(n) => Op::PushTuple(*n),
         }
     }
 }
@@ -199,19 +204,12 @@ impl Code
 {
     pub fn is_leema(&self) -> bool
     {
-        if let &Code::Leema(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Code::Leema(_))
     }
 
     pub fn is_rust(&self) -> bool
     {
-        match self {
-            &Code::Rust(_) | &Code::Rust2(_) => true,
-            _ => false,
-        }
+        matches!(self, Code::Rust(_) | Code::Rust2(_))
     }
 
     /// TODO remove the rsrc_idx field from this
@@ -230,10 +228,10 @@ impl fmt::Display for Code
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Code::Leema(_) => write!(f, "LeemaCode"),
-            &Code::Rust(_) => write!(f, "RustCode"),
-            &Code::Rust2(_) => write!(f, "RustCode2"),
-            &Code::Iop(_, _) => write!(f, "IopCode"),
+            Code::Leema(_) => write!(f, "LeemaCode"),
+            Code::Rust(_) => write!(f, "RustCode"),
+            Code::Rust2(_) => write!(f, "RustCode2"),
+            Code::Iop(_, _) => write!(f, "IopCode"),
         }
     }
 }
@@ -243,19 +241,16 @@ impl fmt::Debug for Code
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Code::Leema(ref ops) => {
-                let mut result;
-                result = writeln!(f, "Code::Leema");
-                let mut i = 0;
-                for op in &**ops {
-                    result = writeln!(f, "{:3} {:?}", i, op);
-                    i += 1;
+            Code::Leema(ref ops) => {
+                writeln!(f, "Code::Leema")?;
+                for (i, op) in ops.iter().enumerate() {
+                    writeln!(f, "{:3} {:?}", i, op)?;
                 }
-                result
+                Ok(())
             }
-            &Code::Rust(_) => write!(f, "Code::Rust"),
-            &Code::Rust2(_) => write!(f, "Code::Rust2"),
-            &Code::Iop(_, _) => write!(f, "Code::Iop"),
+            Code::Rust(_) => write!(f, "Code::Rust"),
+            Code::Rust2(_) => write!(f, "Code::Rust2"),
+            Code::Iop(_, _) => write!(f, "Code::Iop"),
         }
     }
 }
@@ -265,12 +260,10 @@ impl Clone for Code
     fn clone(&self) -> Code
     {
         match self {
-            &Code::Leema(ref ops) => Code::Leema(ops.clone()),
-            &Code::Rust(rf) => Code::Rust(rf),
-            &Code::Rust2(rf) => Code::Rust2(rf),
-            &Code::Iop(ref iopf, ref rsrc_idx) => {
-                Code::Iop(*iopf, rsrc_idx.clone())
-            }
+            Code::Leema(ref ops) => Code::Leema(ops.clone()),
+            Code::Rust(rf) => Code::Rust(*rf),
+            Code::Rust2(rf) => Code::Rust2(*rf),
+            Code::Iop(ref iopf, ref rsrc_idx) => Code::Iop(*iopf, *rsrc_idx),
         }
     }
 }
@@ -310,11 +303,8 @@ impl ast2::Op for LocalMax
 {
     fn pre(&mut self, node: &mut AstNode, _mode: ast2::AstMode) -> StepResult
     {
-        match node.dst {
-            Reg::Local(ireg) => {
-                self.check_max(ireg);
-            }
-            _ => {}
+        if let Reg::Local(ireg) = node.dst {
+            self.check_max(ireg);
         }
         if let Ast::ConstVal(v) = &*node.node {
             ltry!(v.walk_ref(self));
@@ -327,11 +317,8 @@ impl val::Op for LocalMax
 {
     fn pre_ref(&mut self, v: &Val) -> Lresult<()>
     {
-        match v {
-            Val::Reg(Reg::Local(ireg)) => {
-                self.check_max(*ireg);
-            }
-            _ => {}
+        if let Val::Reg(Reg::Local(ireg)) = v {
+            self.check_max(*ireg);
         }
         Ok(())
     }
@@ -385,7 +372,7 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             }
             ops
         }
-        Ast::ConstVal(v) => vec![Op::PushConst(v.clone())],
+        Ast::ConstVal(v) => vec![Op::PushConst(v)],
         Ast::Call(f, args) => make_call_ops(f, args, opm),
         Ast::Let(patt, _, x) => {
             let pval = if let Ast::ConstVal(pv) = *patt.node {
@@ -460,7 +447,7 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             }
             base_ops.ops
         }
-        Ast::Id(ref _id) => {
+        Ast::Id(_id) => {
             vec![Op::PushReg(input_dst)]
         }
 
@@ -633,21 +620,17 @@ fn make_matchcase_ops(
 fn make_if_ops(cases: Vec<Case>, opm: &mut OpMaker) -> OpVec
 {
     let end_label = opm.next_label();
-    let case_ops: Vec<(Oxpr, Oxpr)> = cases
-        .into_iter()
-        .map(|case| {
-            let case_label = opm.next_label();
-            let mut cond_ops = make_sub_ops2(case.cond, opm);
-            cond_ops.ops.push(Op::BranchIf(case_label));
-            let mut body_ops = make_sub_ops2(case.body, opm);
-            body_ops.ops.push(Op::Jump(end_label));
-            body_ops.ops.push(Op::Label(case_label));
-            (cond_ops, body_ops)
-        })
-        .collect();
+    let case_ops = cases.into_iter().map(|case| {
+        let case_label = opm.next_label();
+        let mut cond_ops = make_sub_ops2(case.cond, opm);
+        cond_ops.ops.push(Op::BranchIf(case_label));
+        let mut body_ops = make_sub_ops2(case.body, opm);
+        body_ops.ops.push(Op::Jump(end_label));
+        body_ops.ops.push(Op::Label(case_label));
+        (cond_ops, body_ops)
+    });
 
     let mut ops: OpVec = case_ops
-        .into_iter()
         .flat_map(|mut case| {
             case.0.ops.append(&mut case.1.ops);
             case.0.ops
@@ -814,7 +797,7 @@ impl Registration
                 let tval: Lresult<Struple2<Val>> = items
                     .iter()
                     .map(|item| {
-                        let pk = item.k.map(|k| Lstr::Sref(k));
+                        let pk = item.k.map(Lstr::Sref);
                         let pv = ltry!(Self::make_pattern_val(&item.v));
                         Ok(StrupleItem::new(pk, pv))
                     })
