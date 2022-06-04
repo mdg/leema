@@ -423,9 +423,7 @@ impl ProtoModule
             }
         };
 
-        result.map_err(|e| {
-            e.lstr_loc(Lstr::from(self.key.best_path()), loc.lineno as u32)
-        })
+        result.map_err(|e| e.lstr_loc(self.key.best_path(), loc.lineno as u32))
     }
 
     fn refute_redefines_default(&self, id: &str, loc: Loc) -> Lresult<()>
@@ -451,7 +449,7 @@ impl ProtoModule
     ) -> Lresult<()>
     {
         let loc = name.loc;
-        if args.len() > 0 {
+        if !args.is_empty() {
             let first = args.get_mut(0).unwrap();
             if first.k.is_none() && *first.v.node == Ast::Id("self") {
                 first.k = Some("self");
@@ -465,7 +463,7 @@ impl ProtoModule
 
         let opens = self.type_args();
         let (name_id, ftyp) = ltry!(
-            self.make_func_type(name.clone(), &args, result, opens.clone()),
+            self.make_func_type(name.clone(), &args, result, opens),
             "name": ldebug!(&*name.node),
         );
 
@@ -513,9 +511,8 @@ impl ProtoModule
                 ));
             }
             let data_t = self.make_proto_type(name)?;
-            self.add_type_to_scope(&data_t.n, &data_t.t, loc);
-            let ps =
-                ltry!(self.add_proto_struct(&data_t.n, &data_t.t, &fields));
+            self.add_type_to_scope(data_t.n, &data_t.t, loc);
+            let ps = ltry!(self.add_proto_struct(data_t.n, &data_t.t, &fields));
             let construct = data_t.t.clone();
             // create a module for holding the constructor
             let subp = ltry!(self.add_selfmod(
@@ -548,7 +545,7 @@ impl ProtoModule
                 StrupleItem::new(f.k, AstNode::new(Ast::Id(k), loc))
             })
             .collect();
-        let call = if construct.args.len() > 0 {
+        let call = if !construct.args.is_empty() {
             AstNode::new(Ast::Type(construct.clone()), loc)
         } else {
             AstNode::new(Ast::Canonical(construct.path.clone()), loc)
@@ -574,14 +571,14 @@ impl ProtoModule
                 AstNode::new(Ast::Id(MODNAME_CONSTRUCT), loc),
                 construct_args,
                 AstNode::new(Ast::Type(typ.clone()), loc),
-                construction.clone(),
+                construction,
             ),
             loc,
         );
 
         let void_fields = fields
             .iter()
-            .map(|f| StrupleItem::new(f.k.map(|k| Lstr::Sref(k)), Val::VOID))
+            .map(|f| StrupleItem::new(f.k.map(Lstr::Sref), Val::VOID))
             .collect();
         let void_val = if typ.path == construct.path {
             Val::Struct(typ, void_fields)
@@ -612,7 +609,7 @@ impl ProtoModule
             // where self.data_t has already been set to Some
             let data_t = &self.data_t.as_ref().unwrap().t;
             let t = self.ast_to_type(&f.v, data_t.type_args())?;
-            let lstrk = f.k.map(|k| Lstr::Sref(k));
+            let lstrk = f.k.map(Lstr::Sref);
             let fname = Type::unwrap_name(&lstrk, i);
             let mut scope_type =
                 AstNode::new(Ast::DataMember(i as u8), f.v.loc);
@@ -655,7 +652,7 @@ impl ProtoModule
                 loc: f.v.loc,
                 dst: Reg::Undecided,
             };
-            sf.push(StrupleItem::new(f.k.clone(), node));
+            sf.push(StrupleItem::new(f.k, node));
         }
         let ps = ProtoStruct {
             data_t: ProtoType {
@@ -675,9 +672,8 @@ impl ProtoModule
                 ltry!(self.refute_redefines_default(name_id, name.loc));
                 let tok_mod = self.key.name.clone();
                 let t = Type::from(tok_mod.join(&name_id)?);
-                let token_val = Val::Token(t.clone());
-                let const_node =
-                    AstNode::new_constval(token_val.clone(), name.loc);
+                let token_val = Val::Token(t);
+                let const_node = AstNode::new_constval(token_val, name.loc);
                 self.modscope.insert(name_id, const_node);
             }
             Ast::Generic(iname, _) => {
@@ -950,7 +946,7 @@ impl ProtoModule
                 Ast::Id(v) => Some(v),
                 Ast::Generic(_base, args) => {
                     for a in args.iter() {
-                        ltry!(self.collect_opens(opens, &a));
+                        ltry!(self.collect_opens(opens, a));
                     }
                     None
                 }
@@ -1019,7 +1015,7 @@ impl ProtoModule
 
         ltry!(self.refute_redefines_default(id, loc));
         let ftyp = ltry!(
-            self.ast_to_ftype(&result, &args, opens),
+            self.ast_to_ftype(&result, args, opens),
             "file": self.key.best_path(),
             "line": lstrf!("{}", name.loc.lineno),
             "func": Lstr::Sref(id),
@@ -1259,7 +1255,7 @@ impl ProtoModule
                     .iter()
                     .enumerate()
                     .map(|(i, item)| {
-                        let klstr = item.k.map(|s| Lstr::Sref(s));
+                        let klstr = item.k.map(Lstr::Sref);
                         let k = Type::unwrap_name(&klstr, i);
                         let v = ltry!(self.ast_to_type(&item.v, opens));
                         Ok(StrupleItem::new(k, v))
@@ -1272,45 +1268,44 @@ impl ProtoModule
             }
             Ast::Generic(base, typeargs) | Ast::TypeCall(base, typeargs) => {
                 let genbase = ltry!(self.ast_to_type(base, opens));
-                let genargs: TypeArgs;
-                genargs = if let Some(gen_ref) = genbase.generic_ref() {
-                    if gen_ref.1.len() != typeargs.len() {
-                        return Err(lfail!(
-                            failure::Mode::TypeFailure,
-                            "generic inner generic",
-                            "line": ldisplay!(node.loc.lineno),
-                            "generic_base": ldisplay!(genbase),
-                            "args": ldebug!(typeargs),
-                        ));
-                    }
-                    let genargsr: Lresult<TypeArgs>;
-                    genargsr = gen_ref
-                        .1
-                        .iter()
-                        .zip(typeargs.iter())
-                        .map(|(k, v)| {
-                            Ok(StrupleItem::new(
-                                k.k.clone(),
-                                ltry!(self.ast_to_type(&v.v, opens)),
-                            ))
-                        })
-                        .collect();
-                    ltry!(genargsr)
-                } else {
-                    let genargsr: Lresult<TypeArgs> = typeargs
-                        .iter()
-                        .enumerate()
-                        .map(|(i, t)| {
-                            let k = t.k.map(|s| Lstr::Sref(s));
-                            Ok(StrupleItem::new(
-                                Type::unwrap_name(&k, i),
-                                ltry!(self.ast_to_type(&t.v, opens)),
-                            ))
-                        })
-                        .collect();
-                    ltry!(genargsr)
-                };
-                Type::new(genbase.path.clone(), genargs)
+                let genargs: TypeArgs =
+                    if let Some(gen_ref) = genbase.generic_ref() {
+                        if gen_ref.1.len() != typeargs.len() {
+                            return Err(lfail!(
+                                failure::Mode::TypeFailure,
+                                "generic inner generic",
+                                "line": ldisplay!(node.loc.lineno),
+                                "generic_base": ldisplay!(genbase),
+                                "args": ldebug!(typeargs),
+                            ));
+                        }
+                        let genargsr: Lresult<TypeArgs> = gen_ref
+                            .1
+                            .iter()
+                            .zip(typeargs.iter())
+                            .map(|(k, v)| {
+                                Ok(StrupleItem::new(
+                                    k.k.clone(),
+                                    ltry!(self.ast_to_type(&v.v, opens)),
+                                ))
+                            })
+                            .collect();
+                        ltry!(genargsr)
+                    } else {
+                        let genargsr: Lresult<TypeArgs> = typeargs
+                            .iter()
+                            .enumerate()
+                            .map(|(i, t)| {
+                                let k = t.k.map(Lstr::Sref);
+                                Ok(StrupleItem::new(
+                                    Type::unwrap_name(&k, i),
+                                    ltry!(self.ast_to_type(&t.v, opens)),
+                                ))
+                            })
+                            .collect();
+                        ltry!(genargsr)
+                    };
+                Type::new(genbase.path, genargs)
             }
             Ast::ConstVal(cv) => cv.get_type(),
             Ast::Type(typ) => typ.clone(),
@@ -1372,12 +1367,11 @@ impl ProtoModule
     {
         let arg_types =
             ltry!(self.xlist_to_types(args, &opens), "opens": ldebug!(opens),);
-        let result_type = ltry!(self.ast_to_type(&result, &opens));
+        let result_type = ltry!(self.ast_to_type(result, &opens));
         if opens.is_empty() {
             Ok(Type::f(result_type, arg_types))
         } else {
-            let gens = Vec::from(opens);
-            Ok(Type::generic_f(gens, result_type, arg_types))
+            Ok(Type::generic_f(opens, result_type, arg_types))
         }
     }
 
@@ -1389,8 +1383,8 @@ impl ProtoModule
         opens: &TypeArgSlice,
     ) -> Lresult<Type>
     {
-        let arg_types = self.xlist_to_types(args, &opens)?;
-        let result_type = ltry!(self.ast_to_type(&result, opens));
+        let arg_types = self.xlist_to_types(args, opens)?;
+        let result_type = ltry!(self.ast_to_type(result, opens));
         Ok(Type::f(result_type, arg_types))
     }
 
@@ -1400,19 +1394,16 @@ impl ProtoModule
         opens: &TypeArgSlice,
     ) -> Lresult<TypeArgs>
     {
-        let arg_types_r: Lresult<TypeArgs>;
-        arg_types_r = args
-            .into_iter()
+        args.iter()
             .enumerate()
             .map(|(idx, i)| {
-                let klstr = i.k.map(|k| Lstr::Sref(k));
+                let klstr = i.k.map(Lstr::Sref);
                 Ok(StrupleItem::new(
                     Type::unwrap_name(&klstr, idx),
                     ltry!(self.ast_to_type(&i.v, opens)),
                 ))
             })
-            .collect();
-        Ok(arg_types_r?)
+            .collect()
     }
 
     /// add an implemented trait to this data module
@@ -1650,7 +1641,7 @@ impl ProtoLib
         }
 
         for (_k, i) in imported.iter() {
-            ltry!(self.load_absolute(loader, &i.as_path()))
+            ltry!(self.load_absolute(loader, i.as_path()))
         }
         Ok(())
     }
@@ -1706,7 +1697,7 @@ impl ProtoLib
     pub fn func_type(&self, f: &Fref) -> Lresult<Type>
     {
         let proto = ltry!(self.path_proto(&f.m.name));
-        proto.find_type(f.f).map(|t| t.clone()).ok_or_else(|| {
+        proto.find_type(f.f).cloned().ok_or_else(|| {
             lfail!(
                 failure::Mode::Scope,
                 "function type not found",
@@ -1742,7 +1733,7 @@ impl ProtoLib
         if mtyp == ModTyp::Impl || mtyp == ModTyp::Trait {
             let t = {
                 let proto = ltry!(self.path_proto(&f.m.name));
-                proto.find_type(f.f).map(|t| t.clone()).ok_or_else(|| {
+                proto.find_type(f.f).cloned().ok_or_else(|| {
                     lfail!(
                         failure::Mode::StaticLeemaFailure,
                         "type not found",
@@ -1762,11 +1753,11 @@ impl ProtoLib
             }
             let proto = self.path_proto_mut(&self_arg.v.path)?;
             let name = proto.key.name.clone();
-            Ok((name, ltry!(proto.take_method(&f))))
+            Ok((name, ltry!(proto.take_method(f))))
         } else {
             let proto = self.path_proto_mut(&f.m.name)?;
             let name = proto.key.name.clone();
-            Ok((name, ltry!(proto.take_func(&f))))
+            Ok((name, ltry!(proto.take_func(f))))
         }
     }
 

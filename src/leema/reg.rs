@@ -21,8 +21,8 @@ impl Ireg
     pub fn sub(&self, newsub: i8) -> Ireg
     {
         match self {
-            &Ireg::Reg(r) => Ireg::Sub(r, newsub),
-            &Ireg::Sub(_, _) => {
+            Ireg::Reg(r) => Ireg::Sub(*r, newsub),
+            Ireg::Sub(_, _) => {
                 panic!("cannot take sub reg of sub reg: {}", self);
             }
         }
@@ -31,24 +31,24 @@ impl Ireg
     pub fn is_primary(&self) -> bool
     {
         match self {
-            &Ireg::Reg(_) => true,
-            &Ireg::Sub(_, _) => false,
+            Ireg::Reg(_) => true,
+            Ireg::Sub(_, _) => false,
         }
     }
 
     pub fn get_primary(&self) -> i8
     {
         match self {
-            &Ireg::Reg(r) => r,
-            &Ireg::Sub(r, _) => r,
+            Ireg::Reg(r) => *r,
+            Ireg::Sub(r, _) => *r,
         }
     }
 
     pub fn next_sibling(&self) -> Ireg
     {
         match self {
-            &Ireg::Sub(r, s) => Ireg::Sub(r, s + 1),
-            &Ireg::Reg(r) => Ireg::Reg(r + 1),
+            Ireg::Sub(r, s) => Ireg::Sub(*r, s + 1),
+            Ireg::Reg(r) => Ireg::Reg(r + 1),
         }
     }
 }
@@ -58,8 +58,8 @@ impl fmt::Display for Ireg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Ireg::Reg(r) => write!(f, ".{}", r),
-            &Ireg::Sub(r, ref s) => write!(f, ".{}.{}", r, s),
+            Ireg::Reg(r) => write!(f, ".{}", r),
+            Ireg::Sub(r, ref s) => write!(f, ".{}.{}", r, s),
         }
     }
 }
@@ -122,21 +122,18 @@ impl Reg
 
     pub fn is_primary(&self) -> bool
     {
-        match self {
-            Reg::Param(Ireg::Reg(_)) => true,
-            Reg::Local(Ireg::Reg(_)) => true,
-            Reg::Top => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Reg::Param(Ireg::Reg(_)) | Reg::Local(Ireg::Reg(_)) | Reg::Top
+        )
     }
 
     pub fn is_sub(&self) -> bool
     {
-        match self {
-            Reg::Param(Ireg::Sub(_, _)) => true,
-            Reg::Local(Ireg::Sub(_, _)) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Reg::Param(Ireg::Sub(_, _)) | Reg::Local(Ireg::Sub(_, _))
+        )
     }
 
     pub fn next_sibling(&self) -> Reg
