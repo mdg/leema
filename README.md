@@ -10,7 +10,7 @@ Leema is a concurrent, error-tolerant, functional programming language.
 Dependencies:
 * Rust Stable
 * Rust Nightly for formatting
-* Nosetests for integration tests
+* Pytest for integration tests
 
 Build the leema vm by running `make`
 
@@ -23,7 +23,7 @@ make test
 
 Unit tests only
 ```
-cargo test
+make unit
 ```
 
 Integration tests only

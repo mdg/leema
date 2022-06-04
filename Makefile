@@ -1,6 +1,4 @@
 
-NOSETESTS=nosetests
-
 WARNS=-D warnings -A dead-code -A non-camel-case-types -A non-upper-case-globals
 
 
@@ -21,12 +19,7 @@ unit:
 	cargo test --bin leema
 
 T: build test.py
-	${NOSETESTS} --with-xunit test.py
-
-travis: unit travisT format
-
-travisT: build test.py
-	${NOSETESTS} --with-xunit --ignore-files=test_clientserver
+	pytest --verbose test.py
 
 warnings:
 	cargo rustc --bin leema -- ${WARNS}
