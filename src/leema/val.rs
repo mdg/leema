@@ -374,7 +374,7 @@ impl Type
         let fref = self.try_func_ref()?;
         Ok(Type::f(
             fref.result.clone(),
-            fref.args[1..].iter().map(|a| a.clone()).collect(),
+            fref.args[1..].iter().cloned().collect(),
         ))
     }
 
@@ -411,10 +411,7 @@ impl Type
 
     pub fn is_func(&self) -> bool
     {
-        match self.path.as_str() {
-            "/core/Fn" => true,
-            _ => false,
-        }
+        self.path.as_str() == Self::PATH_FN
     }
 
     pub fn is_local(&self) -> bool
@@ -445,23 +442,23 @@ impl Type
 
     pub fn is_untyped_block(&self) -> bool
     {
-        match self.path.as_str() {
-            Type::PATH_BLOCK_ABSTRACT | Type::PATH_BLOCK_RUST => true,
-            _ => false,
-        }
+        matches!(
+            self.path.as_str(),
+            Type::PATH_BLOCK_ABSTRACT | Type::PATH_BLOCK_RUST
+        )
     }
 
-    pub fn type_ref<'a>(&'a self) -> TypeRef<'a>
+    pub fn type_ref(&self) -> TypeRef<'_>
     {
         TypeRef(self.path.as_str(), &self.args)
     }
 
-    pub fn type_ref_mut<'a>(&'a mut self) -> TypeRefMut<'a>
+    pub fn type_ref_mut(&mut self) -> TypeRefMut<'_>
     {
         TypeRefMut(self.path.as_str(), &mut self.args)
     }
 
-    pub fn func_ref<'a>(&'a self) -> Option<FuncTypeRef<'a>>
+    pub fn func_ref(&self) -> Option<FuncTypeRef<'_>>
     {
         match self.type_ref() {
             TypeRef(Type::PATH_FN, args) => {
@@ -479,24 +476,24 @@ impl Type
                 Some(FuncTypeRef {
                     path: Type::PATH_FN,
                     type_args: &args[1..],
-                    result: &inner.result,
-                    args: &inner.args,
+                    result: inner.result,
+                    args: inner.args,
                 })
             }
             TypeRef(Type::PATH_CLOSURE, [f, _closed]) => {
                 let f_func_ref = f.v.func_ref()?;
                 Some(FuncTypeRef {
                     path: Type::PATH_CLOSURE,
-                    type_args: &f_func_ref.type_args,
-                    result: &f_func_ref.result,
-                    args: &f_func_ref.args,
+                    type_args: f_func_ref.type_args,
+                    result: f_func_ref.result,
+                    args: f_func_ref.args,
                 })
             }
             _ => None,
         }
     }
 
-    pub fn func_ref_mut<'a>(&'a mut self) -> Option<FuncTypeRefMut<'a>>
+    pub fn func_ref_mut(&mut self) -> Option<FuncTypeRefMut<'_>>
     {
         match self.type_ref_mut() {
             TypeRefMut(Type::PATH_FN, args) => {
@@ -520,7 +517,7 @@ impl Type
         }
     }
 
-    pub fn try_func_ref_mut<'a>(&'a mut self) -> Lresult<FuncTypeRefMut<'a>>
+    pub fn try_func_ref_mut(&mut self) -> Lresult<FuncTypeRefMut<'_>>
     {
         // sketchy: working around a borrow checker limitation
         // that for some reason keeps this from working. cast self
@@ -539,7 +536,7 @@ impl Type
         ))
     }
 
-    pub fn try_func_ref<'a>(&'a self) -> Lresult<FuncTypeRef<'a>>
+    pub fn try_func_ref(&self) -> Lresult<FuncTypeRef<'_>>
     {
         if let Some(f) = self.func_ref() {
             Ok(f)
@@ -552,19 +549,19 @@ impl Type
     pub fn type_args(&self) -> &TypeArgSlice
     {
         if let Some(f) = self.func_ref() {
-            &f.type_args
+            f.type_args
         } else {
             self.args.as_slice()
         }
     }
 
-    pub fn generic_ref<'a>(&'a self) -> Option<TypeRef<'a>>
+    pub fn generic_ref(&self) -> Option<TypeRef<'_>>
     {
         if let Some(f) = self.func_ref() {
             if f.type_args.is_empty() {
                 None
             } else {
-                Some(TypeRef(self.path.as_str(), &f.type_args))
+                Some(TypeRef(self.path.as_str(), f.type_args))
             }
         } else if self.args.is_empty() {
             None
@@ -573,7 +570,7 @@ impl Type
         }
     }
 
-    pub fn try_generic_ref<'a>(&'a self) -> Lresult<TypeRef<'a>>
+    pub fn try_generic_ref(&self) -> Lresult<TypeRef<'_>>
     {
         if let Some(f) = self.func_ref() {
             if f.type_args.is_empty() {
@@ -589,7 +586,7 @@ impl Type
                         ),
                     ]))
             } else {
-                Ok(TypeRef(self.path.as_str(), &f.type_args))
+                Ok(TypeRef(self.path.as_str(), f.type_args))
             }
         } else if self.is_generic() {
             Ok(self.type_ref())
@@ -598,7 +595,7 @@ impl Type
         }
     }
 
-    pub fn try_generic_ref_mut<'a>(&'a mut self) -> Lresult<TypeRefMut<'a>>
+    pub fn try_generic_ref_mut(&mut self) -> Lresult<TypeRefMut<'_>>
     {
         if self.path.as_str() == Self::PATH_TYPECALL {
             Ok(TypeRefMut(self.path.as_str(), &mut self.args[1..]))
@@ -630,7 +627,7 @@ impl Type
             }),
             "path": self.path.to_lstr(),
         );
-        Ok(&first)
+        Ok(first)
     }
 
     /// clone this type if it's not open
@@ -1253,13 +1250,13 @@ impl Val
         Val::new_tuple(0)
     }
 
-    pub fn new_tuple(ref sz: usize) -> Val
+    pub fn new_tuple(sz: usize) -> Val
     {
-        let mut t = Vec::with_capacity(*sz);
-        let mut i: usize = *sz;
+        let mut t = Vec::with_capacity(sz);
+        let mut i: usize = sz;
         while i > 0 {
             t.push(StrupleItem::new(None, Val::VOID));
-            i = i - 1;
+            i -= 1;
         }
         Val::Tuple(t)
     }
@@ -1281,11 +1278,7 @@ impl Val
 
     pub fn is_list(&self) -> bool
     {
-        match self {
-            &Val::Cons(_, _) => true,
-            &Val::Nil => true,
-            _ => false,
-        }
+        matches!(self, Val::Cons(_, _) | Val::Nil)
     }
 
     pub fn empty_str() -> Val
@@ -1296,8 +1289,8 @@ impl Val
     pub fn str(&self) -> &str
     {
         match self {
-            &Val::Str(ref s) => s.str(),
-            &Val::Hashtag(ref s) => s.str(),
+            Val::Str(ref s) => s.str(),
+            Val::Hashtag(ref s) => s.str(),
             _ => {
                 panic!("Cannot convert to string: {:?}", self);
             }
@@ -1306,20 +1299,16 @@ impl Val
 
     pub fn to_int(&self) -> i64
     {
-        match self {
-            &Val::Int(i) => i,
-            _ => {
-                panic!("Not an int: {:?}", self);
-            }
+        if let Val::Int(i) = self {
+            *i
+        } else {
+            panic!("not an int: {:?}", self);
         }
     }
 
     pub fn is_type(&self) -> bool
     {
-        match self {
-            &Val::Type(_) => true,
-            _ => false,
-        }
+        matches!(self, Val::Type(_))
     }
 
     /// Given a type and a path to a constructor, and some args
@@ -1335,7 +1324,7 @@ impl Val
         } else {
             let split_f = constructor_mod.last_module();
             if let Some(var) = split_f {
-                Ok(Val::EnumStruct(t.clone(), var.clone(), flds))
+                Ok(Val::EnumStruct(t.clone(), var, flds))
             } else {
                 Err(lfail!(
                     failure::Mode::StaticLeemaFailure,
@@ -1354,18 +1343,12 @@ impl Val
 
     pub fn is_future(&self) -> bool
     {
-        match self {
-            &Val::Future(_) => true,
-            _ => false,
-        }
+        matches!(self, Val::Future(_))
     }
 
     pub fn is_failure(&self) -> bool
     {
-        match self {
-            &Val::Failure2(_) => true,
-            _ => false,
-        }
+        matches!(self, Val::Failure2(_))
     }
 
     pub fn failure(
@@ -1414,24 +1397,24 @@ impl Val
     pub fn get_type(&self) -> Type
     {
         match self {
-            &Val::Bool(_) => Type::BOOL.clone(),
-            &Val::Int(_) => Type::INT.clone(),
-            &Val::Str(_) => Type::STR.clone(),
-            &Val::Hashtag(_) => Type::HASHTAG.clone(),
-            &Val::Cons(ref head, _) => {
+            Val::Bool(_) => Type::BOOL,
+            Val::Int(_) => Type::INT,
+            Val::Str(_) => Type::STR,
+            Val::Hashtag(_) => Type::HASHTAG,
+            Val::Cons(ref head, _) => {
                 let inner = head.get_type();
                 Type::list(inner)
             }
-            &Val::Nil => Type::list(Type::UNKNOWN),
-            &Val::Failure2(_) => Type::FAILURE,
-            &Val::Type(_) => Type::KIND,
-            &Val::Wildcard => Type::UNKNOWN,
-            &Val::Reg(_) => Type::UNKNOWN,
-            &Val::Map(_) => lmap::map_type(),
-            &Val::Tuple(ref items) if items.len() == 1 => {
+            Val::Nil => Type::list(Type::UNKNOWN),
+            Val::Failure2(_) => Type::FAILURE,
+            Val::Type(_) => Type::KIND,
+            Val::Wildcard => Type::UNKNOWN,
+            Val::Reg(_) => Type::UNKNOWN,
+            Val::Map(_) => lmap::map_type(),
+            Val::Tuple(ref items) if items.len() == 1 => {
                 items.get(0).unwrap().v.get_type()
             }
-            &Val::Tuple(ref items) => {
+            Val::Tuple(ref items) => {
                 let tuptypes = items
                     .iter()
                     .enumerate()
@@ -1444,18 +1427,18 @@ impl Val
                     .collect();
                 Type::tuple(tuptypes)
             }
-            &Val::Struct(ref typ, _) => typ.clone(),
-            &Val::EnumStruct(ref typ, _, _) => typ.clone(),
-            &Val::EnumToken(ref typ, _) => typ.clone(),
-            &Val::Token(ref typ) => typ.clone(),
-            &Val::Func(_) => Type::FREF,
-            &Val::FuncWithData(_, _) => Type::FREF,
-            &Val::Buffer(_) => Type::STR,
-            &Val::Lib(ref lv) => lv.get_type(),
-            &Val::ResourceRef(_) => {
+            Val::Struct(ref typ, _) => typ.clone(),
+            Val::EnumStruct(ref typ, _, _) => typ.clone(),
+            Val::EnumToken(ref typ, _) => typ.clone(),
+            Val::Token(ref typ) => typ.clone(),
+            Val::Func(_) => Type::FREF,
+            Val::FuncWithData(_, _) => Type::FREF,
+            Val::Buffer(_) => Type::STR,
+            Val::Lib(ref lv) => lv.get_type(),
+            Val::ResourceRef(_) => {
                 panic!("cannot get type of ResourceRef: {:?}", self);
             }
-            &Val::Future(_) => {
+            Val::Future(_) => {
                 panic!("cannot get type of Future: {:?}", self);
             }
         }
@@ -1481,7 +1464,7 @@ impl Val
             (&Val::Wildcard, _) => true,
             (&Val::Reg(ref dst), _) => {
                 // should put something in assigns vector here
-                assigns.push((dst.clone(), input.clone()));
+                assigns.push((*dst, input.clone()));
                 true
             }
             (&Val::Int(p), &Val::Int(i)) if p == i => true,
@@ -1538,16 +1521,16 @@ impl Val
     ) -> bool
     {
         match (patt, input) {
-            (&Val::Cons(ref ph, ref pt), &Val::Cons(ref ih, ref it)) => {
+            (Val::Cons(ref ph, ref pt), &Val::Cons(ref ih, ref it)) => {
                 Val::_pattern_match(assigns, ph, ih)
                     && Val::_pattern_match_list(assigns, pt, it)
             }
-            (&Val::Wildcard, _) => true,
-            (&Val::Reg(ref dst), _) => {
-                assigns.push((dst.clone(), input.clone()));
+            (Val::Wildcard, _) => true,
+            (Val::Reg(dst), _) => {
+                assigns.push((*dst, input.clone()));
                 true
             }
-            (&Val::Nil, &Val::Nil) => true,
+            (Val::Nil, &Val::Nil) => true,
             _ => false,
         }
     }
@@ -1593,28 +1576,28 @@ impl Val
         }
 
         let m_result = match self {
-            &Val::Cons(ref head, ref tail) => {
+            Val::Cons(ref head, ref tail) => {
                 let m_head = head.map(op)?;
                 let m_tail = tail.map(op)?;
                 Val::Cons(Box::new(m_head), Arc::new(m_tail))
             }
-            &Val::Tuple(ref flds) => {
+            Val::Tuple(ref flds) => {
                 let m_flds = struple::map_v(flds, |f: &Val| f.map(op))?;
                 Val::Tuple(m_flds)
             }
-            &Val::Struct(ref typ, ref flds) => {
+            Val::Struct(ref typ, ref flds) => {
                 let m_flds = struple::map_v(flds, |f: &Val| f.map(op))?;
                 Val::Struct(typ.clone(), m_flds)
             }
-            &Val::EnumStruct(ref typ, ref vname, ref flds) => {
+            Val::EnumStruct(ref typ, ref vname, ref flds) => {
                 let m_flds = struple::map_v(flds, |f: &Val| f.map(op))?;
                 Val::EnumStruct(typ.clone(), vname.clone(), m_flds)
             }
-            &Val::EnumToken(ref typ, ref vname) => {
+            Val::EnumToken(ref typ, ref vname) => {
                 Val::EnumToken(typ.clone(), vname.clone())
             }
-            &Val::Token(ref typ) => Val::Token(typ.clone()),
-            &Val::Failure2(ref failure) => {
+            Val::Token(ref typ) => Val::Token(typ.clone()),
+            Val::Failure2(ref failure) => {
                 let m_tag = failure.tag.map(op)?;
                 let m_msg = failure.msg.map(op)?;
                 Val::Failure2(Box::new(Failure::leema_new(
@@ -1634,26 +1617,26 @@ impl Val
         ltry!(op.pre_ref(self));
 
         match self {
-            &Val::Cons(ref head, ref tail) => {
+            Val::Cons(ref head, ref tail) => {
                 ltry!(head.walk_ref(op));
                 ltry!(tail.walk_ref(op));
             }
-            &Val::Tuple(ref flds) => {
+            Val::Tuple(ref flds) => {
                 for f in flds {
                     ltry!(f.v.walk_ref(op));
                 }
             }
-            &Val::Struct(_, ref flds) => {
+            Val::Struct(_, ref flds) => {
                 for f in flds {
                     ltry!(f.v.walk_ref(op));
                 }
             }
-            &Val::EnumStruct(_, _, ref flds) => {
+            Val::EnumStruct(_, _, ref flds) => {
                 for f in flds {
                     ltry!(f.v.walk_ref(op));
                 }
             }
-            &Val::Failure2(ref failure) => {
+            Val::Failure2(ref failure) => {
                 ltry!(failure.tag.walk_ref(op));
                 ltry!(failure.msg.walk_ref(op));
             }
@@ -1665,7 +1648,7 @@ impl Val
     fn fmt_list(f: &mut fmt::Formatter, l: &Val, dbg: bool) -> fmt::Result
     {
         match l {
-            &Val::Cons(ref head, ref tail) => {
+            Val::Cons(ref head, ref tail) => {
                 if dbg {
                     write!(f, "{:?},", head)?;
                 } else {
@@ -1673,12 +1656,12 @@ impl Val
                 }
                 Val::fmt_list(f, tail, dbg)
             }
-            &Val::Nil => {
+            Val::Nil => {
                 // do nothing, we've formatted enough
                 write!(f, "")
             }
-            &Val::Wildcard => write!(f, ";_"),
-            &Val::Reg(_) => write!(f, ";{:?}", l),
+            Val::Wildcard => write!(f, ";_"),
+            Val::Reg(_) => write!(f, ";{:?}", l),
             _ => {
                 panic!("Not a list: {:?}", l);
             }
@@ -1715,48 +1698,46 @@ impl sendclone::SendClone for Val
     fn clone_for_send(&self) -> Val
     {
         match self {
-            &Val::Int(i) => Val::Int(i),
-            &Val::Str(ref s) => Val::Str(s.clone_for_send()),
-            &Val::Bool(b) => Val::Bool(b),
-            &Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
-            &Val::Cons(ref head, ref tail) => {
+            Val::Int(i) => Val::Int(*i),
+            Val::Str(ref s) => Val::Str(s.clone_for_send()),
+            Val::Bool(b) => Val::Bool(*b),
+            Val::Hashtag(ref s) => Val::Hashtag(s.clone_for_send()),
+            Val::Cons(ref head, ref tail) => {
                 Val::Cons(Box::new(head.clone_for_send()), tail.clone())
             }
-            &Val::Nil => Val::Nil,
-            &Val::Tuple(ref flds) => Val::Tuple(flds.clone_for_send()),
-            &Val::Struct(ref typ, ref flds) => {
+            Val::Nil => Val::Nil,
+            Val::Tuple(ref flds) => Val::Tuple(flds.clone_for_send()),
+            Val::Struct(ref typ, ref flds) => {
                 Val::Struct(typ.clone_for_send(), flds.clone_for_send())
             }
-            &Val::EnumStruct(ref typ, ref vname, ref flds) => {
+            Val::EnumStruct(ref typ, ref vname, ref flds) => {
                 Val::EnumStruct(
                     typ.clone_for_send(),
                     vname.clone_for_send(),
                     flds.clone_for_send(),
                 )
             }
-            &Val::EnumToken(ref typ, ref vname) => {
+            Val::EnumToken(ref typ, ref vname) => {
                 Val::EnumToken(typ.clone_for_send(), vname.clone_for_send())
             }
-            &Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
-            &Val::Func(ref fref) => Val::Func(fref.clone_for_send()),
-            &Val::FuncWithData(ref fref, ref d) => {
+            Val::Token(ref typ) => Val::Token(typ.clone_for_send()),
+            Val::Func(ref fref) => Val::Func(fref.clone_for_send()),
+            Val::FuncWithData(ref fref, ref d) => {
                 Val::FuncWithData(
                     fref.clone_for_send(),
                     Box::new(d.clone_for_send()),
                 )
             }
-            &Val::Failure2(ref f) => {
-                Val::Failure2(Box::new(f.clone_for_send()))
-            }
-            &Val::Type(ref t) => Val::Type(t.clone_for_send()),
-            &Val::ResourceRef(r) => Val::ResourceRef(r),
+            Val::Failure2(ref f) => Val::Failure2(Box::new(f.clone_for_send())),
+            Val::Type(ref t) => Val::Type(t.clone_for_send()),
+            Val::ResourceRef(r) => Val::ResourceRef(*r),
             // &Val::Lib(LibVal),
-            &Val::Future(ref f) => Val::Future(f.clone()),
-            &Val::Wildcard => Val::Wildcard,
-            &Val::Reg(ref r) => Val::Reg(r.clone()),
-            &Val::Buffer(ref b) => Val::Buffer(b.clone()),
-            &Val::Lib(ref l) => Val::Lib(l.clone()),
-            &Val::Map(_) => {
+            Val::Future(ref f) => Val::Future(f.clone()),
+            Val::Wildcard => Val::Wildcard,
+            Val::Reg(r) => Val::Reg(*r),
+            Val::Buffer(ref b) => Val::Buffer(b.clone()),
+            Val::Lib(ref l) => Val::Lib(l.clone()),
+            Val::Map(_) => {
                 panic!("cannot deep clone Map");
             }
         }
@@ -1823,7 +1804,7 @@ impl fmt::Debug for Val
     {
         match *self {
             Val::Str(ref s) => {
-                let escaped = s.replace("\n", "\\n");
+                let escaped = s.replace('\n', "\\n");
                 write!(f, "Str(\"{}\")", escaped)
             }
             Val::Int(ref i) => write!(f, "Int({})", i),
@@ -2090,12 +2071,7 @@ impl PartialEq for Val
 {
     fn eq(&self, other: &Val) -> bool
     {
-        let cmp = PartialOrd::partial_cmp(self, other);
-        if cmp.is_none() {
-            false
-        } else {
-            cmp.unwrap() == Ordering::Equal
-        }
+        matches!(PartialOrd::partial_cmp(self, other), Some(Ordering::Equal))
     }
 }
 
