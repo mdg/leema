@@ -110,7 +110,7 @@ impl fmt::Debug for IoMsg
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &IoMsg::Iop {
+            IoMsg::Iop {
                 worker_id,
                 fiber_id,
                 ref params,
@@ -122,7 +122,7 @@ impl fmt::Debug for IoMsg
                     worker_id, fiber_id, params
                 )
             }
-            &IoMsg::Call {
+            IoMsg::Call {
                 worker_id,
                 fiber_id,
                 f: ref func,
@@ -135,10 +135,10 @@ impl fmt::Debug for IoMsg
                     worker_id, fiber_id, func, params
                 )
             }
-            &IoMsg::NewWorker(worker_id, _) => {
+            IoMsg::NewWorker(worker_id, _) => {
                 write!(f, "IoMsg::NewWorker({})", worker_id)
             }
-            &IoMsg::Done => write!(f, "IoMsg::Done"),
+            IoMsg::Done => write!(f, "IoMsg::Done"),
         }
     }
 }

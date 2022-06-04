@@ -47,21 +47,21 @@ impl fmt::Debug for Event
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Event::Uneventful => write!(f, "Uneventful"),
-            &Event::PushCall { argc, line } => {
+            Event::Uneventful => write!(f, "Uneventful"),
+            Event::PushCall { argc, line } => {
                 write!(f, "Event::PushCall({} @{})", argc, line)
             }
-            &Event::TailCall(ref cfunc, ref cargs) => {
+            Event::TailCall(ref cfunc, ref cargs) => {
                 write!(f, "Event::TailCall({}, {:?})", cfunc, cargs)
             }
-            &Event::NewTask(ref fref, ref args) => {
+            Event::NewTask(ref fref, ref args) => {
                 write!(f, "Event::NewTask({}, {:?})", fref, args)
             }
-            &Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
-            &Event::Iop(wrid, _, ref iopargs) => {
+            Event::FutureWait(ref r) => write!(f, "Event::FutureWait({})", r),
+            Event::Iop(wrid, _, ref iopargs) => {
                 write!(f, "Event::Iop({:?}, f, {:?})", wrid, iopargs)
             }
-            &Event::Success => write!(f, "Event::Success"),
+            Event::Success => write!(f, "Event::Success"),
         }
     }
 }
@@ -135,7 +135,7 @@ impl FrameTrace
 
     pub fn pop_call(&self) -> Option<Arc<FrameTrace>>
     {
-        self.parent.as_ref().map(|t| t.clone())
+        self.parent.as_ref().cloned()
     }
 
     pub fn propagate_down(

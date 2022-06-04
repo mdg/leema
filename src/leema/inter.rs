@@ -137,8 +137,8 @@ impl Blockstack
             });
         }
 
-        let new_var = LocalVar::new(id.clone(), vt);
-        self.locals.insert(id.clone(), new_var);
+        let new_var = LocalVar::new(id, vt);
+        self.locals.insert(id, new_var);
         Ok(self.current_block_mut().vars.new_name(id))
     }
 

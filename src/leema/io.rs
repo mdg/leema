@@ -252,12 +252,12 @@ impl Io
         );
         let ctx = self.create_iop_ctx(worker_id, fiber_id, params);
         let mut rsrc_ids = Vec::with_capacity(ctx.params.len());
-        for p in ctx.params.iter() {
-            if let Some(Val::ResourceRef(rsrc_id)) = p {
+        for p in ctx.params.iter().flatten() {
+            if let Val::ResourceRef(rsrc_id) = p {
                 rsrc_ids.push(*rsrc_id);
             }
         }
-        rsrc_ids.sort();
+        rsrc_ids.sort_unstable();
         let iop = Iop {
             ctx,
             action,
@@ -378,8 +378,8 @@ impl Io
         }
     }
 
-    fn create_iop_ctx<'a>(
-        &'a mut self,
+    fn create_iop_ctx(
+        &mut self,
         src_worker_id: i64,
         src_fiber_id: i64,
         param_val: Val,

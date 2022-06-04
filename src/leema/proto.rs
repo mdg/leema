@@ -228,7 +228,7 @@ impl ProtoModule
                     tree.collect(&mut imports)?;
                 }
                 Ast::ModAction(ModAction::Export, ModTree::All(loc)) => {
-                    if !proto.exports_all.is_none() {
+                    if proto.exports_all.is_some() {
                         return Err(Failure::static_leema(
                             failure::Mode::CompileFailure,
                             Lstr::Sref(
@@ -316,7 +316,7 @@ impl ProtoModule
             .as_ref()
             .or(self.data_t.as_ref())
             .map(|p| p.t.args.clone())
-            .unwrap_or(vec![])
+            .unwrap_or_default()
     }
 
     /// return the src type if this module defines an alias

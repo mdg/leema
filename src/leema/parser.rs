@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Default)]
 pub struct Prec(i32);
 
 impl Prec
@@ -23,14 +24,6 @@ impl Prec
     pub fn higher(&self) -> Prec
     {
         Prec(self.0 + 1)
-    }
-}
-
-impl Default for Prec
-{
-    fn default() -> Prec
-    {
-        Prec(0)
     }
 }
 
@@ -237,7 +230,7 @@ impl LeemaPrec
 
     fn prec(&self, m: Mode, p: Placement, r: Rule) -> Option<Prec>
     {
-        self.mode_key(m).get(&(p, r)).map(|result| *result)
+        self.mode_key(m).get(&(p, r)).copied()
     }
 
     fn mode_key(&self, m: Mode) -> &PrecKey
@@ -250,7 +243,7 @@ impl LeemaPrec
 
     fn init_value_key() -> PrecKey
     {
-        ParserBuilder::new()
+        ParserBuilder::default()
             //----
             .left()
             .infix(Rule::dot)
@@ -299,7 +292,7 @@ impl LeemaPrec
 
     fn init_type_key() -> PrecKey
     {
-        ParserBuilder::new()
+        ParserBuilder::default()
             //----
             .left()
             .infix(Rule::dot)
@@ -777,6 +770,7 @@ impl LeemaPrec
 
 struct Preop(Placement, Rule);
 
+#[derive(Default)]
 pub struct ParserBuilder
 {
     prec: Vec<Vec<Preop>>,
@@ -784,11 +778,6 @@ pub struct ParserBuilder
 
 impl ParserBuilder
 {
-    pub fn new() -> Self
-    {
-        ParserBuilder { prec: vec![] }
-    }
-
     pub fn left(self) -> PrecBuilder
     {
         PrecBuilder::open(self, Assoc::Left)
@@ -875,12 +864,12 @@ impl PrecBuilder
     }
 }
 
-impl Into<PrecKey> for PrecBuilder
+impl From<PrecBuilder> for PrecKey
 {
-    fn into(self) -> PrecKey
+    fn from(pb: PrecBuilder) -> PrecKey
     {
         let mut key = HashMap::new();
-        for (iprec, p) in self.close().prec.into_iter().rev().enumerate() {
+        for (iprec, p) in pb.close().prec.into_iter().rev().enumerate() {
             let prec = Prec(iprec as i32);
             for preop in p.into_iter() {
                 key.insert((preop.0, preop.1), prec);

@@ -50,7 +50,7 @@ impl Fiber
     /// this seems wrong for stack based calls
     pub fn push_tailcall(&mut self, func: Fref, args: Struple2<Val>)
     {
-        let callv = Val::Func(func.clone());
+        let callv = Val::Func(func);
         self.head.pc = 0;
         self.head.tail_call_args(callv, args);
         self.head.trace = self.head.push_frame_trace(0);
@@ -97,46 +97,46 @@ impl Fiber
         let op = ops.get(opc).unwrap();
         vout!("exec: {:?}\n", op);
         let result = match op {
-            &Op::PushConst(ref v) => self.execute_push_const(v),
-            &Op::PushReg(ref src) => self.execute_push_reg(*src),
-            &Op::PopReg(ref dst) => self.execute_pop_reg(*dst),
-            &Op::PopMatch(ref patt) => self.execute_pop_match(patt),
-            &Op::BranchMatch(jmp, ref patt) => {
-                self.execute_branch_match(jmp, patt)
+            Op::PushConst(ref v) => self.execute_push_const(v),
+            Op::PushReg(ref src) => self.execute_push_reg(*src),
+            Op::PopReg(ref dst) => self.execute_pop_reg(*dst),
+            Op::PopMatch(ref patt) => self.execute_pop_match(patt),
+            Op::BranchMatch(jmp, ref patt) => {
+                self.execute_branch_match(*jmp, patt)
             }
-            &Op::BranchIf(jmp) => self.execute_branch_if(jmp),
-            &Op::Copy(dst, src) => self.execute_copy(dst, src),
-            &Op::Jump(jmp) => self.execute_jump(jmp),
-            &Op::IfFailure(src, jmp) => self.execute_if_failure(src, jmp),
-            &Op::PopListCons => self.execute_pop_list_cons(),
-            &Op::PopStrCat => self.execute_pop_str_cat(),
-            &Op::PushTuple(n) => self.execute_push_tuple(n),
-            &Op::PopIntoField(fld_idx) => self.execute_pop_into_field(fld_idx),
-            &Op::PushField(fld) => self.execute_push_field(fld),
-            &Op::PushCall { argc, line } => self.execute_push_call(argc, line),
-            &Op::StackPush => {
+            Op::BranchIf(jmp) => self.execute_branch_if(*jmp),
+            Op::Copy(dst, src) => self.execute_copy(*dst, *src),
+            Op::Jump(jmp) => self.execute_jump(*jmp),
+            Op::IfFailure(src, jmp) => self.execute_if_failure(*src, *jmp),
+            Op::PopListCons => self.execute_pop_list_cons(),
+            Op::PopStrCat => self.execute_pop_str_cat(),
+            Op::PushTuple(n) => self.execute_push_tuple(*n),
+            Op::PopIntoField(fld_idx) => self.execute_pop_into_field(*fld_idx),
+            Op::PushField(fld) => self.execute_push_field(*fld),
+            Op::PushCall { argc, line } => self.execute_push_call(*argc, *line),
+            Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
-            &Op::Return => Ok(Event::Success),
-            &Op::ReserveLocal(n) => {
-                self.head.e.reserve_local(n as usize);
+            Op::Return => Ok(Event::Success),
+            Op::ReserveLocal(n) => {
+                self.head.e.reserve_local(*n as usize);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
-            &Op::PushResult => {
+            Op::PushResult => {
                 let result = ltry!(self.head.e.stack_pop());
                 self.head.e.set_result(result);
                 self.head.pc += 1;
                 Ok(Event::Uneventful)
             }
-            &Op::PropagateFailure(lineno) => {
-                let ev = self.propagate_failure(lineno);
+            Op::PropagateFailure(lineno) => {
+                let ev = self.propagate_failure(*lineno);
                 self.head.pc += 1;
                 ev
             }
-            &Op::Label(lbl) => {
+            Op::Label(lbl) => {
                 return Err(lfail!(
                     failure::Mode::RuntimeLeemaFailure,
                     "unexpected label op",
@@ -379,7 +379,7 @@ impl Fiber
             Val::EnumStruct(new_typ.clone(), variant.clone(), new_items);
 
         ltry!(self.head.e.set_reg(reg, construple));
-        self.head.pc = self.head.pc + 1;
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
@@ -405,7 +405,7 @@ impl Fiber
         let construple = Val::Struct(new_typ.clone(), new_items);
 
         ltry!(self.head.e.set_reg(reg, construple));
-        self.head.pc = self.head.pc + 1;
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
@@ -432,26 +432,22 @@ impl Fiber
     pub fn execute_create_list(&mut self, dst: Reg) -> Lresult<Event>
     {
         ltry!(self.head.e.set_reg(dst, list::empty()));
-        self.head.pc = self.head.pc + 1;
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
     pub fn execute_create_map(&mut self, dst: Reg) -> Lresult<Event>
     {
         ltry!(self.head.e.set_reg(dst, Val::Map(Lmap::new())));
-        self.head.pc = self.head.pc + 1;
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_create_tuple(
-        &mut self,
-        dst: Reg,
-        ref sz: i8,
-    ) -> Lresult<Event>
+    pub fn execute_create_tuple(&mut self, dst: Reg, sz: i8) -> Lresult<Event>
     {
-        let tupsize: usize = *sz as usize;
+        let tupsize: usize = sz as usize;
         ltry!(self.head.e.set_reg(dst, Val::new_tuple(tupsize)));
-        self.head.pc = self.head.pc + 1;
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
@@ -513,7 +509,7 @@ impl Fiber
     {
         let src_val = ltry!(self.head.e.get_reg(src)).clone();
         ltry!(self.head.e.set_reg(dst, src_val));
-        self.head.pc = self.head.pc + 1;
+        self.head.pc += 1;
         Ok(Event::Uneventful)
     }
 
@@ -526,7 +522,7 @@ impl Fiber
                     failure
                         .trace
                         .as_ref()
-                        .map(|t| t.clone())
+                        .cloned()
                         .unwrap_or_else(|| self.head.trace.clone()),
                     ltry!(self.head.function()),
                     line as i16,

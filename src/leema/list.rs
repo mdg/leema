@@ -31,11 +31,11 @@ impl<'a> Iterator for ListIterator<'a>
     {
         let c = self.cursor;
         match c {
-            &Val::Cons(ref head, ref tail) => {
+            Val::Cons(ref head, ref tail) => {
                 *self = ListIterator { cursor: &**tail };
                 Some(head)
             }
-            &Val::Nil => None,
+            Val::Nil => None,
             _ => {
                 panic!("cannot iterate on a not list");
             }
@@ -43,12 +43,12 @@ impl<'a> Iterator for ListIterator<'a>
     }
 }
 
-pub fn iter<'a>(head: &'a Val) -> ListIterator<'a>
+pub fn iter(head: &Val) -> ListIterator<'_>
 {
     ListIterator { cursor: head }
 }
 
-pub fn from_vec(items: &Vec<Val>) -> Val
+pub fn from_vec(items: &[Val]) -> Val
 {
     items
         .iter()
@@ -79,8 +79,8 @@ pub fn concat(l1: &Val, l2: &Val) -> Val
     }
 
     match l1 {
-        &Val::Nil => l2.clone(),
-        &Val::Cons(ref head, ref tail) => {
+        Val::Nil => l2.clone(),
+        Val::Cons(ref head, ref tail) => {
             let new_tail = concat(tail, l2);
             cons((**head).clone(), new_tail)
         }
@@ -118,8 +118,8 @@ pub fn ref_to_vec(it: &Val) -> Vec<Val>
 pub fn is_empty(l: &Val) -> bool
 {
     match l {
-        &Val::Nil => true,
-        &Val::Cons(_, _) => false,
+        Val::Nil => true,
+        Val::Cons(_, _) => false,
         _ => {
             panic!("is_empty parameter is not list");
         }
@@ -140,12 +140,12 @@ pub fn len(l: &Val) -> usize
     fold_ref(0, l, |res, _| res + 1)
 }
 
-pub fn last<'a>(l: &'a Val) -> Option<&'a Val>
+pub fn last(l: &Val) -> Option<&Val>
 {
     match l {
-        &Val::Nil => None,
-        &Val::Cons(ref head, ref tail) if **tail == Val::Nil => Some(head),
-        &Val::Cons(_, ref tail) => last(tail),
+        Val::Nil => None,
+        Val::Cons(ref head, ref tail) if **tail == Val::Nil => Some(head),
+        Val::Cons(_, ref tail) => last(tail),
         _ => {
             panic!("cannot get last of a not list: {:?}", l);
         }
@@ -298,7 +298,7 @@ pub fn reverse(l: &Val) -> Val
     let mut result = Val::Nil;
     let mut next = l;
     while *next != Val::Nil {
-        let (ref head, ref tail) = take_ref(next);
+        let (head, tail) = take_ref(next);
         result = cons((*head).clone(), result);
         next = tail;
     }
@@ -321,8 +321,8 @@ pub fn take(l: Val) -> (Val, Arc<Val>)
 pub fn take_ref(l: &Val) -> (&Val, &Arc<Val>)
 {
     match l {
-        &Val::Cons(ref head, ref tail) => (head, tail),
-        &Val::Nil => {
+        Val::Cons(ref head, ref tail) => (head, tail),
+        Val::Nil => {
             panic!("Cannot take from empty list");
         }
         _ => {
@@ -382,8 +382,8 @@ pub fn head_or(l: Val, orval: Val) -> Val
 pub fn head_ref(l: &Val) -> &Val
 {
     match l {
-        &Val::Cons(ref head, _) => head,
-        &Val::Nil => {
+        Val::Cons(ref head, _) => head,
+        Val::Nil => {
             panic!("Cannot take_head from empty list");
         }
         _ => {

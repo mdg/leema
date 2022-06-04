@@ -126,7 +126,7 @@ impl Lib
 
     pub fn find_proto(&self, path: &Canonical) -> Lresult<&ProtoModule>
     {
-        self.protos.path_proto(&path)
+        self.protos.path_proto(path)
     }
 
     pub fn lib(&self) -> &ProtoLib
