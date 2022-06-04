@@ -58,8 +58,8 @@ impl Lstr
     pub fn as_str(&self) -> &str
     {
         match self {
-            &Lstr::Arc(ref s) => &(**s),
-            &Lstr::Sref(ref s) => s,
+            Lstr::Arc(ref s) => &(**s),
+            Lstr::Sref(s) => s,
             _ => {
                 panic!("not a str: {:?}", self);
             }
@@ -93,8 +93,8 @@ impl SendClone for Lstr
     fn clone_for_send(&self) -> Lstr
     {
         match self {
-            &Lstr::Arc(ref s) => Lstr::Arc(s.clone()),
-            &Lstr::Sref(ref s) => Lstr::Sref(s),
+            Lstr::Arc(ref s) => Lstr::Arc(s.clone()),
+            Lstr::Sref(s) => Lstr::Sref(s),
             _ => {
                 panic!("cannot Lstr::clone_for_send: {:?}", self);
             }
@@ -107,9 +107,9 @@ impl<'a> From<&'a Lstr> for String
     fn from(ls: &'a Lstr) -> String
     {
         match ls {
-            &Lstr::Arc(ref s) => (**s).clone(),
-            &Lstr::Sref(ref s) => s.to_string(),
-            &Lstr::Cat(ref a, ref b) => format!("{}{}", a, b),
+            Lstr::Arc(ref s) => (**s).clone(),
+            Lstr::Sref(ref s) => s.to_string(),
+            Lstr::Cat(ref a, ref b) => format!("{}{}", a, b),
         }
     }
 }
@@ -209,9 +209,9 @@ impl fmt::Display for Lstr
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Lstr::Arc(ref s) => write!(f, "{}", s),
-            &Lstr::Sref(ref s) => write!(f, "{}", s),
-            &Lstr::Cat(ref a, ref b) => write!(f, "{}{}", a, b),
+            Lstr::Arc(ref s) => write!(f, "{}", s),
+            Lstr::Sref(s) => write!(f, "{}", s),
+            Lstr::Cat(ref a, ref b) => write!(f, "{}{}", a, b),
         }
     }
 }
@@ -221,9 +221,9 @@ impl fmt::Debug for Lstr
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
         match self {
-            &Lstr::Arc(ref s) => write!(f, "\"{}\"", s),
-            &Lstr::Sref(ref s) => write!(f, "&\"{}\"", s),
-            &Lstr::Cat(ref a, ref b) => write!(f, "\"{}{}\"", a, b),
+            Lstr::Arc(ref s) => write!(f, "\"{}\"", s),
+            Lstr::Sref(s) => write!(f, "&\"{}\"", s),
+            Lstr::Cat(ref a, ref b) => write!(f, "\"{}{}\"", a, b),
         }
     }
 }

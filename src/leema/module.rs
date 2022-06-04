@@ -30,10 +30,7 @@ impl ModTyp
 {
     pub fn is_data(&self) -> bool
     {
-        match self {
-            ModTyp::Data | ModTyp::TraitData => true,
-            _ => false,
-        }
+        matches!(self, ModTyp::Data | ModTyp::TraitData)
     }
 }
 
@@ -154,7 +151,7 @@ impl sendclone::SendClone for ModKey
         ModKey {
             name: self.name.clone_for_send(),
             file: self.file.clone(),
-            mtyp: self.mtyp.clone(),
+            mtyp: self.mtyp,
         }
     }
 }

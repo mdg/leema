@@ -2,6 +2,7 @@ use crate::leema::lstr::Lstr;
 use crate::leema::struple::StrupleItem;
 use crate::leema::val::{Type, Val};
 
+use std::cmp::Ordering;
 use std::sync::Arc;
 
 const TYPEPATH_MAP: &str = "/map/T";
@@ -48,22 +49,30 @@ impl Lmap
 
         match **tree.as_ref().unwrap() {
             Lmap(ref left, (ref nkey, ref nval), ref right) => {
-                if k < *nkey {
-                    let newleft = Lmap::insert(left, k, v);
-                    Some(Arc::new(Lmap(
-                        newleft,
-                        (nkey.clone(), nval.clone()),
-                        right.clone(),
-                    )))
-                } else if k > *nkey {
-                    let newright = Lmap::insert(right, k, v);
-                    Some(Arc::new(Lmap(
-                        left.clone(),
-                        (nkey.clone(), nval.clone()),
-                        newright,
-                    )))
-                } else {
-                    Some(Arc::new(Lmap(left.clone(), (k, v), right.clone())))
+                match k.cmp(nkey) {
+                    Ordering::Less => {
+                        let newleft = Lmap::insert(left, k, v);
+                        Some(Arc::new(Lmap(
+                            newleft,
+                            (nkey.clone(), nval.clone()),
+                            right.clone(),
+                        )))
+                    }
+                    Ordering::Greater => {
+                        let newright = Lmap::insert(right, k, v);
+                        Some(Arc::new(Lmap(
+                            left.clone(),
+                            (nkey.clone(), nval.clone()),
+                            newright,
+                        )))
+                    }
+                    Ordering::Equal => {
+                        Some(Arc::new(Lmap(
+                            left.clone(),
+                            (k, v),
+                            right.clone(),
+                        )))
+                    }
                 }
             }
         }

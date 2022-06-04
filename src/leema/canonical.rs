@@ -94,13 +94,13 @@ impl Canonical
     {
         match self.0 {
             Lstr::Sref(ss) => {
-                let mut ssplit = ss.rsplitn(2, ".");
+                let mut ssplit = ss.rsplitn(2, '.');
                 let sfunc = ssplit.next().unwrap();
                 let smodule = ssplit.next()?;
                 Some((Canonical::new(Lstr::Sref(smodule)), Lstr::Sref(sfunc)))
             }
             Lstr::Arc(ref s) => {
-                let mut split = s.rsplitn(2, ".");
+                let mut split = s.rsplitn(2, '.');
                 let func = split.next().unwrap();
                 let module = split.next()?;
                 Some((
@@ -119,13 +119,13 @@ impl Canonical
     {
         match self.0 {
             Lstr::Sref(ss) => {
-                let mut ssplit = ss.rsplitn(2, "/");
+                let mut ssplit = ss.rsplitn(2, '/');
                 let smod = ssplit.next()?;
                 ssplit.next()?;
                 Some(Lstr::Sref(smod))
             }
             Lstr::Arc(ref s) => {
-                let mut split = s.rsplitn(2, "/");
+                let mut split = s.rsplitn(2, '/');
                 let module = split.next()?;
                 split.next()?;
                 Some(Lstr::from(module.to_string()))

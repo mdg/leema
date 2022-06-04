@@ -372,10 +372,7 @@ impl Type
     pub fn method_type(&self) -> Lresult<Type>
     {
         let fref = self.try_func_ref()?;
-        Ok(Type::f(
-            fref.result.clone(),
-            fref.args[1..].iter().cloned().collect(),
-        ))
+        Ok(Type::f(fref.result.clone(), fref.args[1..].to_vec()))
     }
 
     pub fn inner(var: &Lstr, i: i16) -> Type

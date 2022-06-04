@@ -206,7 +206,7 @@ impl ModTree
         id: &'static str,
     ) -> (&'static str, Box<dyn Fn(&mut PathBuf)>)
     {
-        if id.starts_with(".") && !id.starts_with("..") {
+        if id.starts_with('.') && !id.starts_with("..") {
             let ext = &id[1..];
             p.set_extension(ext);
             (
@@ -331,7 +331,7 @@ impl Ast
                     .iter()
                     .enumerate()
                     .map(|a| {
-                        let opt_k = a.1.k.map(|k| Lstr::Sref(k));
+                        let opt_k = a.1.k.map(Lstr::Sref);
                         let k = Type::unwrap_name(&opt_k, a.0);
                         Ok(StrupleItem::new(k, a.1.v.node.to_type(&m)?))
                     })
@@ -352,7 +352,7 @@ impl Ast
                     .iter()
                     .enumerate()
                     .map(|a| {
-                        let opt_k = a.1.k.map(|k| Lstr::Sref(k));
+                        let opt_k = a.1.k.map(Lstr::Sref);
                         let k = Type::unwrap_name(&opt_k, a.0);
                         Ok(StrupleItem::new(k, a.1.v.node.to_type(&m)?))
                     })
@@ -624,11 +624,7 @@ impl AstMode
 {
     pub fn is_pattern(&self) -> bool
     {
-        if let AstMode::Pattern(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, AstMode::Pattern(_))
     }
 
     pub fn get_pattern(self) -> Option<LocalType>
