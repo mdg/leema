@@ -11,6 +11,7 @@ name = "leema"
 
 [dependencies]
 futures = "0.3"
+crossbeam-utils = "0.8"
 docopt = "1.1"
 hyper = "0.14"
 hyper-rustls = "0.23"
