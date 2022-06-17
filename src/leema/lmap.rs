@@ -85,12 +85,16 @@ impl Lmap
         }
         match **tree.as_ref().unwrap() {
             Lmap(ref left, (ref nkey, ref nval), ref right) => {
-                if *k == *nkey {
-                    Some(nval)
-                } else if *k < *nkey {
-                    Lmap::get(left, k)
-                } else {
-                    Lmap::get(right, k)
+                match k.cmp(nkey) {
+                    Ordering::Equal => {
+                        Some(nval)
+                    }
+                    Ordering::Less => {
+                        Lmap::get(left, k)
+                    }
+                    Ordering::Greater => {
+                        Lmap::get(right, k)
+                    }
                 }
             }
         }

@@ -66,6 +66,7 @@ pub enum Placement
 /// This is even sketchier than the Hash implementation
 /// Now it will be impossible to compare Placement and
 /// have it match the Infix association
+#[allow(clippy::match_like_matches_macro)]
 impl PartialEq for Placement
 {
     fn eq(&self, other: &Self) -> bool
