@@ -339,7 +339,7 @@ impl AnonFuncDef
             return Ok(impl_f);
         }
 
-        // construct the call to make_closure
+        // construct the call to make the closure
         let fval = Val::Func(Fref::new(
             ModKey::from("/leema"),
             "make_closure",

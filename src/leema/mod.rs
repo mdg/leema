@@ -55,4 +55,5 @@ pub mod prefab;
 pub mod tcp;
 pub mod udp;
 
+pub use failure::Lresult;
 pub use lstr::Lstr;
