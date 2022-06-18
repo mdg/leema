@@ -148,8 +148,11 @@ impl Canonical
         self.0.as_str()
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn ancestors(path: &Path) -> Vec<&Path>
     {
+        // clippy complains about this, but rev() didn't seem to be available
+        // w/o collecting first
         let av: Vec<&Path> = path.ancestors().collect();
         av.into_iter()
             .rev()

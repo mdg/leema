@@ -198,9 +198,6 @@ pub enum ModRelativity
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
-#[derive(PartialEq)]
-#[derive(PartialOrd)]
-#[derive(Eq)]
 pub struct ModAlias(pub &'static str);
 
 impl ModAlias
@@ -239,6 +236,16 @@ impl AsRef<str> for ModAlias
         self.0
     }
 }
+
+impl PartialEq for ModAlias
+{
+    fn eq(&self, other: &ModAlias) -> bool
+    {
+        self.0 == other.0
+    }
+}
+
+impl Eq for ModAlias {}
 
 impl Hash for ModAlias
 {
