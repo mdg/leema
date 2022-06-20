@@ -1,4 +1,4 @@
-name: leema-fmt
+name: make format
 
 on:
   push:
@@ -23,4 +23,4 @@ jobs:
           override: true
           components: rustfmt, clippy
     - name: Run cargo fmt
-      run: cargo +nightly fmt -- --check
+      run: make format

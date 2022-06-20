@@ -1,4 +1,4 @@
-name: leema-unit
+name: make unit
 
 on:
   push:
@@ -17,4 +17,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run unit tests
-      run: cargo t --verbose
+      run: make unit

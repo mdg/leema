@@ -16,7 +16,7 @@ lib:
 test: format unit T
 
 unit:
-	cargo test --bin leema
+	cargo t --bin leema --verbose
 
 T: build test.py
 	pytest --verbose test.py

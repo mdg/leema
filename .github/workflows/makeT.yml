@@ -1,4 +1,4 @@
-name: makeT
+name: make T
 
 on:
   push:
