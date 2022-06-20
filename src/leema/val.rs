@@ -1294,6 +1294,22 @@ impl Val
         }
     }
 
+    pub fn fref(&self) -> Lresult<&Fref>
+    {
+        match self {
+            Val::Func(ref fref) => Ok(fref),
+            Val::FuncWithData(ref fref, _) => Ok(fref),
+            _else => {
+                Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "expected function value",
+                    "value": ldebug!(self),
+                ))
+            }
+        }
+    }
+
+
     pub fn to_int(&self) -> i64
     {
         if let Val::Int(i) = self {

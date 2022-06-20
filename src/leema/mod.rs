@@ -57,3 +57,4 @@ pub mod udp;
 
 pub use failure::Lresult;
 pub use lstr::Lstr;
+pub use val::Val;

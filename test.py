@@ -231,7 +231,6 @@ class TestScripts(unittest.TestCase):
         self.assertEqual(exp, result['output'])
 
     def test_closures(self):
-        self.skipTest("broken with the missing lib_leema.rs file")
         result = run_leema('test_closures')
         self.assertEqual(0, result['code'])
         exp = b"multiplied i = [4,8,12,16,]\n"

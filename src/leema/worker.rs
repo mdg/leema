@@ -26,6 +26,21 @@ use tokio::task;
 const DEFAULT_STACK_SIZE: usize = 50;
 static NEXT_FIBER_ID: AtomicI64 = AtomicI64::new(0);
 
+macro_rules! worker_try {
+    ($self:ident, $fib:expr, $r:expr) => {
+        match $r {
+            Ok(x) => x,
+            Err(f) => {
+                $fib.head.e.set_result(Val::Failure2(Box::new(
+                    f.rloc(file!(), line!()),
+                )));
+                $self.return_from_call($fib);
+                return;
+            }
+        }
+    };
+}
+
 #[derive(Debug)]
 enum ReadyFiber
 {
@@ -220,7 +235,7 @@ impl Worker
         match self.pop_fresh() {
             Some(ReadyFiber::New(f)) => {
                 did_something = true;
-                ltry!(self.load_code(f));
+                self.load_code(f);
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
@@ -239,9 +254,9 @@ impl Worker
             .map(|func: &'a Rc<Code>| (*func).clone())
     }
 
-    fn load_code(&mut self, curf: Fiber) -> Lresult<()>
+    fn load_code(&mut self, mut curf: Fiber)
     {
-        let fref = ltry!(curf.head.function());
+        let fref = worker_try!(self, curf, curf.head.function());
         let opt_code = self.find_code(fref);
         if let Some(func) = opt_code {
             self.push_coded_fiber(curf, func)
@@ -263,7 +278,6 @@ impl Worker
             let fiber_id = curf.fiber_id;
             let fw = FiberWait::Code(curf);
             self.waiting.insert(fiber_id, fw);
-            Ok(())
         }
     }
 
@@ -296,15 +310,7 @@ impl Worker
         code: Rc<Code>,
     )
     {
-        let e = match evr {
-            Ok(ev) => ev,
-            Err(failure) => {
-                fbr.head.e.set_result(Val::Failure2(Box::new(failure)));
-                self.return_from_call(fbr);
-                return;
-            }
-        };
-        match e {
+        match worker_try!(self, fbr, evr) {
             Event::Success => {
                 vout!("function call success\n");
                 self.return_from_call(fbr);
@@ -312,12 +318,12 @@ impl Worker
             Event::PushCall { argc, line } => {
                 vout!("push_call({} @{})\n", argc, line);
                 fbr.head = fbr.head.push_call(code, argc, line).unwrap();
-                self.load_code(fbr).unwrap();
+                self.load_code(fbr);
             }
             Event::TailCall(func, args) => {
                 vout!("push_tailcall({}, {:?})\n", func, args);
                 fbr.push_tailcall(func, args);
-                self.load_code(fbr).unwrap();
+                self.load_code(fbr);
             }
             Event::NewTask(_fref, _callargs) => {}
             /*
@@ -417,7 +423,7 @@ impl Worker
                 self.code.insert(newf, rc_code.clone());
                 let opt_fiber = self.waiting.remove(&fiber_id);
                 if let Some(FiberWait::Code(fib)) = opt_fiber {
-                    self.push_coded_fiber(fib, rc_code)?;
+                    self.push_coded_fiber(fib, rc_code);
                 } else {
                     return Err(rustfail!(
                         "leema_failure",
@@ -461,7 +467,7 @@ impl Worker
         Ok(())
     }
 
-    fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>) -> Lresult<()>
+    fn push_coded_fiber(&mut self, fib: Fiber, code: Rc<Code>)
     {
         // remove the rsrc_idx config from the iops
         if let Some((iopf, _rsrc_idx)) = code.get_iop() {
@@ -477,10 +483,8 @@ impl Worker
                 })
                 .unwrap();
             self.waiting.insert(fiber_id, FiberWait::Io(fib));
-            Ok(())
         } else {
             self.push_fresh(ReadyFiber::Ready(fib, code));
-            Ok(())
         }
     }
 

@@ -344,18 +344,7 @@ impl Ref
 
     pub fn fref(&self) -> Lresult<&Fref>
     {
-        match self.func_val() {
-            Val::Func(ref fref) => Ok(fref),
-            Val::FuncWithData(ref fref, _) => Ok(fref),
-            other => {
-                Err(lfail!(
-                    failure::Mode::RuntimeLeemaFailure,
-                    "expected function value",
-                    "sp": ldisplay!(self.sp),
-                    "value": ldebug!(other),
-                ))
-            }
-        }
+        Ok(ltry!(self.func_val().fref(), "sp": ldisplay!(self.sp),))
     }
 
     fn param_frame(&self) -> FrameRef<'_>
