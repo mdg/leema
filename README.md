@@ -1,7 +1,15 @@
 leema
 ======
 
-![Build Status](https://github.com/mdg/leema/workflows/leema-unit/badge.svg)
+![make unit](https://github.com/mdg/leema/workflows/leema-unit/badge.svg)
+Rust Unit Tests (cargo t)
+<br/>
+![make format](https://github.com/mdg/leema/workflows/leema-fmt/badge.svg)
+Code Formatting Check
+<br/>
+![make T](https://github.com/mdg/leema/workflows/makeT/badge.svg)
+Integration Tests (pytest)
+<br/>
 
 Leema is a concurrent, error-tolerant, functional programming language.
 
