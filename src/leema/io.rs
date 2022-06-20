@@ -45,9 +45,6 @@ pub struct Iop
 
 impl Iop
 {
-    /// take the params, extract the rsrc_ids, sort them into required_rsrc_ids
-    pub fn new() {}
-
     pub fn next_required_rsrc(&mut self) -> Option<i64>
     {
         self.required_rsrc_ids.pop()
