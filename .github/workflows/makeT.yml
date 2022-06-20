@@ -15,9 +15,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
     - uses: actions/checkout@v3
-    - uses: xoviat/actions-pytest@0.1-alpha2
     - name: Build
       run: cargo build --verbose
     - name: Run integration tests
-      run: make T
+      uses: paolorechia/fast-pytest-github-action@main
+      with:
+        pytest_args: 'test.py'
