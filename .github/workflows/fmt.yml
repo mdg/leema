@@ -1,4 +1,4 @@
-name: make format
+name: make-format
 
 on:
   push:

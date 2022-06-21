@@ -1,4 +1,4 @@
-name: make unit
+name: make-unit
 
 on:
   push:

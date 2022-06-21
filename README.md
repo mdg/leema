@@ -1,13 +1,13 @@
 leema
 ======
 
-![make unit](https://github.com/mdg/leema/workflows/leema-unit/badge.svg)
+![make unit](https://github.com/mdg/leema/workflows/make-unit/badge.svg)
 Rust Unit Tests (cargo t)
 <br/>
-![make format](https://github.com/mdg/leema/workflows/leema-fmt/badge.svg)
+![make format](https://github.com/mdg/leema/workflows/make-format/badge.svg)
 Code Formatting Check
 <br/>
-![make T](https://github.com/mdg/leema/workflows/makeT/badge.svg)
+![make T](https://github.com/mdg/leema/workflows/make-T/badge.svg)
 Integration Tests (pytest)
 <br/>
 
