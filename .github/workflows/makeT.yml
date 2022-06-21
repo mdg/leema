@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v3
       with:
         python-version: '3.8'
     - uses: actions/checkout@v3
+    - run: pip install pytest
     - name: Build
       run: cargo build --verbose
     - name: Run integration tests
-      uses: pavelzw/pytest-action@v1.1
-      with:
-        custom_arguments: 'test.py'
+      run: make T
