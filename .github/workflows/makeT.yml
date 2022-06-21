@@ -22,6 +22,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run integration tests
-      uses: paolorechia/fast-pytest-github-action@main
+      uses: pavelzw/pytest-action@v1.1
       with:
-        pytest_args: 'test.py'
+        custom_arguments: 'test.py'
