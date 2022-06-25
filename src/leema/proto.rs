@@ -510,7 +510,7 @@ impl ProtoModule
                     loc,
                 ));
             }
-            let data_t = self.make_proto_type(name)?;
+            let data_t = self.make_proto_type_unique(name)?;
             self.add_type_to_scope(data_t.n, &data_t.t, loc);
             let ps = ltry!(self.add_proto_struct(data_t.n, &data_t.t, &fields));
             let construct = data_t.t.clone();
@@ -698,7 +698,7 @@ impl ProtoModule
     fn add_alias_type(&mut self, name: AstNode, src: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let alias_t = ltry!(self.make_proto_type(name));
+        let alias_t = ltry!(self.make_proto_type_unique(name));
         let src_typ = ltry!(self.ast_to_type(&src, &alias_t.t.args));
         let src_node = AstNode::new(Ast::Type(src_typ.clone()), src.loc);
         let src_t = ProtoType {
@@ -726,7 +726,7 @@ impl ProtoModule
     fn add_rust_type(&mut self, name: AstNode) -> Lresult<()>
     {
         let loc = name.loc;
-        let proto_t = self.make_proto_type(name)?;
+        let proto_t = self.make_proto_type_unique(name)?;
         let name = proto_t.n;
         let typenode = Ast::Type(proto_t.t.clone());
         let mut node = AstNode::new(typenode, loc);
@@ -758,7 +758,7 @@ impl ProtoModule
                 name,
             ));
         }
-        let data_t = self.make_proto_type(name)?;
+        let data_t = self.make_proto_type_unique(name)?;
         let sname_id = data_t.n;
         let union_typ = data_t.t.clone();
         self.add_type_to_scope(sname_id, &union_typ, loc);
@@ -818,7 +818,7 @@ impl ProtoModule
     fn add_trait(&mut self, name: AstNode, funcs: Vec<AstNode>) -> Lresult<()>
     {
         let loc = name.loc;
-        let proto_t = self.make_proto_type(name)?;
+        let proto_t = self.make_proto_type_unique(name)?;
         let trait_type = AstNode::new(Ast::Type(proto_t.t.clone()), loc);
         // look in funcs for a struct def and use the ModTyp::Data?
         // or does that get set in add_typed_struct
@@ -904,8 +904,8 @@ impl ProtoModule
     {
         let id = "impl";
         let loc = trait_node.loc;
-        let trait_t = ltry!(self.make_proto_type(trait_node));
-        let data_t = ltry!(self.make_proto_type(data_node));
+        let trait_t = ltry!(self.make_proto_type_unique(trait_node));
+        let data_t = ltry!(self.make_proto_type_unique(data_node));
         let data_typ = data_t.t.clone();
 
         let subkey = self.key.subimpl(trait_t.t.path.clone())?;
@@ -1023,7 +1023,7 @@ impl ProtoModule
         Ok((id, ftyp))
     }
 
-    fn make_proto_type(&mut self, name: AstNode) -> Lresult<ProtoType>
+    fn make_proto_type_unique(&mut self, name: AstNode) -> Lresult<ProtoType>
     {
         let m = &self.key.name;
         let utyp: Type;
