@@ -1700,6 +1700,33 @@ mod tests
     }
 
     #[test]
+    fn impl_with_func()
+    {
+        let input = r#"impl Food with Burrito ::
+           func fillings:[Str] ->
+             ["beans", "beef", "shrimp"]
+           --
+        --"#;
+        let actual = parse(Rule::stmt, input).unwrap();
+        println!("{:#?}", actual);
+
+        let t = &actual[0];
+        if let Ast::DefImpl(iname, typ, funcs) = &*t.node {
+            assert_matches!(*iname.node, Ast::Id("Food"));
+            assert_matches!(*typ.node, Ast::Id("Burrito"));
+            if let Ast::DefFunc(fname, _, _, body) = &*funcs[0].node {
+                assert_matches!(*fname.node, Ast::Id("fillings"));
+                assert_matches!(*body.node, Ast::Block(_));
+            } else {
+                panic!("expected a func, found {:?}", funcs);
+            }
+            assert_eq!(1, funcs.len());
+        } else {
+            panic!("expected an impl, found {:?}", t);
+        }
+    }
+
+    #[test]
     fn infix_and_not()
     {
         let input = "a and not b";

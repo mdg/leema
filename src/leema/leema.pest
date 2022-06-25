@@ -216,7 +216,7 @@ def_alias_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ ":=" ~ as1 ~ typex }
 
 def_interface = !{ "trait" ~ hs1 ~ def_id ~ as1 ~ impl_block  }
 def_impl = !{
-    "impl" ~ hs1 ~ type_call ~ as1 ~ "with" ~ as1 ~ type_call ~ as1 ~ impl_block
+    "impl" ~ hs1 ~ type_term ~ as1 ~ "with" ~ as1 ~ type_term ~ as1 ~ impl_block
 }
 
 def_rust_type = !{ "datatype" ~ hs1 ~ def_id ~ as1 ~ rust_block }
