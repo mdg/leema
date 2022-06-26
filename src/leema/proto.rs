@@ -905,7 +905,7 @@ impl ProtoModule
         let id = "impl";
         let loc = trait_node.loc;
         let trait_t = ltry!(self.make_proto_type_unique(trait_node));
-        let data_t = ltry!(self.make_proto_type_unique(data_node));
+        let data_t = ltry!(self.make_proto_type(data_node));
         let data_typ = data_t.t.clone();
 
         let subkey = self.key.subimpl(trait_t.t.path.clone())?;
@@ -1023,7 +1023,7 @@ impl ProtoModule
         Ok((id, ftyp))
     }
 
-    fn make_proto_type_unique(&mut self, name: AstNode) -> Lresult<ProtoType>
+    fn make_proto_type(&mut self, name: AstNode) -> Lresult<ProtoType>
     {
         let m = &self.key.name;
         let utyp: Type;
@@ -1092,8 +1092,15 @@ impl ProtoModule
                 ));
             }
         };
-        ltry!(self.refute_redefines_default(id, name.loc));
         Ok(ProtoType { n: id, t: utyp })
+    }
+
+    fn make_proto_type_unique(&mut self, name: AstNode) -> Lresult<ProtoType>
+    {
+        let name_loc = name.loc;
+        let p = ltry!(self.make_proto_type(name));
+        ltry!(self.refute_redefines_default(p.n, name_loc));
+        Ok(p)
     }
 
     pub fn take_func(&mut self, func: &Fref) -> Lresult<AstNode>

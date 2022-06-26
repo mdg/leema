@@ -48,17 +48,17 @@ trait JsonCoding ::
 
 
 
-impl jsonCoding with <Option T> ::
-    func encode:Val :: self
-    |Some(inner) -> JsonCoding.encode(inner)
-    |None -> Val.Null
-    --
-
-    func decode:<Option U> :: Val
-    |Val.Null -> None
-    |other -> Some(JsonCoding.decode(other))
-    --
---
+## impl JsonCoding with <Option T> ::
+##     func encode:Val :: self
+##     |Some(inner) -> JsonCoding.encode(inner)
+##     |None -> Val.Null
+##     --
+##
+##     func decode:<Option U> :: Val
+##     |Val.Null -> None
+##     |other -> Some(JsonCoding.decode(other))
+##     --
+## --
 
 impl JsonCoding with Int ::
     func encode:Val :: self ->
