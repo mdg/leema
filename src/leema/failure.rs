@@ -159,6 +159,7 @@ pub enum Mode
     StaticLeemaFailure,
     RuntimeLeemaFailure,
     LeemaTodoFailure,
+    UnknownLeemaFailure,
 }
 
 impl Mode
@@ -185,6 +186,7 @@ impl Mode
             Mode::StaticLeemaFailure => -1,
             Mode::RuntimeLeemaFailure => -2,
             Mode::LeemaTodoFailure => -3,
+            Mode::UnknownLeemaFailure => -4,
         }
     }
 
@@ -212,6 +214,7 @@ impl Mode
             Mode::StaticLeemaFailure => "static_leema_failure",
             Mode::RuntimeLeemaFailure => "runtime_leema_failure",
             Mode::LeemaTodoFailure => "leema_todo_failure",
+            Mode::UnknownLeemaFailure => "unknown_leema_failure",
         }
     }
 }
@@ -243,12 +246,13 @@ impl Failure
 {
     pub fn new(tag: &'static str, msg: Lstr) -> Failure
     {
+        let status = Mode::UnknownLeemaFailure;
         Failure {
             tag: Val::Hashtag(Lstr::Sref(tag)),
             msg: Val::Str(msg),
             trace: None,
-            status: Mode::Ok,
-            code: 0,
+            status,
+            code: status.cli_code() as i8,
             context: vec![],
         }
     }
@@ -260,7 +264,7 @@ impl Failure
             msg: Val::Str(Lstr::Sref(msg)),
             trace: None,
             status: mode,
-            code: 0,
+            code: mode.cli_code() as i8,
             context: vec![],
         }
     }
@@ -307,7 +311,7 @@ impl Failure
             msg: Val::Str(msg.clone()),
             trace: None,
             status,
-            code: 0,
+            code: status.cli_code() as i8,
             context: vec![vec![
                 StrupleItem::new(Lstr::Sref("module"), module),
                 StrupleItem::new(Lstr::Sref("line"), lstrf!("{}", lineno)),
