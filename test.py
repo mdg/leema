@@ -320,6 +320,12 @@ class TestScripts(unittest.TestCase):
             + b"option is 4\n"
         self.assertEqual(exp, result['output'])
 
+    def test_shapes(self):
+        result = run_leema('shapes')
+        self.assertEqual(0, result['code'])
+        exp = b"tbd\n"
+        self.assertEqual(exp, result['output'])
+
     def test_json(self):
         self.skipTest("not ready for testing yet")
         result = run_leema('test_json')
