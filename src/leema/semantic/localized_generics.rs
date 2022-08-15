@@ -123,7 +123,7 @@ impl ast2::Op for LocalizeGenerics
     fn post(&mut self, node: &mut AstNode, _mode: AstMode) -> StepResult
     {
         match &*node.node {
-            Ast::Call(_callx, _args) => {}
+            Ast::Call(_callx, _, _args) => {}
             _ => {
                 // clean up any leftover unknown types
                 self.localize_type(&mut node.typ, node.loc);

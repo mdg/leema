@@ -250,7 +250,9 @@ pub enum Ast
 {
     Alias(Xlist, Box<AstNode>),
     Block(Vec<AstNode>),
-    Call(AstNode, Xlist),
+
+    /// Function, Method self, args
+    Call(AstNode, Option<AstNode>, Xlist),
     Canonical(Canonical),
     ConstVal(Val),
     CopyAndSet(AstNode, Xlist),
@@ -390,7 +392,10 @@ impl Ast
         match self {
             Ast::Alias(gens, src) => write!(f, "Alias {:?} {:?}", gens, src),
             Ast::Block(items) => write!(f, "Block {:?}", items),
-            Ast::Call(id, args) => write!(f, "Call {:?} {:?}", id, args),
+            Ast::Call(id, None, args) => write!(f, "Call {:?} {:?}", id, args),
+            Ast::Call(id, Some(meth), args) => {
+                write!(f, "Method {:?}.{:?} {:?}", meth, id, args)
+            }
             Ast::Canonical(c) => write!(f, "Canonical {:?}", c),
             Ast::ConstVal(v) => write!(f, "Const {:?}", v),
             Ast::CopyAndSet(src, flds) => {
@@ -764,8 +769,12 @@ impl Walker
                 }
                 steptry!(self.walk(src, op));
             }
-            Ast::Call(id, args) => {
+            Ast::Call(id, method_base, args) => {
                 steptry!(self.walk(id, op));
+                // walk the method base if it's present
+                if let Some(mb) = method_base {
+                    steptry!(self.walk(mb, op));
+                }
                 for a in args.iter_mut() {
                     steptry!(self.walk(&mut a.v, op));
                 }

@@ -654,7 +654,7 @@ impl LeemaPrec
             Rule::tuple => {
                 let tuple = self.parse_xlist(m, op.into_inner())?;
                 let call_loc = x.loc;
-                Ok(AstNode::new(Ast::Call(x, tuple), call_loc))
+                Ok(AstNode::new(Ast::Call(x, None, tuple), call_loc))
             }
             Rule::negative | Rule::not | Rule::star if m == Mode::Value => {
                 let ast = Ast::Op1(op.as_str(), x);
@@ -969,7 +969,7 @@ mod tests
 
         if let Ast::Block(lines) = &*actual[0].node {
             assert_matches!(*lines[0].node, Ast::Let(_, _, _));
-            assert_matches!(*lines[1].node, Ast::Call(_, _));
+            assert_matches!(*lines[1].node, Ast::Call(_, None, _));
             assert_eq!(2, lines.len());
         } else {
             panic!("expected Block, found {:?}", actual[0]);
@@ -1012,7 +1012,7 @@ mod tests
             ])]
         );
 
-        if let Ast::Call(name, args) = &*actual[0].node {
+        if let Ast::Call(name, None, args) = &*actual[0].node {
             assert_eq!(Ast::Id("foo"), *name.node);
             assert_eq!(None, args[0].k);
             assert_eq!(Some("x"), args[1].k);

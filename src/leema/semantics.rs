@@ -144,7 +144,7 @@ impl<'a> ast2::Op for MacroReplacement<'a>
                     return Ok(AstStep::Rewrite);
                 }
             }
-            Ast::Call(_callx, ref mut args) if mode == AstMode::Value => {
+            Ast::Call(_callx, None, ref mut args) if mode == AstMode::Value => {
                 self.expand_args(args)?;
             }
             _ => {} // nothing, all good
@@ -325,6 +325,7 @@ impl AnonFuncDef
         })
     }
 
+    /// Return the call object for a lambda or closure
     pub fn call_object(&self) -> Lresult<AstNode>
     {
         // get the reference to the closure/anon_f implementation
@@ -357,7 +358,7 @@ impl AnonFuncDef
         };
 
         let call_args = struple::new_tuple2(impl_f, self.env_v.clone());
-        let call_node = Ast::Call(fnode, call_args);
+        let call_node = Ast::Call(fnode, None, call_args);
         Ok(AstNode {
             node: Box::new(call_node),
             typ: self.func_type.clone(),
@@ -475,6 +476,7 @@ impl<'p> ScopeCheck<'p>
         }
     }
 
+    /// Convert an infix op to its function call
     fn infix_to_call(
         op: &'static str,
         a: &mut AstNode,
@@ -487,9 +489,10 @@ impl<'p> ScopeCheck<'p>
         let new_a = mem::take(a);
         let new_b = mem::take(b);
         let args: Xlist = struple::new_tuple2(new_a, new_b);
-        Some(AstNode::new(Ast::Call(callx, args), loc))
+        Some(AstNode::new(Ast::Call(callx, None, args), loc))
     }
 
+    /// Convert a prefix op to a function call
     fn prefix_to_call(
         op: &'static str,
         x: &mut AstNode,
@@ -500,7 +503,7 @@ impl<'p> ScopeCheck<'p>
         let callx = AstNode::new(Ast::Canonical(prefix.clone()), loc);
         let new_x = mem::take(x);
         let args: Xlist = vec![StrupleItem::new_v(new_x)];
-        Some(AstNode::new(Ast::Call(callx, args), loc))
+        Some(AstNode::new(Ast::Call(callx, None, args), loc))
     }
 
     fn apply_macro(mac: &Ast, loc: Loc, args: &Xlist) -> AstResult
@@ -815,9 +818,10 @@ impl<'p> ScopeCheck<'p>
                     self.blocks.access_var(id, node.loc.lineno as i16);
                 }
             }
-            Ast::Call(callx, ref mut args) => {
+            Ast::Call(callx, None, ref mut args) => {
                 // go depth first on the call expression to find any macros
                 // alternatively, maybe apply macros in post?
+                // can ignore method calls, since they definitely aren't macros
                 ltry!(ast2::walk_ref_mut(callx, self));
                 match &mut *callx.node {
                     mac @ Ast::DefMacro(_, _, _) => {
@@ -827,7 +831,7 @@ impl<'p> ScopeCheck<'p>
                     }
                     // builtin macros
                     // would be nice to have a better way to handle this
-                    Ast::ConstVal(Val::Hashtag(tag)) => {
+                    Ast::ConstVal(Val::Hashtag(ref tag)) => {
                         let result = ltry!(self.apply_builtin_macro(tag, args));
                         *node = result;
                         return Ok(AstStep::Rewrite);
@@ -1080,10 +1084,10 @@ impl<'p> ast2::Op for ScopeCheck<'p>
             Ast::Block(_) => {
                 self.blocks.pop_blockscope();
             }
-            Ast::Call(callx, _) if mode == AstMode::Value => {
+            Ast::Call(callx, None, _) if mode == AstMode::Value => {
                 steptry!(self.post_constructor(callx));
             }
-            Ast::Call(callx, _) if mode.is_pattern() => {
+            Ast::Call(callx, None, _) if mode.is_pattern() => {
                 steptry!(self.post_constructor(callx));
             }
             Ast::Generic(inner, _) if mode == AstMode::Value => {
@@ -1702,7 +1706,7 @@ impl<'p> TypeCheck<'p>
                 node.typ = id_type;
             }
             // set struct fields w/ name(x: y) syntax
-            Ast::Call(ref mut callx, ref mut args) if callx.typ.is_user() => {
+            Ast::Call(ref mut callx, None, ref mut args) if callx.typ.is_user() => {
                 let copy_typ = callx.typ.clone();
                 let base = mem::take(callx);
                 let mut args_copy = mem::take(args);
@@ -1724,7 +1728,7 @@ impl<'p> TypeCheck<'p>
                     copy_typ,
                 ));
             }
-            Ast::Call(ref mut callx, ref mut args) => {
+            Ast::Call(ref mut callx, ref mut method_base, ref mut args) => {
                 match &mut *callx.node {
                     // handle a non-method call
                     Ast::ConstVal(Val::Func(fref)) => {
@@ -1738,11 +1742,13 @@ impl<'p> TypeCheck<'p>
                     }
                     // handle a method call
                     Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
-                        let base = mem::take(base_ref);
+                        if !method_base.is_none() {
+                            panic!("unexected some value: {:#?}", method_base);
+                        }
+                        let base = Some(mem::take(base_ref));
+                        *method_base = base;
                         let method = mem::take(method_ref);
-                        args.insert(0, StrupleItem::new_v(base));
-                        *callx.node = *method.node;
-                        callx.typ = method.typ;
+                        *callx = AstNode::new(*method.node, method.loc).with_type(method.typ);
                         return Ok(AstStep::Rewrite);
                     }
                     Ast::TypeCall(ref mut base, ref mut type_args) => {
@@ -1936,7 +1942,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
                     "line": ldisplay!(node.loc.lineno),
                 ));
             }
-            Ast::Call(callx, _args) if mode.is_pattern() => {
+            Ast::Call(callx, None, _args) if mode.is_pattern() => {
                 // what should this change to? struct val?
                 if let Ast::ConstVal(Val::Func(fref)) = &mut *callx.node {
                     if fref.f == "__construct" {
@@ -2017,7 +2023,7 @@ impl<'p> ast2::Op for TypeCheck<'p>
             Ast::Op2(_, _, _) => {
                 // handled in post
             }
-            Ast::Block(_) | Ast::Call(_, _) | Ast::Tuple(_) => {
+            Ast::Block(_) | Ast::Call(_, _, _) | Ast::Tuple(_) => {
                 // handled in post
             }
             Ast::ConstVal(Val::Type(utb)) if utb.is_untyped_block() => {
@@ -2203,7 +2209,7 @@ impl ast2::Op for RemoveExtraCode
                 }
                 *node.node = Ast::ConstVal(listv);
             }
-            Ast::Call(callx, args) if mode.is_pattern() => {
+            Ast::Call(callx, None, args) if mode.is_pattern() => {
                 if let Ast::ConstVal(Val::Func(fref)) = &*callx.node {
                     if fref.f == "__construct" {
                         let mut cargs = Vec::with_capacity(args.len());
@@ -2307,7 +2313,7 @@ impl Semantics
             ));
         }
 
-        let (modname, body) = lib.take_func(fp)?;
+        let (modname, body) = ltry!(lib.take_func(fp));
         if *body.node == Ast::BLOCK_ABSTRACT {
             return Err(rustfail!(
                 "compile_failure",
@@ -3434,6 +3440,45 @@ mod tests
                 assert_matches!(*sem.src.node, Ast::CopyAndSet(_, _));
             }
         }
+    }
+
+    #[test]
+    fn trait_func_basic()
+    {
+        let input = r#"
+        import /io
+
+        trait Shape ::
+        func area:Int :: self --
+        --
+
+        datatype Square ::
+        width:Int
+        --
+
+        impl Shape with Square ::
+            func area:Int :: self ->
+                self.width * self.width
+            --
+        --
+
+        func area_string:Str :: s:Shape ->
+            let a := s.area()
+            "area is $a\n"
+        --
+
+        func main ->
+            let c := Square(2)
+            io.print(area_string(c))
+        --
+        "#
+        .to_string();
+
+        let mut prog = core_program(&[("/foo", input)]);
+        let main_f = Fref::from(("/foo", "main"));
+        prog.read_semantics(&main_f).unwrap();
+        let area_f = Fref::from(("/foo", "area_string"));
+        prog.read_semantics(&area_f).unwrap();
     }
 
     /*

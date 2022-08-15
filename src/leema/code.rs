@@ -373,7 +373,8 @@ fn make_sub_ops2(input: AstNode, opm: &mut OpMaker) -> Oxpr
             ops
         }
         Ast::ConstVal(v) => vec![Op::PushConst(v)],
-        Ast::Call(f, args) => make_call_ops(f, args, opm),
+        Ast::Call(f, None, args) => make_call_ops(f, args, opm),
+        Ast::Call(f, Some(_meth_self), args) => make_call_ops(f, args, opm),
         Ast::Let(patt, _, x) => {
             let pval = if let Ast::ConstVal(pv) = *patt.node {
                 pv
