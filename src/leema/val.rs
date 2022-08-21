@@ -197,6 +197,7 @@ impl Type
     pub const PATH_KIND: &'static str = "/core/Kind";
     /// Canonical path for the list type
     pub const PATH_LIST: &'static str = "/core/List";
+    pub const PATH_METHOD: &'static str = "/core/Method";
     pub const PATH_NORETURN: &'static str = "/core/NoReturn";
     pub const PATH_NOTOKEN: &'static str = "/leema/NoToken";
     pub const PATH_INT: &'static str = "/core/Int";
@@ -286,6 +287,19 @@ impl Type
         Type::typecall(ftyp, type_args)
     }
 
+    pub fn method(result: Type, mut args: TypeArgs) -> Type
+    {
+        args.insert(0, StrupleItem::new(Self::FNKEY_RESULT, result));
+        Type::t(Type::PATH_METHOD, args)
+    }
+
+    pub fn generic_method(type_args: TypeArgs, result: Type, args: TypeArgs)
+        -> Type
+    {
+        let ftyp = Type::method(result, args);
+        Type::typecall(ftyp, type_args)
+    }
+
     /// Construct the type of a closure implementation function
     /// closed args
     pub fn closure_impl(inner: Type, closed: TypeArgs) -> Type
@@ -367,12 +381,6 @@ impl Type
     {
         args.insert(0, StrupleItem::new(Lstr::Sref("result_t"), result));
         Type::t(Type::PATH_TYPECALL, args)
-    }
-
-    pub fn method_type(&self) -> Lresult<Type>
-    {
-        let fref = self.try_func_ref()?;
-        Ok(Type::f(fref.result.clone(), fref.args[1..].to_vec()))
     }
 
     pub fn inner(var: &Lstr, i: i16) -> Type
@@ -467,11 +475,20 @@ impl Type
                     args: &args[1..],
                 })
             }
+            TypeRef(Type::PATH_METHOD, args) => {
+                let result = &args.first()?.v;
+                Some(FuncTypeRef {
+                    path: Type::PATH_METHOD,
+                    type_args: &[],
+                    result,
+                    args: &args[1..],
+                })
+            }
             TypeRef(Type::PATH_TYPECALL, args) => {
                 let result = &args.first()?.v;
                 let inner = result.func_ref()?;
                 Some(FuncTypeRef {
-                    path: Type::PATH_FN,
+                    path: inner.path,
                     type_args: &args[1..],
                     result: inner.result,
                     args: inner.args,
@@ -501,11 +518,19 @@ impl Type
                     args,
                 })
             }
+            TypeRefMut(Type::PATH_METHOD, args) => {
+                let (result, args) = args.split_at_mut(1);
+                Some(FuncTypeRefMut {
+                    path: Type::PATH_METHOD,
+                    result: &mut result.first_mut()?.v,
+                    args,
+                })
+            }
             TypeRefMut(Type::PATH_TYPECALL, args) => {
                 let result = &mut args.first_mut()?.v;
                 let inner = result.func_ref_mut()?;
                 Some(FuncTypeRefMut {
-                    path: Type::PATH_FN,
+                    path: inner.path,
                     result: inner.result,
                     args: inner.args,
                 })

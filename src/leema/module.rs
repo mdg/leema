@@ -32,6 +32,12 @@ impl ModTyp
     {
         matches!(self, ModTyp::Data | ModTyp::TraitData)
     }
+
+    // is this module a trait
+    pub fn is_trait(&self) -> bool
+    {
+        matches!(self, ModTyp::TraitData | ModTyp::Trait)
+    }
 }
 
 #[derive(Debug)]
@@ -91,6 +97,11 @@ impl ModKey
             file: self.file.clone(),
             mtyp: ModTyp::Impl,
         })
+    }
+
+    pub fn is_trait(&self) -> bool
+    {
+        self.mtyp.is_trait()
     }
 }
 

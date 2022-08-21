@@ -943,7 +943,7 @@ mod tests
         let actual = parse_file(input).unwrap();
         eprintln!("{:#?}", actual);
 
-        if let Ast::Call(callx, args) = &*actual[0].node {
+        if let Ast::Call(callx, None, args) = &*actual[0].node {
             assert_matches!(*callx.node, Ast::Op2(".", _, _));
             assert_eq!(Ast::Id("items"), *args[0].v.node);
             assert_matches!(*args[1].v.node, Ast::DefFunc(_, _, _, _));

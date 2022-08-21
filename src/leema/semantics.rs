@@ -1742,8 +1742,11 @@ impl<'p> TypeCheck<'p>
                     }
                     // handle a method call
                     Ast::Op2(".", ref mut base_ref, ref mut method_ref) => {
-                        if !method_base.is_none() {
+                        if method_base.is_some() {
                             panic!("unexected some value: {:#?}", method_base);
+                            // should probably just return AstStep::Ok here
+                            // a fixing the method then a rewrite for another
+                            // reason shouldn't break anything
                         }
                         let base = Some(mem::take(base_ref));
                         *method_base = base;

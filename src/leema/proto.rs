@@ -440,6 +440,7 @@ impl ProtoModule
         }
     }
 
+    /// add the func as a func or a trait_fn or a method?
     fn add_func(
         &mut self,
         name: AstNode,
@@ -448,12 +449,15 @@ impl ProtoModule
         body: AstNode,
     ) -> Lresult<()>
     {
+        let is_trait = self.key.is_trait();
+        let mut is_method = false;
         let loc = name.loc;
         if !args.is_empty() {
             let first = args.get_mut(0).unwrap();
             if first.k.is_none() && *first.v.node == Ast::Id("self") {
                 first.k = Some("self");
                 *first.v.node = Ast::Id("Self");
+                is_method = is_trait;
             }
         }
         // if there's no result type, default it to void
@@ -463,7 +467,7 @@ impl ProtoModule
 
         let opens = self.type_args();
         let (name_id, ftyp) = ltry!(
-            self.make_func_type(name.clone(), &args, result, opens),
+            self.make_func_type(name.clone(), is_method, &args, result, opens),
             "name": ldebug!(&*name.node),
         );
 
@@ -480,7 +484,6 @@ impl ProtoModule
         self.funcseq.push(name_id);
         self.funcsrc.insert(name_id, (args, body));
         self.modscope.insert(name_id, fref_ast);
-
         Ok(())
     }
 
@@ -969,6 +972,7 @@ impl ProtoModule
     fn make_func_type(
         &self,
         name: AstNode,
+        is_method: bool,
         args: &Xlist,
         result: AstNode,
         mut opens: TypeArgs,
@@ -1019,7 +1023,7 @@ impl ProtoModule
 
         ltry!(self.refute_redefines_default(id, loc));
         let ftyp = ltry!(
-            self.ast_to_ftype(&result, args, opens),
+            self.ast_to_ftype(is_method, &result, args, opens),
             "file": self.key.best_path(),
             "line": lstrf!("{}", name.loc.lineno),
             "func": Lstr::Sref(id),
@@ -1372,6 +1376,7 @@ impl ProtoModule
 
     pub fn ast_to_ftype(
         &self,
+        is_method: bool,
         result: &AstNode,
         args: &Xlist,
         opens: TypeArgs,
@@ -1380,11 +1385,12 @@ impl ProtoModule
         let arg_types =
             ltry!(self.xlist_to_types(args, &opens), "opens": ldebug!(opens),);
         let result_type = ltry!(self.ast_to_type(result, &opens));
-        if opens.is_empty() {
-            Ok(Type::f(result_type, arg_types))
-        } else {
-            Ok(Type::generic_f(opens, result_type, arg_types))
-        }
+        Ok(match (is_method, !opens.is_empty()) {
+            (false, false) => Type::f(result_type, arg_types),
+            (false, true) => Type::generic_f(opens, result_type, arg_types),
+            (true, false) => Type::method(result_type, arg_types),
+            (true, true) => Type::generic_method(opens, result_type, arg_types),
+        })
     }
 
     /// argument func types aren't generic b/c they don't declare new type vars
