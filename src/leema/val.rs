@@ -419,6 +419,15 @@ impl Type
         self.path.as_str() == Self::PATH_FN
     }
 
+    /// check if this type is a method or a generic method
+    pub fn is_method(&self) -> bool
+    {
+        self.path.as_str() == Self::PATH_METHOD
+            || self.generic_ref()
+                .map(|g| g.0 == Self::PATH_METHOD)
+                .unwrap_or(false)
+    }
+
     pub fn is_local(&self) -> bool
     {
         self.path.as_str() == Type::PATH_LOCAL

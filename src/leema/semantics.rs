@@ -1748,8 +1748,8 @@ impl<'p> TypeCheck<'p>
                             // a fixing the method then a rewrite for another
                             // reason shouldn't break anything
                         }
-                        let base = Some(mem::take(base_ref));
-                        *method_base = base;
+                        let base = mem::take(base_ref);
+                        args.insert(0, StrupleItem::new_v(base));
                         let method = mem::take(method_ref);
                         *callx = AstNode::new(*method.node, method.loc).with_type(method.typ);
                         return Ok(AstStep::Rewrite);
