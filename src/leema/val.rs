@@ -293,8 +293,11 @@ impl Type
         Type::t(Type::PATH_METHOD, args)
     }
 
-    pub fn generic_method(type_args: TypeArgs, result: Type, args: TypeArgs)
-        -> Type
+    pub fn generic_method(
+        type_args: TypeArgs,
+        result: Type,
+        args: TypeArgs,
+    ) -> Type
     {
         let ftyp = Type::method(result, args);
         Type::typecall(ftyp, type_args)
@@ -423,7 +426,8 @@ impl Type
     pub fn is_method(&self) -> bool
     {
         self.path.as_str() == Self::PATH_METHOD
-            || self.generic_ref()
+            || self
+                .generic_ref()
                 .map(|g| g.0 == Self::PATH_METHOD)
                 .unwrap_or(false)
     }

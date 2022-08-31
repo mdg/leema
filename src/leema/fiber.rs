@@ -205,14 +205,12 @@ impl Fiber
         Ok(Event::Uneventful)
     }
 
-    pub fn execute_load_function(&mut self, line: i16)
-        -> Lresult<Event>
+    pub fn execute_load_function(&mut self, line: i16) -> Lresult<Event>
     {
         Ok(Event::LoadFunction { line })
     }
 
-    pub fn execute_bind_method(&mut self, line: i16)
-        -> Lresult<Event>
+    pub fn execute_bind_method(&mut self, line: i16) -> Lresult<Event>
     {
         Ok(Event::BindMethod { line })
     }

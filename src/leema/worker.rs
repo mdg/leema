@@ -43,9 +43,9 @@ macro_rules! worker_try {
 
 macro_rules! worker_fail {
     ($self:ident, $fib:expr, $f:expr) => {
-        $fib.head.e.set_result(Val::Failure2(Box::new(
-            $f.rloc(file!(), line!()),
-        )));
+        $fib.head
+            .e
+            .set_result(Val::Failure2(Box::new($f.rloc(file!(), line!()))));
         $self.return_from_call($fib);
         return;
     };
@@ -259,9 +259,7 @@ impl Worker
 
     fn has_code<'a>(&'a self, fref: &Fref) -> bool
     {
-        self.code
-            .get(fref)
-            .is_some()
+        self.code.get(fref).is_some()
     }
 
     fn find_code<'a>(&'a self, fref: &Fref) -> Option<Rc<Code>>
@@ -284,12 +282,16 @@ impl Worker
             }
             other => {
                 let other2 = other.clone();
-                worker_fail!(self, curf, lfail!(
-                    failure::Mode::RuntimeLeemaFailure,
-                    "expected function value",
-                    "value": ldebug!(other2),
-                    "line": ldisplay!(line),
-                ));
+                worker_fail!(
+                    self,
+                    curf,
+                    lfail!(
+                        failure::Mode::RuntimeLeemaFailure,
+                        "expected function value",
+                        "value": ldebug!(other2),
+                        "line": ldisplay!(line),
+                    )
+                );
             }
         };
 
@@ -305,15 +307,15 @@ impl Worker
             action: lib_core::load_code,
             params: MsgItem::new(&args),
         };
-        self.io_tx.send(msg).expect("failure sending load_function message");
+        self.io_tx
+            .send(msg)
+            .expect("failure sending load_function message");
         let fw = FiberWait::Code(curf, Some(code));
         self.waiting.insert(fiber_id, fw);
     }
 
     /// bind the current method to the self parameter at top
-    pub fn bind_method(&mut self, _line: i16)
-    {
-    }
+    pub fn bind_method(&mut self, _line: i16) {}
 
     fn push_new_fiber(&mut self, mut curf: Fiber)
     {

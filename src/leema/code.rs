@@ -171,16 +171,8 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            Op::LoadFunction { line } => {
-                Op::BindMethod {
-                    line: *line,
-                }
-            }
-            Op::BindMethod { line } => {
-                Op::BindMethod {
-                    line: *line,
-                }
-            }
+            Op::LoadFunction { line } => Op::BindMethod { line: *line },
+            Op::BindMethod { line } => Op::BindMethod { line: *line },
             Op::PushCall { argc, line } => {
                 Op::PushCall {
                     argc: *argc,

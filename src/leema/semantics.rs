@@ -1706,7 +1706,9 @@ impl<'p> TypeCheck<'p>
                 node.typ = id_type;
             }
             // set struct fields w/ name(x: y) syntax
-            Ast::Call(ref mut callx, None, ref mut args) if callx.typ.is_user() => {
+            Ast::Call(ref mut callx, None, ref mut args)
+                if callx.typ.is_user() =>
+            {
                 let copy_typ = callx.typ.clone();
                 let base = mem::take(callx);
                 let mut args_copy = mem::take(args);
@@ -1751,7 +1753,8 @@ impl<'p> TypeCheck<'p>
                         let base = mem::take(base_ref);
                         args.insert(0, StrupleItem::new_v(base));
                         let method = mem::take(method_ref);
-                        *callx = AstNode::new(*method.node, method.loc).with_type(method.typ);
+                        *callx = AstNode::new(*method.node, method.loc)
+                            .with_type(method.typ);
                         return Ok(AstStep::Rewrite);
                     }
                     Ast::TypeCall(ref mut base, ref mut type_args) => {

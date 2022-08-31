@@ -566,7 +566,8 @@ impl ProtoModule
                 StrupleItem::new(Some(sk), f.v.clone())
             })
             .collect();
-        let construction = AstNode::new(Ast::Call(macro_call, None, macro_args), loc);
+        let construction =
+            AstNode::new(Ast::Call(macro_call, None, macro_args), loc);
         let mut type_node = AstNode::new(Ast::Type(typ.clone()), loc);
         type_node.typ = Type::KIND;
         let constructor_ast = AstNode::new(
@@ -909,10 +910,7 @@ impl ProtoModule
         let loc = trait_node.loc;
         let trait_t = ltry!(self.make_proto_type_unique(trait_node));
         let dt = ltry!(self.ast_to_type(&data_node, &[]));
-        let data_t = ProtoType {
-            n: "",
-            t: dt,
-        };
+        let data_t = ProtoType { n: "", t: dt };
         let data_typ = data_t.t.clone();
 
         let subkey = self.key.subimpl(trait_t.t.path.clone())?;
