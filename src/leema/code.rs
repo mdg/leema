@@ -41,14 +41,39 @@ impl fmt::Display for ModSym
 #[derive(PartialEq)]
 pub enum Op
 {
-    /// Call the function at .0 items up the stack
-    /// Args are between .0 and HEAD
+    /// Call the function at argc items up the stack
+    /// Args are between (HEAD - argc) and HEAD
     ///     still not clear where self/closed goes
     /// Source line at .1
     /// Leave the result on the stack
     PushCall
     {
         argc: i16,
+        line: i16,
+    },
+
+    /// Load a function at HEAD
+    /// Replace the func w/ a future to be waited on before calling
+    /// Push a function onto the stack, then Load
+    /// Push all args onto the stack
+    /// Then push the call to create a new frame and execute the function
+    ///   wait for the code to be returned if necessary
+    LoadFunction
+    {
+        line: i16,
+    },
+
+    /// Bind a method to its self parameter
+    /// Source line at .0
+    ///
+    /// Similar to LoadFunction
+    /// Push method and self onto the stack
+    /// Push a call to bind the method to its self param
+    /// Push remaining args onto the stack
+    /// Wait for the method to be returned
+    /// Push the call to execute the function
+    BindMethod
+    {
         line: i16,
     },
 
@@ -146,6 +171,16 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
+            Op::LoadFunction { line } => {
+                Op::BindMethod {
+                    line: *line,
+                }
+            }
+            Op::BindMethod { line } => {
+                Op::BindMethod {
+                    line: *line,
+                }
+            }
             Op::PushCall { argc, line } => {
                 Op::PushCall {
                     argc: *argc,
@@ -482,6 +517,8 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     // push the result
     call_ops.push(Op::PushConst(Val::VOID));
 
+    let bind_method = f.typ.is_method();
+
     // push the call
     let mut fops = make_sub_ops2(f, opm);
     call_ops.append(&mut fops.ops);
@@ -490,8 +527,23 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     let argc = args.len() as i16;
     let mut argops: OpVec = args
         .into_iter()
-        .flat_map(|a| {
-            let iargops: Oxpr = make_sub_ops2(a.v, opm);
+        .enumerate()
+        .flat_map(|(i, a)| {
+            let mut iargops: Oxpr = make_sub_ops2(a.v, opm);
+
+            // bind the method if necessary
+            if i == 0 {
+                let load_op = if bind_method {
+                    Op::BindMethod {
+                        line: lineno as i16,
+                    }
+                } else {
+                    Op::LoadFunction {
+                        line: lineno as i16,
+                    }
+                };
+                iargops.ops.push(load_op);
+            }
             iargops.ops
         })
         .collect();
@@ -500,6 +552,7 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
         argc,
         line: lineno as i16,
     });
+    // this should move to assignment right?
     call_ops.push(Op::PropagateFailure(lineno));
     call_ops
 }

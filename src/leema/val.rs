@@ -409,7 +409,7 @@ impl Type
     pub fn is_user(&self) -> bool
     {
         match self.path.as_str() {
-            "/core/Fn" | "/core/Tuple" => false,
+            "/core/Fn" | Type::PATH_METHOD | "/core/Tuple" => false,
             path => !path.starts_with("/leema/"),
         }
     }

@@ -113,6 +113,8 @@ impl Fiber
             Op::PushTuple(n) => self.execute_push_tuple(*n),
             Op::PopIntoField(fld_idx) => self.execute_pop_into_field(*fld_idx),
             Op::PushField(fld) => self.execute_push_field(*fld),
+            Op::LoadFunction { line } => self.execute_load_function(*line),
+            Op::BindMethod { line } => self.execute_bind_method(*line),
             Op::PushCall { argc, line } => self.execute_push_call(*argc, *line),
             Op::StackPush => {
                 self.head.e.stack_push(Val::VOID);
@@ -201,6 +203,18 @@ impl Fiber
         }
         self.head.pc += 1;
         Ok(Event::Uneventful)
+    }
+
+    pub fn execute_load_function(&mut self, line: i16)
+        -> Lresult<Event>
+    {
+        Ok(Event::LoadFunction { line })
+    }
+
+    pub fn execute_bind_method(&mut self, line: i16)
+        -> Lresult<Event>
+    {
+        Ok(Event::BindMethod { line })
     }
 
     pub fn execute_push_call(&mut self, argc: i16, line: i16)

@@ -22,6 +22,14 @@ pub enum Result
 pub enum Event
 {
     Uneventful,
+    LoadFunction
+    {
+        line: i16,
+    },
+    BindMethod
+    {
+        line: i16,
+    },
     PushCall
     {
         argc: i16,
@@ -48,6 +56,12 @@ impl fmt::Debug for Event
     {
         match self {
             Event::Uneventful => write!(f, "Uneventful"),
+            Event::LoadFunction { line } => {
+                write!(f, "Event::LoadFunction(@{})", line)
+            }
+            Event::BindMethod { line } => {
+                write!(f, "Event::BindMethod(@{})", line)
+            }
             Event::PushCall { argc, line } => {
                 write!(f, "Event::PushCall({} @{})", argc, line)
             }
@@ -72,6 +86,14 @@ impl PartialEq for Event
     {
         match (self, other) {
             (&Event::Uneventful, &Event::Uneventful) => true,
+            (
+                &Event::LoadFunction { line: l1 },
+                &Event::LoadFunction { line: l2 },
+            ) => l1 == l2,
+            (
+                &Event::BindMethod { line: l1 },
+                &Event::BindMethod { line: l2 },
+            ) => l1 == l2,
             (
                 &Event::PushCall { argc: a1, line: l1 },
                 &Event::PushCall { argc: a2, line: l2 },

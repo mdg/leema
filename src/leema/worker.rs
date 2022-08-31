@@ -1,5 +1,5 @@
 use crate::leema::code::Code;
-use crate::leema::failure::Lresult;
+use crate::leema::failure::{self, Lresult};
 use crate::leema::fiber::Fiber;
 use crate::leema::frame::{Event, Frame, FrameTrace};
 use crate::leema::msg::{self, IoMsg, MsgItem, WorkerMsg};
@@ -41,6 +41,16 @@ macro_rules! worker_try {
     };
 }
 
+macro_rules! worker_fail {
+    ($self:ident, $fib:expr, $f:expr) => {
+        $fib.head.e.set_result(Val::Failure2(Box::new(
+            $f.rloc(file!(), line!()),
+        )));
+        $self.return_from_call($fib);
+        return;
+    };
+}
+
 #[derive(Debug)]
 enum ReadyFiber
 {
@@ -51,7 +61,7 @@ enum ReadyFiber
 #[derive(Debug)]
 enum FiberWait
 {
-    Code(Fiber),
+    Code(Fiber, Option<Rc<Code>>),
     Io(Fiber),
     Future(Fiber, Rc<Code>),
 }
@@ -235,7 +245,7 @@ impl Worker
         match self.pop_fresh() {
             Some(ReadyFiber::New(f)) => {
                 did_something = true;
-                self.load_code(f);
+                self.push_new_fiber(f);
             }
             Some(ReadyFiber::Ready(mut f, code)) => {
                 did_something = true;
@@ -247,6 +257,13 @@ impl Worker
         Ok(did_something)
     }
 
+    fn has_code<'a>(&'a self, fref: &Fref) -> bool
+    {
+        self.code
+            .get(fref)
+            .is_some()
+    }
+
     fn find_code<'a>(&'a self, fref: &Fref) -> Option<Rc<Code>>
     {
         self.code
@@ -254,7 +271,51 @@ impl Worker
             .map(|func: &'a Rc<Code>| (*func).clone())
     }
 
-    fn load_code(&mut self, mut curf: Fiber)
+    /// load the next function at HEAD
+    pub fn load_function(&mut self, mut curf: Fiber, code: Rc<Code>, line: i16)
+    {
+        let fref = match worker_try!(self, curf, curf.head.e.stack_top_mut()) {
+            Val::Func(ref fref) => {
+                if self.has_code(fref) {
+                    // function is present, we're loaded, nothing more to do for now
+                    return;
+                }
+                fref.clone()
+            }
+            other => {
+                let other2 = other.clone();
+                worker_fail!(self, curf, lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "expected function value",
+                    "value": ldebug!(other2),
+                    "line": ldisplay!(line),
+                ));
+            }
+        };
+
+        vout!("load_function {}\n", fref);
+        let args = Val::Tuple(vec![
+            StrupleItem::new_v(Val::ResourceRef(rsrc::ID_PROGLIB)),
+            StrupleItem::new_v(Val::Func(fref)),
+        ]);
+        let fiber_id = curf.fiber_id;
+        let msg = IoMsg::Iop {
+            worker_id: self.id,
+            fiber_id,
+            action: lib_core::load_code,
+            params: MsgItem::new(&args),
+        };
+        self.io_tx.send(msg).expect("failure sending load_function message");
+        let fw = FiberWait::Code(curf, Some(code));
+        self.waiting.insert(fiber_id, fw);
+    }
+
+    /// bind the current method to the self parameter at top
+    pub fn bind_method(&mut self, _line: i16)
+    {
+    }
+
+    fn push_new_fiber(&mut self, mut curf: Fiber)
     {
         let fref = worker_try!(self, curf, curf.head.function());
         let opt_code = self.find_code(fref);
@@ -276,7 +337,7 @@ impl Worker
                 .send(msg)
                 .expect("failure sending load code message to app");
             let fiber_id = curf.fiber_id;
-            let fw = FiberWait::Code(curf);
+            let fw = FiberWait::Code(curf, None);
             self.waiting.insert(fiber_id, fw);
         }
     }
@@ -315,15 +376,23 @@ impl Worker
                 vout!("function call success\n");
                 self.return_from_call(fbr);
             }
+            Event::LoadFunction { line } => {
+                vout!("load_function(@{})\n", line);
+                self.load_function(fbr, code, line);
+            }
+            Event::BindMethod { line } => {
+                vout!("bind_method(@{})\n", line);
+                self.bind_method(line);
+            }
             Event::PushCall { argc, line } => {
                 vout!("push_call({} @{})\n", argc, line);
                 fbr.head = fbr.head.push_call(code, argc, line).unwrap();
-                self.load_code(fbr);
+                self.push_new_fiber(fbr);
             }
             Event::TailCall(func, args) => {
                 vout!("push_tailcall({}, {:?})\n", func, args);
                 fbr.push_tailcall(func, args);
-                self.load_code(fbr);
+                unimplemented!();
             }
             Event::NewTask(_fref, _callargs) => {}
             /*
@@ -420,16 +489,23 @@ impl Worker
                 let newf = fref.take();
                 vout!("worker found code {}\n", newf);
                 let rc_code = Rc::new(code);
-                self.code.insert(newf, rc_code.clone());
                 let opt_fiber = self.waiting.remove(&fiber_id);
-                if let Some(FiberWait::Code(fib)) = opt_fiber {
-                    self.push_coded_fiber(fib, rc_code);
-                } else {
-                    return Err(rustfail!(
-                        "leema_failure",
-                        "Cannot find waiting fiber: {}",
-                        fiber_id,
-                    ));
+                match opt_fiber {
+                    Some(FiberWait::Code(fib, Some(curr_code))) => {
+                        self.code.insert(newf, rc_code);
+                        self.push_coded_fiber(fib, curr_code);
+                    }
+                    Some(FiberWait::Code(fib, None)) => {
+                        self.code.insert(newf, rc_code.clone());
+                        self.push_coded_fiber(fib, rc_code);
+                    }
+                    _ => {
+                        return Err(rustfail!(
+                            "leema_failure",
+                            "Cannot find waiting fiber: {}",
+                            fiber_id,
+                        ));
+                    }
                 }
             }
             WorkerMsg::IopResult(fiber_id, result_msg) => {
@@ -438,7 +514,7 @@ impl Worker
                 let wait = self.waiting.remove(&fiber_id).unwrap();
                 let mut fib = match wait {
                     FiberWait::Io(f) => f,
-                    FiberWait::Code(f) => f,
+                    FiberWait::Code(f, _) => f,
                     FiberWait::Future(_, _) => {
                         panic!("cannot handle a future now");
                     }
