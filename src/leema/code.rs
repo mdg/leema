@@ -171,7 +171,7 @@ impl Clone for Op
     fn clone(&self) -> Op
     {
         match self {
-            Op::LoadFunction { line } => Op::BindMethod { line: *line },
+            Op::LoadFunction { line } => Op::LoadFunction { line: *line },
             Op::BindMethod { line } => Op::BindMethod { line: *line },
             Op::PushCall { argc, line } => {
                 Op::PushCall {
@@ -515,6 +515,13 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
     let mut fops = make_sub_ops2(f, opm);
     call_ops.append(&mut fops.ops);
 
+    // load the function before args
+    if !bind_method {
+        call_ops.push(Op::LoadFunction {
+            line: lineno as i16,
+        });
+    }
+
     // push the args
     let argc = args.len() as i16;
     let mut argops: OpVec = args
@@ -524,17 +531,10 @@ fn make_call_ops(f: AstNode, args: Xlist, opm: &mut OpMaker) -> OpVec
             let mut iargops: Oxpr = make_sub_ops2(a.v, opm);
 
             // bind the method if necessary
-            if i == 0 {
-                let load_op = if bind_method {
-                    Op::BindMethod {
-                        line: lineno as i16,
-                    }
-                } else {
-                    Op::LoadFunction {
-                        line: lineno as i16,
-                    }
-                };
-                iargops.ops.push(load_op);
+            if i == 0 && bind_method {
+                iargops.ops.push(Op::BindMethod {
+                    line: lineno as i16,
+                });
             }
             iargops.ops
         })

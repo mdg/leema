@@ -207,11 +207,13 @@ impl Fiber
 
     pub fn execute_load_function(&mut self, line: i16) -> Lresult<Event>
     {
+        self.head.pc += 1;
         Ok(Event::LoadFunction { line })
     }
 
     pub fn execute_bind_method(&mut self, line: i16) -> Lresult<Event>
     {
+        self.head.pc += 1;
         Ok(Event::BindMethod { line })
     }
 
