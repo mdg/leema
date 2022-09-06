@@ -2,7 +2,7 @@ use crate::leema::failure::{self, Lresult};
 use crate::leema::lstr::Lstr;
 use crate::leema::reg::{Ireg, Iregistry, Reg};
 use crate::leema::struple::{Struple2, Struple2Slice, StrupleItem};
-use crate::leema::val::{Fref, Val};
+use crate::leema::val::{Fref, Type, Val};
 
 use std::ops::{Range, RangeFrom};
 use std::pin::Pin;
@@ -206,6 +206,25 @@ impl Ref
                     "stack top mut underflow"
                 )
             })
+    }
+
+    /// Get the function mutably
+    pub fn method_binding(&mut self) -> Lresult<(&mut Val, Type)>
+    {
+        if self.stack_data().len() - self.stackp < 2 {
+            return Err(lfail!(
+                failure::Mode::Underflow,
+                "bind method underflow"
+            ));
+        }
+        if let [.., ref mut method, ref self_arg] = self.stack_data_mut() {
+            Ok((&mut method.v, self_arg.v.get_type()))
+        } else {
+            return Err(lfail!(
+                failure::Mode::RuntimeLeemaFailure,
+                "unexpected bind method underflow"
+            ));
+        }
     }
 
     pub fn reserve_local(&mut self, num: usize)

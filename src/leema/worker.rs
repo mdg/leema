@@ -9,7 +9,7 @@ use crate::leema::stack;
 use crate::leema::struple::{Struple2, StrupleItem};
 use crate::leema::val::{Fref, MsgVal, Val};
 
-use crate::leema::lib_core;
+use crate::leema::{lib_core, lib_leema};
 
 use std::cmp::min;
 use std::collections::{HashMap, LinkedList};
@@ -315,7 +315,51 @@ impl Worker
     }
 
     /// bind the current method to the self parameter at top
-    pub fn bind_method(&mut self, _line: i16) {}
+    pub fn bind_method(&mut self, mut curf: Fiber, code: Rc<Code>, line: i16)
+    {
+        let (method, self_arg_t) = worker_try!(self, curf, curf.head.e.method_binding());
+        let meth_f: Fref;
+        let impl_f: Fref;
+        (meth_f, impl_f) = if let Val::Func(ref fref) = method {
+            let impl_fref = fref.implemented_method(&self_arg_t);
+            if self.has_code(&impl_fref) {
+                // function is present, we're loaded, nothing more to do for now
+                return;
+            }
+            (fref.clone(), impl_fref)
+        } else {
+            let other = method.clone();
+            worker_fail!(
+                self,
+                curf,
+                lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "expected method function value",
+                    "value": ldebug!(other),
+                    "line": ldisplay!(line),
+                )
+            );
+        };
+
+        vout!("load_method {} {}\n", meth_f, impl_f);
+        let args = Val::Tuple(vec![
+            StrupleItem::new_v(Val::ResourceRef(rsrc::ID_PROGLIB)),
+            StrupleItem::new_v(Val::Func(meth_f)),
+            StrupleItem::new_v(Val::Func(impl_f)),
+        ]);
+        let fiber_id = curf.fiber_id;
+        let msg = IoMsg::Iop {
+            worker_id: self.id,
+            fiber_id,
+            action: lib_leema::load_method,
+            params: MsgItem::new(&args),
+        };
+        self.io_tx
+            .send(msg)
+            .expect("failure sending bind_method message");
+        let fw = FiberWait::Code(curf, Some(code));
+        self.waiting.insert(fiber_id, fw);
+    }
 
     fn push_new_fiber(&mut self, mut curf: Fiber)
     {
@@ -384,7 +428,7 @@ impl Worker
             }
             Event::BindMethod { line } => {
                 vout!("bind_method(@{})\n", line);
-                self.bind_method(line);
+                self.bind_method(fbr, code, line);
             }
             Event::PushCall { argc, line } => {
                 vout!("push_call({} @{})\n", argc, line);

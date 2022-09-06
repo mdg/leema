@@ -1117,10 +1117,10 @@ impl ProtoModule
                 fconst.typ.contains_open()
             }
             None => {
-                return Err(rustfail!(
-                    "semantic_failure",
-                    "no function found for {}",
-                    func
+                return Err(lfail!(
+                    failure::Mode::RuntimeLeemaFailure,
+                    "no function found",
+                    "func": ldisplay!(func),
                 ));
             }
         };

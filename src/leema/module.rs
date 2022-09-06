@@ -40,6 +40,10 @@ impl ModTyp
     }
 }
 
+/// Identifier for a module
+/// How is this different from an identifier for a function or a type?
+/// It's got the file path and the module type.
+/// Also doesn't have type arguments.
 #[derive(Debug)]
 #[derive(Clone)]
 #[derive(PartialEq)]

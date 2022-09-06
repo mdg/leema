@@ -1080,6 +1080,7 @@ pub const FAILURE_TIMEOUT: i8 = -6;
 pub const FAILURE_INTERNAL: i8 = -7;
 pub const FAILURE_TYPE: i8 = -8;
 
+/// Reference for a function
 #[derive(Clone)]
 #[derive(PartialEq)]
 #[derive(PartialOrd)]
@@ -1095,7 +1096,6 @@ pub struct Fref
 
 impl Fref
 {
-    /// eventually make this take just TypeArgs
     pub fn new(m: ModKey, f: &'static str, t: TypeArgs) -> Fref
     {
         Fref { m, f, t }
@@ -1104,6 +1104,11 @@ impl Fref
     pub fn with_modules(m: ModKey, f: &'static str) -> Fref
     {
         Fref { m, f, t: vec![] }
+    }
+
+    pub fn implemented_method(&self, impl_t: &Type) -> Fref
+    {
+        Fref { m: ModKey::from(impl_t.path.clone()), f: self.f.clone(), t: self.t.clone() }
     }
 
     pub fn is_generic(&self) -> bool
